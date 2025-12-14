@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.aspect;
+package com.seuoj.seuojbackend.aspect;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
