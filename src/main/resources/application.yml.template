@@ -3,6 +3,9 @@ spring:
     name: seuoj-backend
   profiles:
     active: dev
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
 
 mybatis-plus:
   configuration:
