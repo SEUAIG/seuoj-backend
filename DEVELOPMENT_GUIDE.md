@@ -167,6 +167,7 @@ src/main/java/com/seuoj/seuojbackend/
 ### 3.3. API 设计 (API Design)
 
 - 按照 Apifox 里面的定义来写就行。感觉有问题修改后群里通知。（写的时候容易笔误）
+- **参数校验**: 对于接收前端参数的 DTO 对象，务必使用 JSR 303 (Bean Validation) 规范进行参数校验。在 DTO 字段上添加校验注解（如 `@NotBlank`, `@NotNull`, `@Size` 等），并在 Controller 方法参数前添加 `@Valid` 注解来触发校验。
 
 ## 4. 开发流程 (Development Process)
 
@@ -177,7 +178,7 @@ src/main/java/com/seuoj/seuojbackend/
 3. **创建 DTO/VO**: 定义用于数据传输的 DTO 和返回给前端的 VO。
 4. **暴露 API**: 在 `controller` 包中创建 `Controller`，定义 API 接口，并调用 `Service`。
 5. **权限控制**: 在 `Controller` 方法上添加必要的权限注解。
-6. **本地测试**: 使用 Apifox 或其他工具进行接口自测。
+6. **本地测试**: 使用 Apifox 或其他工具进行接口自测。**请务必在 Apifox 中将成功的测试结果保存为样例，以便后续生成 Mock 数据和进行自动化测试。**
 7. **代码格式化**: 对你的代码进行完全的格式化！（我用idea的，推荐写完 alt + A 后 alt + L 顺手格式化，或者commit的时候统一对要提交的文件进行格式化）
 8. **提交PR**: 提交代码并发起 Pull Request。
 9. **Code Review**: 等待其他成员审查代码。
