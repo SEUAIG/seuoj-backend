@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/seuoj_dev?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: <your_dev_db_username>
+    password: <your_dev_db_password>

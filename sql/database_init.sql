@@ -1,0 +1,110 @@
+CREATE DATABASE IF NOT EXISTS seuoj
+-- 字符集 排序规则等等
+    DEFAULT CHARACTER SET utf8mb4
+    DEFAULT COLLATE utf8mb4_unicode_ci;
+
+USE seuoj;
+
+DROP TABLE IF EXISTS user_info;
+
+CREATE TABLE user_info
+(
+    id         CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    username   VARCHAR(64)  NOT NULL COMMENT '登录名',
+    password   VARCHAR(255) NOT NULL COMMENT '加密密码',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_del     TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    UNIQUE KEY uk_username_del (username, is_del) -- 确保未删除用户的用户名唯一
+) COMMENT ='用户基础表' CHARACTER SET utf8mb4
+                        COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS user_role;
+
+CREATE TABLE user_role
+(
+    id        INT PRIMARY KEY AUTO_INCREMENT,
+    role_code VARCHAR(32) NOT NULL UNIQUE COMMENT 'student/teacher/admin',
+    role_name VARCHAR(64) NOT NULL,
+    is_del    TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除'
+) COMMENT ='用户角色表' CHARACTER SET utf8mb4
+                        COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS user_role_rel;
+
+CREATE TABLE user_role_rel
+(
+    user_id CHAR(36)   NOT NULL,
+    role_id INT        NOT NULL,
+    is_del  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    PRIMARY KEY (user_id, role_id)
+) COMMENT ='用户角色关联表' CHARACTER SET utf8mb4
+                            COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS problem;
+
+CREATE TABLE problem
+(
+    id           CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    pid          VARCHAR(32)  NOT NULL UNIQUE COMMENT '题目编号',
+    title        VARCHAR(255) NOT NULL COMMENT '题目标题',
+    total_submit INT          NOT NULL DEFAULT 0,
+    total_accept INT          NOT NULL DEFAULT 0,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_del       TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除'
+) COMMENT ='题目表' CHARACTER SET utf8mb4
+                    COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS tag;
+
+CREATE TABLE tag
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,
+    tag_name   VARCHAR(64) NOT NULL,
+    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_del     TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    UNIQUE KEY uk_tag_name_del (tag_name, is_del) -- 确保未删除标签名唯一
+) COMMENT ='题目标签表' CHARACTER SET utf8mb4
+                        COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS problem_tag_rel;
+
+CREATE TABLE problem_tag_rel
+(
+    problem_id CHAR(36)   NOT NULL,
+    tag_id     INT        NOT NULL,
+    is_del     TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    PRIMARY KEY (problem_id, tag_id),
+    KEY idx_tag_id (tag_id)
+) COMMENT ='题目标签关联表' CHARACTER SET utf8mb4
+                            COLLATE utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS submission;
+
+CREATE TABLE submission
+(
+    id            CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    user_id       CHAR(36)    NOT NULL,
+    problem_id    CHAR(36)    NOT NULL,
+
+    language      VARCHAR(32) NOT NULL,
+
+    status        VARCHAR(32) NOT NULL COMMENT 'PENDING/RUNNING/AC/WA/TLE/RE/CE',
+
+    result_detail JSON COMMENT '评测详细信息',
+
+    submit_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finish_time   DATETIME COMMENT '评测完成时间',
+
+    KEY idx_user (user_id),
+    KEY idx_problem (problem_id),
+    KEY idx_status (status),
+    KEY idx_user_time (user_id, submit_time DESC)
+) COMMENT ='用户提交与评测结果表' CHARACTER SET utf8mb4
+                                  COLLATE utf8mb4_unicode_ci;
+
+
+
+

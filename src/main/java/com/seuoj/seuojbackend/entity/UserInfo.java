@@ -1,0 +1,65 @@
+package com.seuoj.seuojbackend.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * 用户基础表实体类
+ *
+ * @author YourName
+ * @since 2025-12-13
+ */
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(chain = true)
+@TableName("user_info")
+public class UserInfo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * UUID主键
+     */
+    @TableId(value = "id", type = IdType.NONE)
+    private String id;
+
+    /**
+     * 登录名
+     */
+    @TableField("username")
+    private String username;
+
+    /**
+     * 加密密码
+     */
+    @TableField("password")
+    private String password;
+
+    /**
+     * 创建时间
+     */
+    @TableField(value = "created_at", fill = FieldFill.INSERT)
+    private LocalDateTime createdAt;
+
+    /**
+     * 更新时间
+     */
+    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updatedAt;
+
+    /**
+     * 是否删除，0-未删除，1-已删除
+     */
+    @TableField("is_del")
+    @TableLogic
+    private Integer isDel;
+
+
+}
