@@ -4,3 +4,7 @@ spring:
     url: jdbc:mysql://<prod_db_host>:<prod_db_port>/<prod_db_name>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: <your_prod_db_username>
     password: <your_prod_db_password>
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
