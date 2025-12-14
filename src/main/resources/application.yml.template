@@ -13,3 +13,7 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
   mapper-locations: classpath:/mapper/**/*.xml
+
+jwt:
+    secret: your_jwt_secret_key
+    expiration: 86400 # Token expiration time in seconds

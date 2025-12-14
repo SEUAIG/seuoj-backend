@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.UserRoleRelMapper">
+    <select id="getRoleCodesByUserId" resultType="java.lang.String">
+        SELECT
+            r.role_code
+        FROM user_role_rel urr
+        JOIN user_role r ON urr.role_id = r.id
+        WHERE urr.user_id = #{userId}
+    </select>
+</mapper>
