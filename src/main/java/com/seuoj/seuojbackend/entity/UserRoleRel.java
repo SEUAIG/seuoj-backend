@@ -24,6 +24,12 @@ public class UserRoleRel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 主键ID
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    /**
      * 用户ID
      */
     @TableField("user_id")

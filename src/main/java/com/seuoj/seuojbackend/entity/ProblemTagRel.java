@@ -24,6 +24,12 @@ public class ProblemTagRel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 主键ID
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    /**
      * 题目ID
      */
     @TableField("problem_id")

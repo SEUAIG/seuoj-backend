@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS user_role;
 CREATE TABLE user_role
 (
     id        INT PRIMARY KEY AUTO_INCREMENT,
-    role_code VARCHAR(32) NOT NULL UNIQUE COMMENT 'student/teacher/admin',
+    role_code VARCHAR(32) NOT NULL UNIQUE COMMENT 'ADMIN/USER/STUDENT/TEACHER',
     role_name VARCHAR(64) NOT NULL,
     is_del    TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除'
 ) COMMENT ='用户角色表' CHARACTER SET utf8mb4
@@ -34,10 +34,16 @@ DROP TABLE IF EXISTS user_role_rel;
 
 CREATE TABLE user_role_rel
 (
+    id      BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id CHAR(36)   NOT NULL,
     role_id INT        NOT NULL,
     is_del  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
-    PRIMARY KEY (user_id, role_id)
+    active_key VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN is_del = 0 THEN CONCAT(user_id, '#', role_id) ELSE NULL END) STORED,
+    UNIQUE KEY uk_user_role_rel_active (active_key),
+    CONSTRAINT fk_user_role_rel_user FOREIGN KEY (user_id) REFERENCES user_info(id),
+    CONSTRAINT fk_user_role_rel_role FOREIGN KEY (role_id) REFERENCES user_role(id),
+    KEY idx_user_role_rel_user_id (user_id),
+    KEY idx_user_role_rel_role_id (role_id)
 ) COMMENT ='用户角色关联表' CHARACTER SET utf8mb4
                             COLLATE utf8mb4_unicode_ci;
 
@@ -73,11 +79,16 @@ DROP TABLE IF EXISTS problem_tag_rel;
 
 CREATE TABLE problem_tag_rel
 (
+    id         BIGINT PRIMARY KEY AUTO_INCREMENT,
     problem_id CHAR(36)   NOT NULL,
     tag_id     INT        NOT NULL,
     is_del     TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
-    PRIMARY KEY (problem_id, tag_id),
-    KEY idx_tag_id (tag_id)
+    active_key VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN is_del = 0 THEN CONCAT(problem_id, '#', tag_id) ELSE NULL END) STORED,
+    UNIQUE KEY uk_problem_tag_rel_active (active_key),
+    CONSTRAINT fk_problem_tag_rel_problem FOREIGN KEY (problem_id) REFERENCES problem(id),
+    CONSTRAINT fk_problem_tag_rel_tag FOREIGN KEY (tag_id) REFERENCES tag(id),
+    KEY idx_problem_tag_rel_problem_id (problem_id),
+    KEY idx_problem_tag_rel_tag_id (tag_id)
 ) COMMENT ='题目标签关联表' CHARACTER SET utf8mb4
                             COLLATE utf8mb4_unicode_ci;
 

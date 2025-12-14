@@ -7,5 +7,7 @@
         FROM user_role_rel urr
         JOIN user_role r ON urr.role_id = r.id
         WHERE urr.user_id = #{userId}
+          AND urr.is_del = 0
+          AND r.is_del = 0
     </select>
 </mapper>
