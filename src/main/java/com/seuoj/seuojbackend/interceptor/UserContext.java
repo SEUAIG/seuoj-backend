@@ -1,12 +1,11 @@
 package com.seuoj.seuojbackend.interceptor;
 
-/**
- * 用户的上下文信息（保留拓展性，可以在上下文加入更多信息）
- */
-
 import com.seuoj.seuojbackend.common.AuthStatus;
 import lombok.Getter;
 
+/**
+ * 用户的上下文信息（保留拓展性，可以在上下文加入更多信息）
+ */
 @Getter
 public class UserContext {
     private final Long userId;                // null 表示游客
