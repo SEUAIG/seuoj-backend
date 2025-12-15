@@ -11,9 +11,6 @@ import java.time.LocalDateTime;
 
 /**
  * 用户基础表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -25,10 +22,10 @@ public class UserInfo implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * UUID主键
+     * Auto-increment primary key
      */
-    @TableId(value = "id", type = IdType.NONE)
-    private String id;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 登录名

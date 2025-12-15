@@ -10,9 +10,6 @@ import java.io.Serializable;
 
 /**
  * 用户角色表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -27,7 +24,7 @@ public class UserRole implements Serializable {
      * 主键ID
      */
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 角色编码(STUDENT/TEACHER/ADMIN)

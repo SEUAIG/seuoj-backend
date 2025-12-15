@@ -29,7 +29,8 @@ public class AuthService {
 
     /**
      * 用户注册（测试用，非正式）
-     * @param username 用户名
+     *
+     * @param username    用户名
      * @param rawPassword 明文密码
      */
     public void register(String username, String rawPassword) {
@@ -48,29 +49,25 @@ public class AuthService {
 
 
     /**
-     * 用户登录
+     * 用户登录（暂定用户名唯一，使用用户名+密码登录）
      */
     public LoginVO login(LoginDTO dto) {
-        // 1. 根据用户名查询用户
         UserInfo user = userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("username", dto.getUsername()));
         if (user == null) {
             throw new AuthorizationException("用户名或密码错误");
         }
 
-        // 2. 校验密码
-        // 第一个参数是明文密码，第二个参数是数据库中存储的加密密码
         boolean isPasswordMatch = passwordEncoder.matches(dto.getPassword(), user.getPassword());
 
         if (!isPasswordMatch) {
             throw new AuthorizationException("用户名或密码错误");
         }
-        
-        // 3. 密码正确，生成JWT令牌
+
         String token = jwtUtil.createToken(user.getId());
 
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
-        
+
         return loginVO;
     }
 }

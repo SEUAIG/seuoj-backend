@@ -11,9 +11,6 @@ import java.time.LocalDateTime;
 
 /**
  * 题目标签表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -29,7 +26,7 @@ public class Tag implements Serializable {
      * 主键ID
      */
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 标签名称

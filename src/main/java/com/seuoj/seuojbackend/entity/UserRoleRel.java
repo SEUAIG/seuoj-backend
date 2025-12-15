@@ -10,9 +10,6 @@ import java.io.Serializable;
 
 /**
  * 用户角色关联表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -33,13 +30,13 @@ public class UserRoleRel implements Serializable {
      * 用户ID
      */
     @TableField("user_id")
-    private String userId;
+    private Long userId;
 
     /**
      * 角色ID
      */
     @TableField("role_id")
-    private Integer roleId;
+    private Long roleId;
 
     /**
      * 是否删除，0-未删除，1-已删除

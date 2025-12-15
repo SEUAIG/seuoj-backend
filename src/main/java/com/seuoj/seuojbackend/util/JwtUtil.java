@@ -22,11 +22,12 @@ public class JwtUtil {
     private long expiration; // seconds
 
     /**
-     * 创建 JWT token，包含用户UUID
-     * @param userId 用户UUID字符串
+     * 创建 JWT token，包含用户ID
+     *
+     * @param userId 自增用户ID
      * @return 已签名的JWT字符串
      */
-    public String createToken(String userId) {
+    public String createToken(Long userId) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + (expiration * 1000));
 
@@ -40,18 +41,25 @@ public class JwtUtil {
     }
 
     /**
-     * 从JWT中解析出用户UUID
+     * 从JWT中解析出用户ID
+     *
      * @param token JWT字符串
-     * @return 用户UUID，如果解析失败或过期返回null
+     * @return 用户ID，如果解析失败或过期返回null
      */
-    public String parseUserId(String token) {
+    public Long parseUserId(String token) {
         try {
             Jws<Claims> jws = Jwts.parserBuilder()
                     .setSigningKey(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
                     .build()
                     .parseClaimsJws(token);
             Object val = jws.getBody().get("userId");
-            return val != null ? String.valueOf(val) : null;
+            if (val == null) {
+                return null;
+            }
+            if (val instanceof Number number) {
+                return number.longValue();
+            }
+            return Long.valueOf(val.toString());
         } catch (Exception e) {
             // 包括过期、签名不匹配等异常，统一返回null
             return null;
@@ -60,6 +68,7 @@ public class JwtUtil {
 
     /**
      * 验证Token是否有效（签名正确且未过期）
+     *
      * @param token JWT字符串
      * @return true有效，false无效
      */

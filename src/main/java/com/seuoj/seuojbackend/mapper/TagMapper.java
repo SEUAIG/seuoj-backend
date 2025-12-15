@@ -6,9 +6,6 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * 题目标签表 Mapper 接口
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Mapper
 public interface TagMapper extends BaseMapper<Tag> {

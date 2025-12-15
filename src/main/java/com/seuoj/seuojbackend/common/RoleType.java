@@ -3,7 +3,7 @@ package com.seuoj.seuojbackend.common;
 import lombok.Getter;
 
 /**
- * 角色类型枚举
+ * 角色类型枚举（初步）
  */
 @Getter
 public enum RoleType {

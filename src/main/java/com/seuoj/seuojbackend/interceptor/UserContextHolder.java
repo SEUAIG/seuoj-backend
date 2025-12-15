@@ -1,7 +1,5 @@
 package com.seuoj.seuojbackend.interceptor;
 
-import org.apache.catalina.User;
-
 /**
  * 用户上下文持有者
  */

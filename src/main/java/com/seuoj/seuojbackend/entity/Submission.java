@@ -11,9 +11,6 @@ import java.time.LocalDateTime;
 
 /**
  * 用户提交与评测结果表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -26,22 +23,22 @@ public class Submission implements Serializable {
 
 
     /**
-     * UUID主键
+     * Auto-increment primary key
      */
-    @TableId(value = "id", type = IdType.NONE)
-    private String id;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 用户ID
      */
     @TableField("user_id")
-    private String userId;
+    private Long userId;
 
     /**
      * 题目ID
      */
     @TableField("problem_id")
-    private String problemId;
+    private Long problemId;
 
     /**
      * 编程语言

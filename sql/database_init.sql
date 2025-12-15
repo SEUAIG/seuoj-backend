@@ -5,11 +5,17 @@ CREATE DATABASE IF NOT EXISTS seuoj
 
 USE seuoj;
 
+DROP TABLE IF EXISTS submission;
+DROP TABLE IF EXISTS problem_tag_rel;
+DROP TABLE IF EXISTS tag;
+DROP TABLE IF EXISTS problem;
+DROP TABLE IF EXISTS user_role_rel;
+DROP TABLE IF EXISTS user_role;
 DROP TABLE IF EXISTS user_info;
 
 CREATE TABLE user_info
 (
-    id         CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    id         BIGINT PRIMARY KEY AUTO_INCREMENT,
     username   VARCHAR(64)  NOT NULL COMMENT '登录名',
     password   VARCHAR(255) NOT NULL COMMENT '加密密码',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -18,8 +24,6 @@ CREATE TABLE user_info
     UNIQUE KEY uk_username_del (username, is_del) -- 确保未删除用户的用户名唯一
 ) COMMENT ='用户基础表' CHARACTER SET utf8mb4
                         COLLATE utf8mb4_unicode_ci;
-
-DROP TABLE IF EXISTS user_role;
 
 CREATE TABLE user_role
 (
@@ -30,28 +34,24 @@ CREATE TABLE user_role
 ) COMMENT ='用户角色表' CHARACTER SET utf8mb4
                         COLLATE utf8mb4_unicode_ci;
 
-DROP TABLE IF EXISTS user_role_rel;
-
 CREATE TABLE user_role_rel
 (
-    id      BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id CHAR(36)   NOT NULL,
-    role_id INT        NOT NULL,
-    is_del  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    id         BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id    BIGINT     NOT NULL,
+    role_id    INT        NOT NULL,
+    is_del     TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
     active_key VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN is_del = 0 THEN CONCAT(user_id, '#', role_id) ELSE NULL END) STORED,
     UNIQUE KEY uk_user_role_rel_active (active_key),
-    CONSTRAINT fk_user_role_rel_user FOREIGN KEY (user_id) REFERENCES user_info(id),
-    CONSTRAINT fk_user_role_rel_role FOREIGN KEY (role_id) REFERENCES user_role(id),
+    CONSTRAINT fk_user_role_rel_user FOREIGN KEY (user_id) REFERENCES user_info (id),
+    CONSTRAINT fk_user_role_rel_role FOREIGN KEY (role_id) REFERENCES user_role (id),
     KEY idx_user_role_rel_user_id (user_id),
     KEY idx_user_role_rel_role_id (role_id)
 ) COMMENT ='用户角色关联表' CHARACTER SET utf8mb4
                             COLLATE utf8mb4_unicode_ci;
 
-DROP TABLE IF EXISTS problem;
-
 CREATE TABLE problem
 (
-    id           CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    id           BIGINT PRIMARY KEY AUTO_INCREMENT,
     pid          VARCHAR(32)  NOT NULL UNIQUE COMMENT '题目编号',
     title        VARCHAR(255) NOT NULL COMMENT '题目标题',
     total_submit INT          NOT NULL DEFAULT 0,
@@ -61,8 +61,6 @@ CREATE TABLE problem
     is_del       TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除'
 ) COMMENT ='题目表' CHARACTER SET utf8mb4
                     COLLATE utf8mb4_unicode_ci;
-
-DROP TABLE IF EXISTS tag;
 
 CREATE TABLE tag
 (
@@ -75,30 +73,26 @@ CREATE TABLE tag
 ) COMMENT ='题目标签表' CHARACTER SET utf8mb4
                         COLLATE utf8mb4_unicode_ci;
 
-DROP TABLE IF EXISTS problem_tag_rel;
-
 CREATE TABLE problem_tag_rel
 (
     id         BIGINT PRIMARY KEY AUTO_INCREMENT,
-    problem_id CHAR(36)   NOT NULL,
+    problem_id BIGINT     NOT NULL,
     tag_id     INT        NOT NULL,
     is_del     TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
     active_key VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN is_del = 0 THEN CONCAT(problem_id, '#', tag_id) ELSE NULL END) STORED,
     UNIQUE KEY uk_problem_tag_rel_active (active_key),
-    CONSTRAINT fk_problem_tag_rel_problem FOREIGN KEY (problem_id) REFERENCES problem(id),
-    CONSTRAINT fk_problem_tag_rel_tag FOREIGN KEY (tag_id) REFERENCES tag(id),
+    CONSTRAINT fk_problem_tag_rel_problem FOREIGN KEY (problem_id) REFERENCES problem (id),
+    CONSTRAINT fk_problem_tag_rel_tag FOREIGN KEY (tag_id) REFERENCES tag (id),
     KEY idx_problem_tag_rel_problem_id (problem_id),
     KEY idx_problem_tag_rel_tag_id (tag_id)
 ) COMMENT ='题目标签关联表' CHARACTER SET utf8mb4
                             COLLATE utf8mb4_unicode_ci;
 
-DROP TABLE IF EXISTS submission;
-
 CREATE TABLE submission
 (
-    id            CHAR(36) PRIMARY KEY COMMENT 'UUID',
-    user_id       CHAR(36)    NOT NULL,
-    problem_id    CHAR(36)    NOT NULL,
+    id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id       BIGINT      NOT NULL,
+    problem_id    BIGINT      NOT NULL,
 
     language      VARCHAR(32) NOT NULL,
 

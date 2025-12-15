@@ -18,5 +18,5 @@ public interface UserRoleRelMapper extends BaseMapper<UserRoleRel> {
     /**
      * 根据用户UUID获取用户角色信息列表
      */
-    List<String> getRoleCodesByUserId(@Param("userId") String userId);
+    List<String> getRoleCodesByUserId(@Param("userId") Long userId);
 }

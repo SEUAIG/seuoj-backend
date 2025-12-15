@@ -72,7 +72,7 @@ public class AuthAspect {
         if (requireRole != null) {
             log.debug("检测到角色要求，开始角色校验 - 需要角色 {}, {}.{}",
                     Arrays.toString(requireRole.value()), className, methodName);
-            checkRole(ctx, requireRole);
+            checkRole(requireRole);
         } else {
             log.debug("无角色要求，仅需登录 - {}.{}", className, methodName);
         }
@@ -84,9 +84,9 @@ public class AuthAspect {
         return result;
     }
 
-    public void checkRole(UserContext ctx, RequireRole requireRole) {
+    public void checkRole(RequireRole requireRole) {
         // 查询用户角色列表
-        String userId = UserContextHolder.get().getUserId();
+        Long userId = UserContextHolder.get().getUserId();
         log.debug("开始角色校验 - userId: {}", userId);
 
         if (userId == null) {

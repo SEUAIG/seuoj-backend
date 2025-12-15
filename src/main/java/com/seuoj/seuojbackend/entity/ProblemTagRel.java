@@ -10,9 +10,6 @@ import java.io.Serializable;
 
 /**
  * 题目标签关联表实体类
- *
- * @author YourName
- * @since 2025-12-13
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -33,13 +30,13 @@ public class ProblemTagRel implements Serializable {
      * 题目ID
      */
     @TableField("problem_id")
-    private String problemId;
+    private Long problemId;
 
     /**
      * 标签ID
      */
     @TableField("tag_id")
-    private Integer tagId;
+    private Long tagId;
 
     /**
      * 是否删除，0-未删除，1-已删除

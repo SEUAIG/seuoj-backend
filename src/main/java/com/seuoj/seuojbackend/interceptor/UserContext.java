@@ -7,15 +7,12 @@ package com.seuoj.seuojbackend.interceptor;
 import com.seuoj.seuojbackend.common.AuthStatus;
 import lombok.Getter;
 
-import java.util.Collections;
-import java.util.EnumSet;
-
 @Getter
 public class UserContext {
-    private final String userId;              // null 表示游客
+    private final Long userId;                // null 表示游客
     private final AuthStatus authStatus;      // 用户的认证状态
 
-    private UserContext(String userId, AuthStatus authStatus) {
+    private UserContext(Long userId, AuthStatus authStatus) {
         this.userId = userId;
         this.authStatus = authStatus;
     }
@@ -24,7 +21,7 @@ public class UserContext {
         return new UserContext(null, AuthStatus.ANONYMOUS);
     }
 
-    public static UserContext of(String userId, AuthStatus authStatus) {
+    public static UserContext of(Long userId, AuthStatus authStatus) {
         return new UserContext(userId, authStatus);
     }
 
