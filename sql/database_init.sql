@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS seuoj
+﻿CREATE DATABASE IF NOT EXISTS seuoj
 -- 字符集 排序规则等等
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
@@ -91,6 +91,7 @@ CREATE TABLE problem_tag_rel
 CREATE TABLE submission
 (
     id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    submission_no VARCHAR(64) NOT NULL DEFAULT (UUID()) COMMENT 'Business identifier for external reference',
     user_id       BIGINT      NOT NULL,
     problem_id    BIGINT      NOT NULL,
 
@@ -103,6 +104,11 @@ CREATE TABLE submission
     submit_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finish_time   DATETIME COMMENT '评测完成时间',
 
+    created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_del        TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+
+    UNIQUE KEY uk_submission_no (submission_no),
     KEY idx_user (user_id),
     KEY idx_problem (problem_id),
     KEY idx_status (status),
