@@ -1,0 +1,149 @@
+package com.seuoj.seuojbackend.service;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
+import com.seuoj.seuojbackend.entity.Problem;
+import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.exception.NotFoundException;
+import com.seuoj.seuojbackend.interceptor.UserContextHolder;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionMapper;
+import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
+import com.seuoj.seuojbackend.vo.submission.SubmitVO;
+
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+public class SubmissionService {
+
+    @Resource
+    private SubmissionMapper submissionMapper;
+
+    @Resource
+    private ProblemMapper problemMapper;
+
+    @Resource
+    private RestTemplate restTemplate;
+
+    @Value("${judge.server-url}")
+    private String judgeServerUrl;
+
+    /**
+     * 提交代码进行评测
+     *
+     * @param dto 提交信息
+     * @return 提交结果（包含 submissionNo）
+     */
+    @Transactional
+    public SubmitVO submit(SubmitDTO dto) {
+
+        // 校验
+        Long userId = UserContextHolder.get().getUserId();
+        if (userId == null) {
+            throw new NotFoundException("提交过程中发现用户未登录");
+        }
+        Problem problem = problemMapper.selectOne(new QueryWrapper<Problem>().eq("pid", dto.getPid()));
+        if (problem == null) {
+            throw new NotFoundException("提交过程中发现题目不存在:" + dto.getPid());
+        }
+        // 创建提交记录
+        Submission submission = new Submission();
+        submission.setSubmissionNo(UUID.randomUUID().toString());
+        submission.setUserId(userId);
+        submission.setProblemId(problem.getId());
+        submission.setLanguage(dto.getLanguage());
+        submission.setStatus("PENDING"); // 初始状态：等待评测
+        submission.setSubmitTime(LocalDateTime.now());
+        submissionMapper.insert(submission);
+
+        problem.setTotalSubmit(problem.getTotalSubmit() + 1);
+        problemMapper.updateById(problem);
+
+        // 向评测机发送请求（异步：评测机收到后立即返回，后台慢慢评测）
+        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+
+        SubmitVO submitVO = new SubmitVO();
+        submitVO.setSubmissionNo(submission.getSubmissionNo());
+        return submitVO;
+    }
+
+    /**
+     * 向评测机发送评测请求
+     */
+    @SuppressWarnings("unchecked")
+    private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
+        String url = judgeServerUrl + "/judge/submission";
+        log.info("向评测机发送评测请求: submissionNo={}, pid={}", submissionNo, pid);
+
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("submissionId", submissionNo);
+        requestBody.put("pid", pid);
+        requestBody.put("code", code);
+        requestBody.put("language", language);
+
+        try {
+            Map<String, Object> response = restTemplate.postForObject(url, requestBody, Map.class);
+            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
+                log.info("评测请求已成功发送 - submissionNo: {}", submissionNo);
+            } else {
+                log.warn("评测机返回异常 - submissionNo: {}, response: {}", submissionNo, response);
+            }
+        } catch (Exception e) {
+            log.error("评测机连接失败 - submissionNo: {}, error: {}", submissionNo, e.getMessage());
+            // 不抛出异常，让提交记录保留，用户可以稍后查看状态仍为 PENDING
+        }
+    }
+
+    /**
+     * 根据提交编号查询评测结果
+     *
+     * @param submissionNo 提交记录业务编号
+     * @return 评测结果
+     */
+    public SubmissionResultVO getResult(String submissionNo) {
+        // 检验查询
+        Long userId = UserContextHolder.get().getUserId();
+        if (userId == null) {
+            throw new NotFoundException("查询提交: 用户未登录");
+        }
+
+        Submission submission = submissionMapper.selectOne(
+                new QueryWrapper<Submission>()
+                        .eq("submission_no", submissionNo));
+
+        if (submission == null) {
+            throw new NotFoundException("查询提交: 提交记录不存在: " + submissionNo);
+        }
+        // 查询问题
+        Problem problem = problemMapper.selectById(submission.getProblemId());
+        if (problem == null) {
+            throw new NotFoundException("查询提交: 问题不存在: " + submission.getProblemId());
+        }
+        return convertToResultVO(submission, problem);
+    }
+
+    private SubmissionResultVO convertToResultVO(Submission submission, Problem problem) {
+        SubmissionResultVO vo = new SubmissionResultVO();
+        vo.setSubmissionNo(submission.getSubmissionNo());
+        vo.setPid(problem != null ? problem.getPid() : null);
+        vo.setLanguage(submission.getLanguage());
+        vo.setStatus(submission.getStatus());
+        vo.setResultDetail(submission.getResultDetail());
+        vo.setSubmitTime(submission.getSubmitTime());
+        vo.setFinishTime(submission.getFinishTime());
+        return vo;
+    }
+
+}
