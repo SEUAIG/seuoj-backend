@@ -19,9 +19,11 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/submission")
 public class SubmissionController {
+    private final SubmissionService submissionService;
 
-    @Resource
-    private SubmissionService submissionService;
+    public SubmissionController(SubmissionService submissionService) {
+        this.submissionService = submissionService;
+    }
 
     @PostMapping
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {

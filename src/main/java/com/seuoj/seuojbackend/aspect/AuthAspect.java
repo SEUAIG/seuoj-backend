@@ -26,8 +26,11 @@ import java.util.List;
 @Aspect
 @Component
 public class AuthAspect {
-    @Autowired
-    private UserRoleRelMapper userRoleRelMapper;
+    private final UserRoleRelMapper userRoleRelMapper;
+
+    public AuthAspect(UserRoleRelMapper userRoleRelMapper) {
+        this.userRoleRelMapper = userRoleRelMapper;
+    }
 
     /**
      * 拦截 controller.api 包下的所有公开方法，执行鉴权

@@ -18,11 +18,14 @@ import jakarta.annotation.Resource;
 
 @Service
 public class JudgeService {
-    @Resource
-    private SubmissionMapper submissionMapper;
 
-    @Resource
-    private ProblemMapper problemMapper;
+    private final SubmissionMapper submissionMapper;
+    private final ProblemMapper problemMapper;
+
+    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper) {
+        this.submissionMapper = submissionMapper;
+        this.problemMapper = problemMapper;
+    }
 
     /**
      * 处理评测结果回调

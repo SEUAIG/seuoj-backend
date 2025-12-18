@@ -17,8 +17,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Slf4j
 @Component
 public class JwtAuthInterceptor implements HandlerInterceptor {
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthInterceptor(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
 
     @Override
     public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) {

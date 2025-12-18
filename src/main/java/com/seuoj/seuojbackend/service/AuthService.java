@@ -18,14 +18,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthService {
 
-    @Autowired
-    private UserInfoMapper userInfoMapper;
+    private final UserInfoMapper userInfoMapper;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private JwtUtil jwtUtil;
+    public AuthService(UserInfoMapper userInfoMapper, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+        this.userInfoMapper = userInfoMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+    }
 
     /**
      * 用户注册（测试用，非正式）

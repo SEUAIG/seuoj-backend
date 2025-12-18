@@ -28,14 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SubmissionService {
 
-    @Resource
-    private SubmissionMapper submissionMapper;
+    private final SubmissionMapper submissionMapper;
+    private final ProblemMapper problemMapper;
+    private final JudgeClient judgeClient;
 
-    @Resource
-    private ProblemMapper problemMapper;
-
-    @Resource
-    private JudgeClient judgeClient;
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient) {
+        this.submissionMapper = submissionMapper;
+        this.problemMapper = problemMapper;
+        this.judgeClient = judgeClient;
+    }
 
     /**
      * 提交代码进行评测

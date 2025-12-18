@@ -18,14 +18,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
     /**
      * 登录
      */
     @AllowAnonymous
     @PostMapping("/login")
-    public Result<LoginVO> login(@Valid @RequestBody LoginDTO  dto) {
+    public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));
     }
 

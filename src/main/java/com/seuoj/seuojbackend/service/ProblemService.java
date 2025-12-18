@@ -23,17 +23,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProblemService {
 
-    @Resource
-    private ProblemMapper problemMapper;
+    private final ProblemMapper problemMapper;
+    private final TagMapper tagMapper;
+    private final ProblemTagRelMapper problemTagRelMapper;
+    private final JudgeClient judgeClient;
 
-    @Resource
-    private TagMapper tagMapper;
-
-    @Resource
-    private ProblemTagRelMapper problemTagRelMapper;
-
-    @Autowired
-    private JudgeClient judgeClient;
+    public ProblemService(
+            ProblemMapper problemMapper,
+            TagMapper tagMapper,
+            ProblemTagRelMapper problemTagRelMapper,
+            JudgeClient judgeClient) {
+        this.problemMapper = problemMapper;
+        this.tagMapper = tagMapper;
+        this.problemTagRelMapper = problemTagRelMapper;
+        this.judgeClient = judgeClient;
+    }
 
     /**
      * 从 pid 获取题目详情

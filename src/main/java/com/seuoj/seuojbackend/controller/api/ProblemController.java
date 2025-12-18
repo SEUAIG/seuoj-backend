@@ -15,9 +15,11 @@ import jakarta.annotation.Resource;
 @RestController
 @RequestMapping("/api/problem")
 public class ProblemController {
+    private final ProblemService problemService;
 
-    @Resource
-    private ProblemService problemService;
+    public ProblemController(ProblemService problemService) {
+        this.problemService = problemService;
+    }
 
     @AllowAnonymous
     @GetMapping("/{pid}")

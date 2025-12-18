@@ -17,12 +17,16 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/judge")
 public class JudgeController {
-    @Resource
-    private JudgeService judgeService;
+
+    private final JudgeService judgeService;
+
+    public JudgeController(JudgeService judgeService) {
+        this.judgeService = judgeService;
+    }
 
     /**
      * 接收评测结果回调
-     * 
+     * <p>
      * 注意：使用 @AllowAnonymous 是因为评测服务没有 JWT Token
      * 安全性通过 secretKey 验证保证
      */
