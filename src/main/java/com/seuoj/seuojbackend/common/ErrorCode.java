@@ -17,6 +17,7 @@ public enum ErrorCode {
     NOT_FOUND_ERROR(40400, "请求资源不存在"),
     CONFLICT_ERROR(40900, "业务冲突"),
     SYSTEM_ERROR(50000, "系统内部异常"),
+    JUDGE_SERVICE_ERROR(50001, "评测端服务异常"),
     THIRD_PARTY_ERROR(50200, "第三方服务异常");
 
     /**

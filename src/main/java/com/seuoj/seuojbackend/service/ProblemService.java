@@ -2,15 +2,12 @@ package com.seuoj.seuojbackend.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
+import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
@@ -19,6 +16,8 @@ import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
@@ -33,15 +32,12 @@ public class ProblemService {
     @Resource
     private ProblemTagRelMapper problemTagRelMapper;
 
-    @Resource
-    private RestTemplate restTemplate;
-
-    @Value("${judge.server-url}")
-    private String judgeServerUrl;
+    @Autowired
+    private JudgeClient judgeClient;
 
     /**
      * 从 pid 获取题目详情
-     * 
+     *
      * @param pid 题目编号
      * @return 题目详情 VO
      */
@@ -66,7 +62,7 @@ public class ProblemService {
         vo.setTags(getTagsByProblemId(problem.getId()));
 
         // 从评测端获取 content
-        vo.setContent(fetchContentFromJudgeServer(problem.getPid()));
+        vo.setContent(judgeClient.fetchProblemContent(problem.getPid()).getContent());
 
         // 计算通过率
         if (problem.getTotalSubmit() > 0) {
@@ -77,31 +73,6 @@ public class ProblemService {
         }
 
         return vo;
-    }
-
-    /**
-     * 从评测端获取题目详细内容
-     */
-    @SuppressWarnings("unchecked")
-    private String fetchContentFromJudgeServer(String pid) {
-        String url = judgeServerUrl + "/judge/problem/" + pid;
-        log.info("请求评测端获取题目内容: {}", url);
-
-        try {
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
-                Map<String, Object> data = (Map<String, Object>) response.get("data");
-                if (data != null && data.get("content") != null) {
-                    log.info("成功获取题目内容 - pid: {}", pid);
-                    return (String) data.get("content");
-                }
-            }
-            log.warn("评测端返回数据格式异常 - pid: {}, response: {}", pid, response);
-            return "题目内容获取失败";
-        } catch (Exception e) {
-            log.error("评测端连接失败 - pid: {}, error: {}", pid, e.getMessage());
-            return "评测端连接失败: " + e.getMessage();
-        }
     }
 
     private List<String> getTagsByProblemId(Long problemId) {

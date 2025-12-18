@@ -1,21 +1,17 @@
 package com.seuoj.seuojbackend.service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import com.seuoj.seuojbackend.exception.BadRequestException;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
-
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
@@ -25,6 +21,8 @@ import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -37,10 +35,7 @@ public class SubmissionService {
     private ProblemMapper problemMapper;
 
     @Resource
-    private RestTemplate restTemplate;
-
-    @Value("${judge.server-url}")
-    private String judgeServerUrl;
+    private JudgeClient judgeClient;
 
     /**
      * 提交代码进行评测
@@ -84,27 +79,14 @@ public class SubmissionService {
     /**
      * 向评测机发送评测请求
      */
-    @SuppressWarnings("unchecked")
     private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
-        String url = judgeServerUrl + "/judge/submission";
-        log.info("向评测机发送评测请求: submissionNo={}, pid={}", submissionNo, pid);
-
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("submissionId", submissionNo);
-        requestBody.put("pid", pid);
-        requestBody.put("code", code);
-        requestBody.put("language", language);
-
+        log.info("Send judge request submissionNo={}, pid={}", submissionNo, pid);
+        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
         try {
-            Map<String, Object> response = restTemplate.postForObject(url, requestBody, Map.class);
-            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
-                log.info("评测请求已成功发送 - submissionNo: {}", submissionNo);
-            } else {
-                log.warn("评测机返回异常 - submissionNo: {}, response: {}", submissionNo, response);
-            }
-        } catch (Exception e) {
-            log.error("评测机连接失败 - submissionNo: {}, error: {}", submissionNo, e.getMessage());
-            // 不抛出异常，让提交记录保留，用户可以稍后查看状态仍为 PENDING
+            judgeClient.submit(requestBody);
+        } catch (JudgeRemoteException e) {
+            log.error("Judge server submission request failed - submissionNo: {}, error: {}", submissionNo, e.getMessage());
+            // Keep record as PENDING so user can check status later.
         }
     }
 

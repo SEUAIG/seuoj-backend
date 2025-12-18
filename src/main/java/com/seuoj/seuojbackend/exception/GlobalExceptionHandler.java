@@ -5,23 +5,14 @@ import com.seuoj.seuojbackend.common.Result;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.BindException;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 @Slf4j
 @RestControllerAdvice
@@ -163,6 +154,17 @@ public class GlobalExceptionHandler {
         log.error("系统内部异常", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Result.error(e.getCode(), "系统内部异常，请联系管理员"));
+    }
+
+    /**
+     * 评测端服务异常 - 502
+     */
+    @ExceptionHandler(JudgeRemoteException.class)
+    @ResponseBody
+    public ResponseEntity<Result<Object>> handleJudgeRemoteException(JudgeRemoteException e) {
+        log.error("JudgeRemoteException: ", e);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Result.error(ErrorCode.JUDGE_SERVICE_ERROR.getCode(), e.getMessage()));
     }
 
     /**
