@@ -3,8 +3,10 @@ package com.seuoj.seuojbackend.service;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
+import com.seuoj.seuojbackend.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -131,6 +133,11 @@ public class SubmissionService {
         if (problem == null) {
             throw new NotFoundException("查询提交: 问题不存在: " + submission.getProblemId());
         }
+        // 校验记录是否属于自己
+        if (!Objects.equals(submission.getUserId(), userId)) {
+            throw new BadRequestException("不可查询不属于自己的测评记录信息");
+        }
+
         return convertToResultVO(submission, problem);
     }
 

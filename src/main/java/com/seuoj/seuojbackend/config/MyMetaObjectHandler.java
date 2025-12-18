@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.config;
+package com.seuoj.seuojbackend.config;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import org.apache.ibatis.reflection.MetaObject;

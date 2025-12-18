@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.entity;
+package com.seuoj.seuojbackend.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
