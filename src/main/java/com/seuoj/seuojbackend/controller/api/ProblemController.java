@@ -1,5 +1,6 @@
-package com.seuoj.seuojbackend.controller;
+package com.seuoj.seuojbackend.controller.api;
 
+import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,7 @@ public class ProblemController {
     @Resource
     private ProblemService problemService;
 
+    @AllowAnonymous
     @GetMapping("/{pid}")
     public Result<ProblemDetailVO> getProblemDetail(@PathVariable String pid) {
         return Result.success(problemService.getProblemDetail(pid));

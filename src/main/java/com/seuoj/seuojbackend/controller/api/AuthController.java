@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.controller;
+package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.common.Result;

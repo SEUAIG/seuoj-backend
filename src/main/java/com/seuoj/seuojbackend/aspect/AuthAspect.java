@@ -30,9 +30,9 @@ public class AuthAspect {
     private UserRoleRelMapper userRoleRelMapper;
 
     /**
-     * 拦截 controller 包下的所有公开方法，执行鉴权
+     * 拦截 controller.api 包下的所有公开方法，执行鉴权
      */
-    @Around("execution(public * com.seuoj.seuojbackend.controller..*(..))")
+    @Around("execution(public * com.seuoj.seuojbackend.controller.api..*(..))")
     public Object authAround(ProceedingJoinPoint pjp) throws Throwable {
 
         MethodSignature ms = (MethodSignature) pjp.getSignature();
@@ -41,7 +41,7 @@ public class AuthAspect {
         String className = targetClass.getSimpleName();
         String methodName = method.getName();
 
-        log.debug("开始权限校验 - Controller: {}.{}", className, methodName);
+        log.debug("开始权限校验 - Controller.api: {}.{}", className, methodName);
 
         // AllowAnonymous：有则直接放行
         if (hasAllowAnonymous(method, targetClass)) {
