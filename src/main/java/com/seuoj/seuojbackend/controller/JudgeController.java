@@ -11,7 +11,6 @@ import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
 import com.seuoj.seuojbackend.service.JudgeService;
 
-import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 
 @RestController

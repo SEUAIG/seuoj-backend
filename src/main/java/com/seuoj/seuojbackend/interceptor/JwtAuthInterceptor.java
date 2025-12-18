@@ -5,8 +5,8 @@ import com.seuoj.seuojbackend.common.AuthStatus;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -24,7 +24,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) {
+    public boolean preHandle(HttpServletRequest req, @NonNull HttpServletResponse resp, @NonNull Object handler) {
         String requestUri = req.getRequestURI();
         String method = req.getMethod();
         log.debug("开始处理请求: {} {}", method, requestUri);
@@ -68,7 +68,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest req, HttpServletResponse resp, Object handler, Exception ex) {
+    public void afterCompletion(HttpServletRequest req, @NonNull HttpServletResponse resp, @NonNull Object handler, Exception ex) {
         // 请求完成后，清理线程上下文
         String requestUri = req.getRequestURI();
         int statusCode = resp.getStatus();

@@ -10,8 +10,6 @@ import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 
-import jakarta.annotation.Resource;
-
 @RestController
 @RequestMapping("/api/problem")
 public class ProblemController {

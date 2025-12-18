@@ -13,7 +13,6 @@ import com.seuoj.seuojbackend.service.SubmissionService;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
-import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 
 @RestController

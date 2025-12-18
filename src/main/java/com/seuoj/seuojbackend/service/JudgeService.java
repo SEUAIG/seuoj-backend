@@ -14,7 +14,6 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 
-import jakarta.annotation.Resource;
 
 @Service
 public class JudgeService {
