@@ -43,7 +43,7 @@ public class ProblemService {
      * @return 题目详情 VO
      */
     public ProblemDetailVO getProblemDetail(String pid) {
-        Problem problem = problemMapper.selectById(pid);
+        Problem problem = problemMapper.selectOne(new  QueryWrapper<Problem>().eq("pid", pid));
         if (problem == null) {
             throw new NotFoundException("题目不存在: " + pid);
         }
