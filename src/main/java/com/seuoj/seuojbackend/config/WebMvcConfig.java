@@ -28,7 +28,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/api/**");
 
-        registry.addInterceptor(judgeAuthInterceptor)
-                .addPathPatterns("/judge/**");
+//        registry.addInterceptor(judgeAuthInterceptor)
+//                .addPathPatterns("/judge/**");
     }
 }

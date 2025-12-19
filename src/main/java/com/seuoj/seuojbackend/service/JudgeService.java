@@ -2,6 +2,7 @@ package com.seuoj.seuojbackend.service;
 
 import java.time.LocalDateTime;
 
+import com.seuoj.seuojbackend.common.SubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,8 +45,8 @@ public class JudgeService {
         }
 
         // 校验状态合法性（防止重复回调）
-        if (!"PENDING".equals(submission.getStatus()) &&
-                !"RUNNING".equals(submission.getStatus())) {
+        if (!SubmissionStatus.PENDING.getStatus().equals(submission.getStatus()) &&
+                !SubmissionStatus.RUNNING.getStatus().equals(submission.getStatus())) {
             throw new BadRequestException("该提交已经完成评测，无法更新");
         }
 
@@ -56,7 +57,7 @@ public class JudgeService {
         submissionMapper.updateById(submission);
 
         // 如果通过，更新题目通过数
-        if ("AC".equals(dto.getStatus())) {
+        if (SubmissionStatus.AC.getStatus().equals(dto.getStatus())) {
             Problem problem = problemMapper.selectById(submission.getProblemId());
             if (problem != null) {
                 problem.setTotalAccept(problem.getTotalAccept() + 1);

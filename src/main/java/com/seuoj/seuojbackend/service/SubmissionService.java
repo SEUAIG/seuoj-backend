@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
+import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
@@ -61,7 +62,7 @@ public class SubmissionService {
         submission.setUserId(userId);
         submission.setProblemId(problem.getId());
         submission.setLanguage(dto.getLanguage());
-        submission.setStatus("PENDING"); // 初始状态：等待评测
+        submission.setStatus(SubmissionStatus.PENDING.getStatus()); // 初始状态：等待评测
         submission.setSubmitTime(LocalDateTime.now());
         submissionMapper.insert(submission);
 
@@ -85,8 +86,9 @@ public class SubmissionService {
         try {
             judgeClient.submit(requestBody);
         } catch (JudgeRemoteException e) {
-            log.error("Judge server submission request failed - submissionNo: {}, error: {}", submissionNo, e.getMessage());
+            log.error("向评测端提交评测失败 - submissionNo: {}, error: {}", submissionNo, e.getMessage());
             // Keep record as PENDING so user can check status later.
+            // TODO: 更具体的处理 比如重试机制
         }
     }
 
