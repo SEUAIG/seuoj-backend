@@ -20,7 +20,3 @@ mybatis-plus:
 jwt:
     secret: your_jwt_secret_key
     expiration: 86400 # Token expiration time in seconds
-
-judge:
-    server-url: http://localhost:8081
-    secret: thisisatemplateofthesecret # 和评测端约定的密钥，用于校验请求来源是否是可靠评测端

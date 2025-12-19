@@ -11,3 +11,16 @@ spring:
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+judge:
+    server-url: http://localhost:8081
+    secret: thisisatemplateofthesecret # 和评测端约定的密钥，用于校验请求来源是否是可靠评测端
+
+# 测试环境下日志文件落盘
+logging:
+  file:
+    name: logs/backend.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
