@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
@@ -17,6 +19,7 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
+import com.seuoj.seuojbackend.util.TransactionUtil;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
@@ -52,7 +55,7 @@ public class SubmissionService {
         if (userId == null) {
             throw new NotFoundException("提交过程中发现用户未登录");
         }
-        Problem problem = problemMapper.selectOne(new QueryWrapper<Problem>().eq("pid", dto.getPid()));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
         if (problem == null) {
             throw new NotFoundException("提交过程中发现题目不存在:" + dto.getPid());
         }
@@ -66,11 +69,13 @@ public class SubmissionService {
         submission.setSubmitTime(LocalDateTime.now());
         submissionMapper.insert(submission);
 
-        problem.setTotalSubmit(problem.getTotalSubmit() + 1);
-        problemMapper.updateById(problem);
+        // 原子增加提交总数
+        problemMapper.atomicallyIncreaseTotalSubmissionCount(problem.getId());
 
-        // 向评测机发送请求（异步：评测机收到后立即返回，后台慢慢评测）
-        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        // 向评测机发送请求（放到事务外完成）
+        TransactionUtil.registerAfterCommit(() -> {
+            this.sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        });
 
         SubmitVO submitVO = new SubmitVO();
         submitVO.setSubmissionNo(submission.getSubmissionNo());
@@ -85,10 +90,17 @@ public class SubmissionService {
         JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
         try {
             judgeClient.submit(requestBody);
+            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                    .set(Submission::getStatus, SubmissionStatus.RUNNING.getStatus())
+                    .eq(Submission::getSubmissionNo, submissionNo));
         } catch (JudgeRemoteException e) {
-            log.error("向评测端提交评测失败 - submissionNo: {}, error: {}", submissionNo, e.getMessage());
-            // Keep record as PENDING so user can check status later.
+            log.error("向评测端提交评测失败  - submissionNo: {}, error: {}", submissionNo, e.getMessage());
             // TODO: 更具体的处理 比如重试机制
+
+            // 更新提交状态为失败
+            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                    .set(Submission::getStatus, SubmissionStatus.FAILED.getStatus())
+                    .eq(Submission::getSubmissionNo, submissionNo));
         }
     }
 
@@ -106,8 +118,8 @@ public class SubmissionService {
         }
 
         Submission submission = submissionMapper.selectOne(
-                new QueryWrapper<Submission>()
-                        .eq("submission_no", submissionNo));
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getSubmissionNo, submissionNo));
 
         if (submission == null) {
             throw new NotFoundException("查询提交: 提交记录不存在: " + submissionNo);

@@ -3,6 +3,7 @@ package com.seuoj.seuojbackend.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.entity.Problem;
@@ -43,7 +44,7 @@ public class ProblemService {
      * @return 题目详情 VO
      */
     public ProblemDetailVO getProblemDetail(String pid) {
-        Problem problem = problemMapper.selectOne(new  QueryWrapper<Problem>().eq("pid", pid));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, pid));
         if (problem == null) {
             throw new NotFoundException("题目不存在: " + pid);
         }
@@ -78,7 +79,7 @@ public class ProblemService {
 
     private List<String> getTagsByProblemId(Long problemId) {
         List<ProblemTagRel> relList = problemTagRelMapper
-                .selectList(new QueryWrapper<ProblemTagRel>().eq("problem_id", problemId));
+                .selectList(new LambdaQueryWrapper<ProblemTagRel>().eq(ProblemTagRel::getProblemId, problemId));
         List<String> tagList = new ArrayList<>();
         for (ProblemTagRel rel : relList) {
             tagList.add(tagMapper.selectById(rel.getTagId()).getTagName());

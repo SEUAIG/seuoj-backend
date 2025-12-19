@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +14,7 @@ import com.seuoj.seuojbackend.service.JudgeService;
 
 import jakarta.validation.Valid;
 
+@Slf4j
 @RestController
 @RequestMapping("/judge")
 public class JudgeController {
@@ -33,7 +35,7 @@ public class JudgeController {
     // 为了测试，开放该接口权限，实际评测需要安全验证
     @PutMapping("/submission/{submissionNo}")
     public Result<Void> handleCallback(@PathVariable String submissionNo, @Valid @RequestBody JudgeResultDTO dto) {
-
+        log.info("接收到评测端评测结果，submissionNo:{}", submissionNo);
         judgeService.handleJudgeResult(dto, submissionNo);
         return Result.onlySuccess("评测结果已更新");
     }

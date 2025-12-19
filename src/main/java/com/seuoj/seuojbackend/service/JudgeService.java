@@ -1,7 +1,9 @@
 package com.seuoj.seuojbackend.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,21 +34,21 @@ public class JudgeService {
      *
      * @param dto 评测结果
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void handleJudgeResult(JudgeResultDTO dto, String submissionNo) {
         // TODO:检验请求来源
 
         Submission submission = submissionMapper.selectOne(
-                new QueryWrapper<Submission>()
-                        .eq("submission_no", submissionNo));
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getSubmissionNo, submissionNo));
 
         if (submission == null) {
             throw new NotFoundException("提交记录不存在: " + submissionNo);
         }
 
         // 校验状态合法性（防止重复回调）
-        if (!SubmissionStatus.PENDING.getStatus().equals(submission.getStatus()) &&
-                !SubmissionStatus.RUNNING.getStatus().equals(submission.getStatus())) {
+        List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
+        if (! modifiableStatusStrs.contains(submission.getStatus())) {
             throw new BadRequestException("该提交已经完成评测，无法更新");
         }
 
@@ -58,11 +60,7 @@ public class JudgeService {
 
         // 如果通过，更新题目通过数
         if (SubmissionStatus.AC.getStatus().equals(dto.getStatus())) {
-            Problem problem = problemMapper.selectById(submission.getProblemId());
-            if (problem != null) {
-                problem.setTotalAccept(problem.getTotalAccept() + 1);
-                problemMapper.updateById(problem);
-            }
+            problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
     }
 
