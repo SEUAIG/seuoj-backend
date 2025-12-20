@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.controller;
+package com.seuoj.seuojbackend.controller.api;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,15 +13,16 @@ import com.seuoj.seuojbackend.service.SubmissionService;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
-import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/submission")
 public class SubmissionController {
+    private final SubmissionService submissionService;
 
-    @Resource
-    private SubmissionService submissionService;
+    public SubmissionController(SubmissionService submissionService) {
+        this.submissionService = submissionService;
+    }
 
     @PostMapping
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {

@@ -20,6 +20,3 @@ mybatis-plus:
 jwt:
     secret: your_jwt_secret_key
     expiration: 86400 # Token expiration time in seconds
-
-judge:
-    server-url: http://localhost:8081

@@ -1,9 +1,12 @@
-﻿package com.seuoj.seuojbackend.entity;
+package com.seuoj.seuojbackend.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
+import org.apache.ibatis.type.JdbcType;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -15,7 +18,7 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("submission")
+@TableName(value = "submission", autoResultMap = true)
 public class Submission implements Serializable {
 
     @Serial
@@ -61,8 +64,8 @@ public class Submission implements Serializable {
     /**
      * 评测详细信息
      */
-    @TableField("result_detail")
-    private String resultDetail;
+    @TableField(value = "result_detail", typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+    private JsonNode resultDetail;
 
     /**
      * 提交时间
@@ -80,13 +83,13 @@ public class Submission implements Serializable {
     /**
      * 创建时间
      */
-    @TableField(value = "created_at", fill = FieldFill.INSERT)
+    @TableField(value = "created_at")
     private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
-    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
+    @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
 
     /**

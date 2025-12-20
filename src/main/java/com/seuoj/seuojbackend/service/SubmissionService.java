@@ -1,44 +1,45 @@
 package com.seuoj.seuojbackend.service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
-
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
+import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
+import com.seuoj.seuojbackend.util.TransactionUtil;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
 public class SubmissionService {
 
-    @Resource
-    private SubmissionMapper submissionMapper;
+    private final SubmissionMapper submissionMapper;
+    private final ProblemMapper problemMapper;
+    private final JudgeClient judgeClient;
 
-    @Resource
-    private ProblemMapper problemMapper;
-
-    @Resource
-    private RestTemplate restTemplate;
-
-    @Value("${judge.server-url}")
-    private String judgeServerUrl;
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient) {
+        this.submissionMapper = submissionMapper;
+        this.problemMapper = problemMapper;
+        this.judgeClient = judgeClient;
+    }
 
     /**
      * 提交代码进行评测
@@ -54,7 +55,7 @@ public class SubmissionService {
         if (userId == null) {
             throw new NotFoundException("提交过程中发现用户未登录");
         }
-        Problem problem = problemMapper.selectOne(new QueryWrapper<Problem>().eq("pid", dto.getPid()));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
         if (problem == null) {
             throw new NotFoundException("提交过程中发现题目不存在:" + dto.getPid());
         }
@@ -64,15 +65,17 @@ public class SubmissionService {
         submission.setUserId(userId);
         submission.setProblemId(problem.getId());
         submission.setLanguage(dto.getLanguage());
-        submission.setStatus("PENDING"); // 初始状态：等待评测
+        submission.setStatus(SubmissionStatus.PENDING.getStatus()); // 初始状态：等待评测
         submission.setSubmitTime(LocalDateTime.now());
         submissionMapper.insert(submission);
 
-        problem.setTotalSubmit(problem.getTotalSubmit() + 1);
-        problemMapper.updateById(problem);
+        // 原子增加提交总数
+        problemMapper.atomicallyIncreaseTotalSubmissionCount(problem.getId());
 
-        // 向评测机发送请求（异步：评测机收到后立即返回，后台慢慢评测）
-        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        // 向评测机发送请求（放到事务外完成）
+        TransactionUtil.registerAfterCommit(() -> {
+            this.sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        });
 
         SubmitVO submitVO = new SubmitVO();
         submitVO.setSubmissionNo(submission.getSubmissionNo());
@@ -82,27 +85,22 @@ public class SubmissionService {
     /**
      * 向评测机发送评测请求
      */
-    @SuppressWarnings("unchecked")
     private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
-        String url = judgeServerUrl + "/judge/submission";
-        log.info("向评测机发送评测请求: submissionNo={}, pid={}", submissionNo, pid);
-
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("submissionId", submissionNo);
-        requestBody.put("pid", pid);
-        requestBody.put("code", code);
-        requestBody.put("language", language);
-
+        log.info("Send judge request submissionNo={}, pid={}", submissionNo, pid);
+        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
         try {
-            Map<String, Object> response = restTemplate.postForObject(url, requestBody, Map.class);
-            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
-                log.info("评测请求已成功发送 - submissionNo: {}", submissionNo);
-            } else {
-                log.warn("评测机返回异常 - submissionNo: {}, response: {}", submissionNo, response);
-            }
-        } catch (Exception e) {
-            log.error("评测机连接失败 - submissionNo: {}, error: {}", submissionNo, e.getMessage());
-            // 不抛出异常，让提交记录保留，用户可以稍后查看状态仍为 PENDING
+            judgeClient.submit(requestBody);
+            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                    .set(Submission::getStatus, SubmissionStatus.RUNNING.getStatus())
+                    .eq(Submission::getSubmissionNo, submissionNo));
+        } catch (JudgeRemoteException e) {
+            log.error("向评测端提交评测失败  - submissionNo: {}, error: {}", submissionNo, e.getMessage());
+            // TODO: 更具体的处理 比如重试机制
+
+            // 更新提交状态为失败
+            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                    .set(Submission::getStatus, SubmissionStatus.FAILED.getStatus())
+                    .eq(Submission::getSubmissionNo, submissionNo));
         }
     }
 
@@ -120,8 +118,8 @@ public class SubmissionService {
         }
 
         Submission submission = submissionMapper.selectOne(
-                new QueryWrapper<Submission>()
-                        .eq("submission_no", submissionNo));
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getSubmissionNo, submissionNo));
 
         if (submission == null) {
             throw new NotFoundException("查询提交: 提交记录不存在: " + submissionNo);
@@ -131,6 +129,11 @@ public class SubmissionService {
         if (problem == null) {
             throw new NotFoundException("查询提交: 问题不存在: " + submission.getProblemId());
         }
+        // 校验记录是否属于自己
+        if (!Objects.equals(submission.getUserId(), userId)) {
+            throw new BadRequestException("不可查询不属于自己的测评记录信息");
+        }
+
         return convertToResultVO(submission, problem);
     }
 

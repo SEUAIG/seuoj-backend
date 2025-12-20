@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.dto.judge;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -15,7 +16,7 @@ public class JudgeResultDTO {
      * 详细评测结果（JSON 字符串）
      * 例如：{"time": 120, "memory": 1024, "testCases": [...]}
      */
-    private String resultDetail;
+    private JsonNode resultDetail;
 
     // TODO:需要密钥验证来源
 }

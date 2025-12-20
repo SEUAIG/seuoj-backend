@@ -2,6 +2,7 @@ package com.seuoj.seuojbackend.vo.submission;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 @Data
@@ -29,7 +30,7 @@ public class SubmissionResultVO {
     /**
      * 详细评测结果（JSON 结构）
      */
-    private String resultDetail;
+    private JsonNode resultDetail;
 
     /**
      * 提交时间
