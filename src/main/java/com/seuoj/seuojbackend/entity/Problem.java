@@ -54,13 +54,13 @@ public class Problem implements Serializable {
     /**
      * 创建时间
      */
-    @TableField(value = "created_at", fill = FieldFill.INSERT)
+    @TableField(value = "created_at")
     private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
-    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
+    @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
 
     /**

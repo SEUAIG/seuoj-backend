@@ -18,8 +18,8 @@ CREATE TABLE `problem`  (
                             `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题目标题',
                             `total_submit` int NOT NULL DEFAULT 0,
                             `total_accept` int NOT NULL DEFAULT 0,
-                            `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                             `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                             PRIMARY KEY (`id`) USING BTREE,
                             UNIQUE INDEX `pid`(`pid` ASC) USING BTREE
@@ -57,8 +57,8 @@ CREATE TABLE `submission`  (
                                `result_detail` json NULL COMMENT '评测详细信息',
                                `submit_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                `finish_time` datetime NULL DEFAULT NULL COMMENT '评测完成时间',
-                               `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                               `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                               `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                               `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                                PRIMARY KEY (`id`) USING BTREE,
                                UNIQUE INDEX `uk_submission_no`(`submission_no` ASC) USING BTREE,
@@ -75,8 +75,8 @@ DROP TABLE IF EXISTS `tag`;
 CREATE TABLE `tag`  (
                         `id` int NOT NULL AUTO_INCREMENT,
                         `tag_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-                        `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                         PRIMARY KEY (`id`) USING BTREE,
                         UNIQUE INDEX `uk_tag_name_del`(`tag_name` ASC, `is_del` ASC) USING BTREE
@@ -90,8 +90,8 @@ CREATE TABLE `user_info`  (
                               `id` bigint NOT NULL AUTO_INCREMENT,
                               `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录名',
                               `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '加密密码',
-                              `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                              `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                              `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                              `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                               `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                               PRIMARY KEY (`id`) USING BTREE,
                               UNIQUE INDEX `uk_username_del`(`username` ASC, `is_del` ASC) USING BTREE

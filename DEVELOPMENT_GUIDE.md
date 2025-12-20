@@ -34,8 +34,8 @@
     - **JWT 密钥**: `jwt.secret` (建议修改为一个复杂的随机字符串)。
 
 3. **数据库初始化**:
-   使用你的数据库管理工具（如 Navicat, DBeaver）连接到你的 MySQL 数据库，并执行 `sql/database_init.sql`
-   脚本。这将创建项目所需的数据库和表结构。（目前还没有放入初始化数据，需要测试的时候自己插入一些）
+   使用你的数据库管理工具（如 Navicat, DBeaver）连接到你的 MySQL 数据库，并执行 `sql/database_schema.sql`
+   脚本。这将创建项目所需的数据库和表结构。(可以运行 `sql/database_init_data.sql` 插入一些示例数据)
 
 ### 1.3. 运行项目 (Running the Application)
 
