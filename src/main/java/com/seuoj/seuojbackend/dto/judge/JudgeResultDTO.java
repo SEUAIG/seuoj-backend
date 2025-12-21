@@ -14,10 +14,6 @@ public class JudgeResultDTO {
     /** 每一个测试点的输出（编译错误或测评错误没有这个） */
     private List<JudgeResultDetailItem> resultDetail;
 
-    /** 提交编号 */
-    @NotBlank(message = "submissionNo 不可为空")
-    private String submissionNo;
-
     /** 如果status是CompileError或JudgendError，错误信息在这 */
     private String errorDetail;
 
