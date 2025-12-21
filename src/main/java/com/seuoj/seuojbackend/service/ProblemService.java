@@ -60,19 +60,10 @@ public class ProblemService {
         vo.setTitle(problem.getTitle());
         vo.setTotalSubmit(problem.getTotalSubmit());
         vo.setTotalAccept(problem.getTotalAccept());
-        vo.setCreatedAt(problem.getCreatedAt());
         vo.setTags(getTagsByProblemId(problem.getId()));
 
         // 从评测端获取 content
-        vo.setContent(judgeClient.fetchProblemContent(problem.getPid()).getContent());
-
-        // 计算通过率
-        if (problem.getTotalSubmit() > 0) {
-            double rate = (double) problem.getTotalAccept() / problem.getTotalSubmit() * 100;
-            vo.setAcceptRate(String.format("%.2f%%", rate));
-        } else {
-            vo.setAcceptRate("暂无提交");
-        }
+        vo.setContent(judgeClient.fetchProblemContent(problem.getPid()));
 
         return vo;
     }
