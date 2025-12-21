@@ -8,9 +8,7 @@ import com.seuoj.seuojbackend.common.SubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
-import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
@@ -48,18 +46,19 @@ public class JudgeService {
 
         // 校验状态合法性（防止重复回调）
         List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
-        if (! modifiableStatusStrs.contains(submission.getStatus())) {
+        if (!modifiableStatusStrs.contains(submission.getStatus())) {
             throw new BadRequestException("该提交已经完成评测，无法更新");
         }
 
         // 更新提交记录
         submission.setStatus(dto.getStatus());
         submission.setResultDetail(dto.getResultDetail());
+        submission.setErrorDetail(dto.getErrorDetail());
         submission.setFinishTime(LocalDateTime.now());
         submissionMapper.updateById(submission);
 
         // 如果通过，更新题目通过数
-        if (SubmissionStatus.AC.getStatus().equals(dto.getStatus())) {
+        if (SubmissionStatus.SUCCESS.getStatus().equals(dto.getStatus())) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
     }

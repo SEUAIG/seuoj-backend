@@ -12,13 +12,9 @@ public enum SubmissionStatus {
     PENDING("Pending"),
     RUNNING("Running"),
     FAILED("Failed"), // 评测提交失败（评测端异常导致）
-    AC("Accepted"),
-    WA("WA"),
-    TLE("TLE"),
-    MLE("MLE"),
-    RTE("RTE"),
-    CE("CE"),
-    SE("SE");
+    SUCCESS("Success"),
+    COMPILE_ERROR("CompileError"),
+    JUDGE_ERROR("JudgeError");
 
     private final String status;
 

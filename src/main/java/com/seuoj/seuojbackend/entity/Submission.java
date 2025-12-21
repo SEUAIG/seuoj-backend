@@ -2,7 +2,7 @@ package com.seuoj.seuojbackend.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -11,6 +11,7 @@ import org.apache.ibatis.type.JdbcType;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户提交与评测结果表实体类
@@ -62,10 +63,16 @@ public class Submission implements Serializable {
     private String status;
 
     /**
-     * 评测详细信息
+     * 评测详细信息（JSON 存储）
      */
     @TableField(value = "result_detail", typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
-    private JsonNode resultDetail;
+    private List<JudgeResultDetailItem> resultDetail;
+
+    /**
+     * 编译/判题错误详情
+     */
+    @TableField("error_detail")
+    private String errorDetail;
 
     /**
      * 提交时间
@@ -93,7 +100,7 @@ public class Submission implements Serializable {
     private LocalDateTime updatedAt;
 
     /**
-     * 是否删除，0-未删除，1-已删除
+     * 是否删除：0-未删除，1-已删除
      */
     @TableField("is_del")
     @TableLogic

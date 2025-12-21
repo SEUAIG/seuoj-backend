@@ -1,8 +1,9 @@
 package com.seuoj.seuojbackend.vo.submission;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
 import lombok.Data;
 
 @Data
@@ -23,14 +24,19 @@ public class SubmissionResultVO {
     private String language;
 
     /**
-     * 评测状态：PENDING/RUNNING/AC/WA/TLE/RE/CE
+     * 评测状态
      */
     private String status;
 
     /**
-     * 详细评测结果（JSON 结构）
+     * 详细评测结果
      */
-    private JsonNode resultDetail;
+    private List<JudgeResultDetailItem> resultDetail;
+
+    /**
+     * 编译/判题错误详情
+     */
+    private String errorDetail;
 
     /**
      * 提交时间
