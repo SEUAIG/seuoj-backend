@@ -8,9 +8,7 @@ import com.seuoj.seuojbackend.common.SubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
-import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
@@ -59,7 +57,7 @@ public class JudgeService {
         submissionMapper.updateById(submission);
 
         // 如果通过，更新题目通过数
-        if (SubmissionStatus.AC.getStatus().equals(dto.getStatus())) {
+        if (SubmissionStatus.SUCCESS.getStatus().equals(dto.getStatus())) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
     }

@@ -53,7 +53,7 @@ CREATE TABLE `submission`  (
                                `user_id` bigint NOT NULL,
                                `problem_id` bigint NOT NULL,
                                `language` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-                               `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'PENDING/RUNNING/AC/WA/TLE/RE/CE',
+                               `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
                                `result_detail` json NULL COMMENT '评测详细信息',
                                `submit_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                `finish_time` datetime NULL DEFAULT NULL COMMENT '评测完成时间',
