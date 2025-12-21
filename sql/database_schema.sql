@@ -5,7 +5,7 @@
 
 USE seuoj;
 
-SET NAMES utf8mb4;
+-- SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
@@ -55,6 +55,7 @@ CREATE TABLE `submission`  (
                                `language` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
                                `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
                                `result_detail` json NULL COMMENT '评测详细信息',
+                               `error_detail` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '编译/判题错误详情',
                                `submit_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                `finish_time` datetime NULL DEFAULT NULL COMMENT '评测完成时间',
                                `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

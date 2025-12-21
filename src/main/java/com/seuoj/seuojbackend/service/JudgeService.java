@@ -46,13 +46,14 @@ public class JudgeService {
 
         // 校验状态合法性（防止重复回调）
         List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
-        if (! modifiableStatusStrs.contains(submission.getStatus())) {
+        if (!modifiableStatusStrs.contains(submission.getStatus())) {
             throw new BadRequestException("该提交已经完成评测，无法更新");
         }
 
         // 更新提交记录
         submission.setStatus(dto.getStatus());
         submission.setResultDetail(dto.getResultDetail());
+        submission.setErrorDetail(dto.getErrorDetail());
         submission.setFinishTime(LocalDateTime.now());
         submissionMapper.updateById(submission);
 

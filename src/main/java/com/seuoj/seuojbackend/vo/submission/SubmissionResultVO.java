@@ -34,6 +34,11 @@ public class SubmissionResultVO {
     private List<JudgeResultDetailItem> resultDetail;
 
     /**
+     * 编译/判题错误详情
+     */
+    private String errorDetail;
+
+    /**
      * 提交时间
      */
     private LocalDateTime submitTime;

@@ -69,6 +69,12 @@ public class Submission implements Serializable {
     private List<JudgeResultDetailItem> resultDetail;
 
     /**
+     * 编译/判题错误详情
+     */
+    @TableField("error_detail")
+    private String errorDetail;
+
+    /**
      * 提交时间
      */
     @TableField("submit_time")

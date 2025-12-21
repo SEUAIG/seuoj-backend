@@ -144,6 +144,7 @@ public class SubmissionService {
         vo.setLanguage(submission.getLanguage());
         vo.setStatus(submission.getStatus());
         vo.setResultDetail(submission.getResultDetail());
+        vo.setErrorDetail(submission.getErrorDetail());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
         return vo;
