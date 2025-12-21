@@ -1,7 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 INSERT INTO `problem` (id, pid, title, total_submit, total_accept)
-VALUES (1, 'p01', 'a+b', 2, 2);
+VALUES (1, 'p01', 'a+b', 0, 0);
 
 -- ----
 
