@@ -3,6 +3,7 @@ package com.seuoj.seuojbackend.controller.api;
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
+import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.service.AuthService;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
 import jakarta.validation.Valid;
@@ -30,6 +31,16 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));
+    }
+
+    /**
+     * 注册
+     */
+    @AllowAnonymous
+    @PostMapping("/register")
+    public Result<Void> register(@Valid @RequestBody RegisterDTO dto) {
+        authService.register(dto.getUsername(), dto.getPassword());
+        return Result.success();
     }
 
 }

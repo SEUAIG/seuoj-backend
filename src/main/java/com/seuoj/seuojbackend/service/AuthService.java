@@ -28,7 +28,7 @@ public class AuthService {
     }
 
     /**
-     * 用户注册（测试用，非正式）
+     * 用户注册
      *
      * @param username    用户名
      * @param rawPassword 明文密码
