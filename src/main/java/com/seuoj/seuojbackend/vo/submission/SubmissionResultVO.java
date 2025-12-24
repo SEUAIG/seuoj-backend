@@ -24,9 +24,14 @@ public class SubmissionResultVO {
     private String language;
 
     /**
-     * 评测状态
+     * 提交流程状态（Pending/Running/Finished/Failed）
      */
     private String status;
+
+    /**
+     * 最终判定结果（Accepted/WA/TLE/.../CompileError/JudgeError）
+     */
+    private String verdict;
 
     /**
      * 详细评测结果
@@ -34,7 +39,7 @@ public class SubmissionResultVO {
     private List<JudgeResultDetailItem> resultDetail;
 
     /**
-     * 编译/判题错误详情
+     * 编译/题目错误详情
      */
     private String errorDetail;
 
