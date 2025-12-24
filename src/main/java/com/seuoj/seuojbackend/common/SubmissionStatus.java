@@ -24,7 +24,7 @@ public enum SubmissionStatus {
      * 获取可被修改的评测状态
      */
     public static List<String> getModifiableStatusStrs() {
-        return List.of(PENDING.getStatus(), RUNNING.getStatus());
+        return List.of(PENDING.getStatus(), RUNNING.getStatus(), FAILED.getStatus());
     }
 
 }
