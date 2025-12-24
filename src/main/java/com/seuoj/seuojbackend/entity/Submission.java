@@ -57,10 +57,16 @@ public class Submission implements Serializable {
     private String language;
 
     /**
-     * 评测状态
+     * 提交流程状态
      */
     @TableField("status")
     private String status;
+
+    /**
+     * 最终判定结果
+     */
+    @TableField("verdict")
+    private String verdict;
 
     /**
      * 评测详细信息（JSON 存储）

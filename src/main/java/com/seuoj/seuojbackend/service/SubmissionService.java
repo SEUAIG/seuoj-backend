@@ -143,6 +143,7 @@ public class SubmissionService {
         vo.setPid(problem != null ? problem.getPid() : null);
         vo.setLanguage(submission.getLanguage());
         vo.setStatus(submission.getStatus());
+        vo.setVerdict(submission.getVerdict());
         vo.setResultDetail(submission.getResultDetail());
         vo.setErrorDetail(submission.getErrorDetail());
         vo.setSubmitTime(submission.getSubmitTime());

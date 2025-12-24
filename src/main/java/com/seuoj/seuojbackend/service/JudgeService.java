@@ -1,10 +1,14 @@
 package com.seuoj.seuojbackend.service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
+import com.seuoj.seuojbackend.common.SubmissionVerdict;
+import com.seuoj.seuojbackend.common.SubmitExecStatus;
+import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,15 +54,35 @@ public class JudgeService {
             throw new BadRequestException("该提交已经完成评测，无法更新");
         }
 
-        // 更新提交记录
-        submission.setStatus(dto.getStatus());
+        // 更新提交记录：分生命周期状态和最终判定状态
+        String verdict;
+
+        if (!SubmitExecStatus.SUCCESS.equals(dto.getStatus())) {
+            verdict = dto.getStatus().getStatus();
+        } else {
+            List<JudgeResultDetailItem> resultDetail = dto.getResultDetail();
+            if (resultDetail == null || resultDetail.isEmpty()) {
+                throw new BadRequestException("成功结果必须包含 resultDetail");
+            }
+            resultDetail.sort(Comparator.comparingInt(JudgeResultDetailItem::getCnt));
+            verdict = SubmissionVerdict.ACCEPTED.getVerdict();
+            for (JudgeResultDetailItem item : resultDetail) {
+                if (!SubmissionVerdict.ACCEPTED.equals(item.getType())) {
+                    verdict = item.getType().getVerdict();
+                    break;
+                }
+            }
+        }
+
+        submission.setStatus(SubmissionStatus.FINISHED.getStatus());
+        submission.setVerdict(verdict);
         submission.setResultDetail(dto.getResultDetail());
         submission.setErrorDetail(dto.getErrorDetail());
         submission.setFinishTime(LocalDateTime.now());
         submissionMapper.updateById(submission);
 
         // 如果通过，更新题目通过数
-        if (SubmissionStatus.SUCCESS.getStatus().equals(dto.getStatus())) {
+        if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict)) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
     }
