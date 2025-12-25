@@ -1,80 +1,51 @@
 package com.seuoj.seuojbackend.service;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
-import com.seuoj.seuojbackend.entity.Problem;
-import com.seuoj.seuojbackend.entity.ProblemTagRel;
+import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
-import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
-import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Service
 public class ProblemService {
 
     private final ProblemMapper problemMapper;
-    private final TagMapper tagMapper;
-    private final ProblemTagRelMapper problemTagRelMapper;
     private final JudgeClient judgeClient;
 
-    public ProblemService(
-            ProblemMapper problemMapper,
-            TagMapper tagMapper,
-            ProblemTagRelMapper problemTagRelMapper,
-            JudgeClient judgeClient) {
+    public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient) {
         this.problemMapper = problemMapper;
-        this.tagMapper = tagMapper;
-        this.problemTagRelMapper = problemTagRelMapper;
         this.judgeClient = judgeClient;
     }
 
     /**
-     * 从 pid 获取题目详情
+     * 根据 pid 获取题目详情
      *
      * @param pid 题目编号
      * @return 题目详情 VO
      */
     public ProblemDetailVO getProblemDetail(String pid) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, pid));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在: " + pid);
+        ProblemDetailVO problemDetail = problemMapper.getProblemDetail(pid);
+        if (problemDetail == null) {
+            log.warn("获取题目详情时发现题目 {} 不存在", pid);
+            throw new NotFoundException("题目不存在");
         }
-        return convertToVO(problem);
-    }
 
-    /**
-     * Entity 转 VO
-     */
-    private ProblemDetailVO convertToVO(Problem problem) {
-        ProblemDetailVO vo = new ProblemDetailVO();
-        vo.setPid(problem.getPid());
-        vo.setTitle(problem.getTitle());
-        vo.setTotalSubmit(problem.getTotalSubmit());
-        vo.setTotalAccept(problem.getTotalAccept());
-        vo.setTags(getTagsByProblemId(problem.getId()));
+        List<String> tags = problemMapper.getProblemTags(pid);
+        problemDetail.setTags(tags != null ? tags : Collections.emptyList());
 
-        // 从评测端获取 content
-        vo.setContent(judgeClient.fetchProblemContent(problem.getPid()));
-
-        return vo;
-    }
-
-    private List<String> getTagsByProblemId(Long problemId) {
-        List<ProblemTagRel> relList = problemTagRelMapper
-                .selectList(new LambdaQueryWrapper<ProblemTagRel>().eq(ProblemTagRel::getProblemId, problemId));
-        List<String> tagList = new ArrayList<>();
-        for (ProblemTagRel rel : relList) {
-            tagList.add(tagMapper.selectById(rel.getTagId()).getTagName());
+        ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(pid);
+        if (problemContentDTO == null) {
+            log.warn("题目 {} 的内容在判题服务中缺失", pid);
+            throw new NotFoundException("题目不存在");
         }
-        return tagList;
+
+        problemDetail.setContent(problemContentDTO);
+        return problemDetail;
     }
 }
