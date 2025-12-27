@@ -15,6 +15,7 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.CodeStorageException;
 import com.seuoj.seuojbackend.exception.InternalServerException;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
@@ -64,10 +65,11 @@ public class SubmissionService {
      * @return 提交结果（包含 submissionNo）
      */
     public SubmitVO submit(SubmitDTO dto) {
-        Long userId = UserContextHolder.get().getUserId();
-        if (userId == null) {
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
             throw new NotFoundException("提交流程中发现用户未登录");
         }
+        Long userId = userContext.getUserId();
 
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
         if (problem == null) {
@@ -115,6 +117,22 @@ public class SubmissionService {
 
             // 保存用户代码
             codeStorage.save(dto.getCode(), submission.getSubmissionNo());
+            // 若后续回滚，补偿删除已写入的代码文件，避免孤儿文件
+            String submissionNo = submission.getSubmissionNo();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                            try {
+                                codeStorage.delete(submissionNo);
+                            } catch (CodeStorageException e) {
+                                log.warn("删除回滚提交的代码文件失败 submissionNo={}", submissionNo, e);
+                            }
+                        }
+                    }
+                });
+            }
 
             // 累加题目提交总数
             problemMapper.atomicallyIncreaseTotalSubmissionCount(problemId);
@@ -153,10 +171,11 @@ public class SubmissionService {
      */
     public SubmissionResultVO getResult(String submissionNo) {
         // 检验查询
-        Long userId = UserContextHolder.get().getUserId();
-        if (userId == null) {
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
             throw new NotFoundException("查询提交: 用户未登录");
         }
+        Long userId = userContext.getUserId();
 
         Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()

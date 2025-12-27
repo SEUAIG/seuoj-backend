@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.storage;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import com.seuoj.seuojbackend.exception.CodeStorageException;
 /**
  * 本地代码存储实现类
  */
+@Slf4j
 @Component
 public class LocalCodeStorage implements CodeStorage {
 
@@ -25,8 +27,13 @@ public class LocalCodeStorage implements CodeStorage {
         Path path = Paths.get(localStoragePath, submissionNo + ".txt");
         try {
             Files.createDirectories(path.getParent());
+            if (Files.exists(path)) {
+                log.error("代码文件已存在，拒绝覆盖，可能存在重复提交号 submissionNo={}", submissionNo);
+                throw new CodeStorageException("保存代码失败：重复的提交编号");
+            }
             Files.writeString(path, code, StandardCharsets.UTF_8);
         } catch (IOException e) {
+            log.error("保存代码失败 submissionNo={}", submissionNo, e);
             throw new CodeStorageException("保存代码失败", e);
         }
     }
@@ -35,11 +42,13 @@ public class LocalCodeStorage implements CodeStorage {
     public String getCode(String submissionNo) {
         Path path = Paths.get(localStoragePath, submissionNo + ".txt");
         if (!Files.exists(path)) {
-            return null;
+            log.error("代码文件不存在 submissionNo={}", submissionNo);
+            throw new CodeStorageException("代码文件不存在");
         }
         try {
             return Files.readString(path, StandardCharsets.UTF_8);
         } catch (IOException e) {
+            log.error("读取代码失败 submissionNo={}", submissionNo, e);
             throw new CodeStorageException("读取代码失败", e);
         }
     }
@@ -50,6 +59,7 @@ public class LocalCodeStorage implements CodeStorage {
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
+            log.error("删除代码失败 submissionNo={}", submissionNo, e);
             throw new CodeStorageException("删除代码失败", e);
         }
     }
