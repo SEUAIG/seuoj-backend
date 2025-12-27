@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.seuoj.seuojbackend.exception.CodeStorageException;
+
 /**
  * 本地代码存储实现类
  */
@@ -25,7 +27,7 @@ public class LocalCodeStorage implements CodeStorage {
             Files.createDirectories(path.getParent());
             Files.writeString(path, code, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new RuntimeException("保存代码失败", e);
+            throw new CodeStorageException("保存代码失败", e);
         }
     }
 
@@ -38,7 +40,17 @@ public class LocalCodeStorage implements CodeStorage {
         try {
             return Files.readString(path, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new RuntimeException("读取代码失败", e);
+            throw new CodeStorageException("读取代码失败", e);
+        }
+    }
+
+    @Override
+    public void delete(String submissionNo) {
+        Path path = Paths.get(localStoragePath, submissionNo + ".txt");
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw new CodeStorageException("删除代码失败", e);
         }
     }
 }

@@ -20,4 +20,11 @@ public interface CodeStorage {
      * @return 用户代码文本，找不到会返回null
      */
     String getCode(String submissionNo);
+
+    /**
+     * 删除已保存的用户代码；若文件不存在可忽略
+     *
+     * @param submissionNo 提交编号
+     */
+    void delete(String submissionNo);
 }

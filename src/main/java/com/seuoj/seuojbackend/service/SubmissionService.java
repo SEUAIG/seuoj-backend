@@ -3,9 +3,9 @@ package com.seuoj.seuojbackend.service;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
@@ -15,6 +15,7 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.InternalServerException;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
@@ -28,24 +29,32 @@ import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
 public class SubmissionService {
+
+    private static final int MAX_CODE_BYTES = 65535;
 
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
     private final UserInfoMapper userInfoMapper;
+    private final TransactionTemplate transactionTemplate;
 
-    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient, CodeStorage codeStorage, UserInfoMapper userInfoMapper) {
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient, CodeStorage codeStorage, UserInfoMapper userInfoMapper, TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
         this.userInfoMapper = userInfoMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**
@@ -54,53 +63,68 @@ public class SubmissionService {
      * @param dto 提交信息
      * @return 提交结果（包含 submissionNo）
      */
-    @Transactional
     public SubmitVO submit(SubmitDTO dto) {
-
-        // 校验
         Long userId = UserContextHolder.get().getUserId();
         if (userId == null) {
-            throw new NotFoundException("提交过程中发现用户未登录");
-        }
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
-        if (problem == null) {
-            throw new NotFoundException("提交过程中发现题目不存在:" + dto.getPid());
+            throw new NotFoundException("提交流程中发现用户未登录");
         }
 
-        // 判断用户提交代码是否异常（过大）
-        if (dto.getCode().length() > 65535) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
+        if (problem == null) {
+            throw new NotFoundException("提交流程中发现题目不存在:" + dto.getPid());
+        }
+
+        int codeBytes = dto.getCode() == null ? 0 : dto.getCode().getBytes(StandardCharsets.UTF_8).length;
+        if (dto.getCode() == null || dto.getCode().isBlank()) {
+            throw new BadRequestException("提交代码不能为空");
+        }
+        if (codeBytes > MAX_CODE_BYTES) {
             throw new BadRequestException("提交代码过长，请修改后重试");
         }
 
-        // 创建提交记录
-        Submission submission = new Submission();
-        submission.setSubmissionNo(UUID.randomUUID().toString());
-        submission.setUserId(userId);
-        submission.setProblemId(problem.getId());
-        submission.setLanguage(dto.getLanguage());
-        submission.setStatus(SubmissionStatus.PENDING.getStatus()); // 初始状态：等待评测
-        submission.setSubmitTime(LocalDateTime.now());
-        submissionMapper.insert(submission);
+        // 数据库操作（事务完成）
+        Submission submission = submitInTransaction(dto, userId, problem.getId());
 
-        // TODO: 这里的异常处理逻辑和事务的关系？
-        // 保存用户代码
-        codeStorage.save(dto.getCode(), submission.getSubmissionNo());
-
-        // 原子增加提交总数
-        problemMapper.atomicallyIncreaseTotalSubmissionCount(problem.getId());
-
-        // 向评测机发送请求（放到事务外完成）
-        TransactionUtil.registerAfterCommit(() -> {
-            this.sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
-        });
+        if (submission == null) {
+            throw new InternalServerException("提交失败，请稍后重试");
+        }
 
         SubmitVO submitVO = new SubmitVO();
         submitVO.setSubmissionNo(submission.getSubmissionNo());
+
+        // 发送评测请求放到事务外完成
+        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+
         return submitVO;
     }
 
     /**
-     * 向评测机发送评测请求
+     * 事务内完成校验、记录创建、代码保存、计数累加，并注册 afterCommit/rollback 处理
+     */
+    private Submission submitInTransaction(SubmitDTO dto, Long userId, Long problemId) {
+        return transactionTemplate.execute(status -> {
+            // 创建提交记录
+            Submission submission = new Submission();
+            submission.setSubmissionNo(UUID.randomUUID().toString());
+            submission.setUserId(userId);
+            submission.setProblemId(problemId);
+            submission.setLanguage(dto.getLanguage());
+            submission.setStatus(SubmissionStatus.PENDING.getStatus()); // 初始状态：等待评测
+            submission.setSubmitTime(LocalDateTime.now());
+            submissionMapper.insert(submission);
+
+            // 保存用户代码
+            codeStorage.save(dto.getCode(), submission.getSubmissionNo());
+
+            // 累加题目提交总数
+            problemMapper.atomicallyIncreaseTotalSubmissionCount(problemId);
+
+            return submission;
+        });
+    }
+
+    /**
+     * 向评测机发送评测请求（带异常处理）
      */
     private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
         log.info("Send judge request submissionNo={}, pid={}", submissionNo, pid);

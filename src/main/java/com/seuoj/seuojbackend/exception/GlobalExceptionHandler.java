@@ -176,6 +176,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 代码存储异常 - 500
+     */
+    @ExceptionHandler(CodeStorageException.class)
+    @ResponseBody
+    public ResponseEntity<Result<Object>> handleCodeStorageException(CodeStorageException e) {
+        log.error("CodeStorageException: ", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Result.error(e.getCode(), e.getMessage()));
+    }
+
+    /**
      * 处理其他运行时异常 - 500
      */
     @ExceptionHandler(RuntimeException.class)
