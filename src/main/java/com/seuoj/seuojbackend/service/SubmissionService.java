@@ -13,12 +13,15 @@ import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
+import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.util.TransactionUtil;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
@@ -34,11 +37,15 @@ public class SubmissionService {
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
     private final JudgeClient judgeClient;
+    private final CodeStorage codeStorage;
+    private final UserInfoMapper userInfoMapper;
 
-    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient) {
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient, CodeStorage codeStorage, UserInfoMapper userInfoMapper) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
+        this.codeStorage = codeStorage;
+        this.userInfoMapper = userInfoMapper;
     }
 
     /**
@@ -59,6 +66,12 @@ public class SubmissionService {
         if (problem == null) {
             throw new NotFoundException("提交过程中发现题目不存在:" + dto.getPid());
         }
+
+        // 判断用户提交代码是否异常（过大）
+        if (dto.getCode().length() > 65535) {
+            throw new BadRequestException("提交代码过长，请修改后重试");
+        }
+
         // 创建提交记录
         Submission submission = new Submission();
         submission.setSubmissionNo(UUID.randomUUID().toString());
@@ -68,6 +81,10 @@ public class SubmissionService {
         submission.setStatus(SubmissionStatus.PENDING.getStatus()); // 初始状态：等待评测
         submission.setSubmitTime(LocalDateTime.now());
         submissionMapper.insert(submission);
+
+        // TODO: 这里的异常处理逻辑和事务的关系？
+        // 保存用户代码
+        codeStorage.save(dto.getCode(), submission.getSubmissionNo());
 
         // 原子增加提交总数
         problemMapper.atomicallyIncreaseTotalSubmissionCount(problem.getId());
@@ -148,6 +165,13 @@ public class SubmissionService {
         vo.setErrorDetail(submission.getErrorDetail());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
+
+        // 查询用户代码
+        vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
+
+        // 查询用户名
+        UserInfo user = userInfoMapper.selectById(submission.getUserId());
+        vo.setUsername(user != null ? user.getUsername() : null);
         return vo;
     }
 
