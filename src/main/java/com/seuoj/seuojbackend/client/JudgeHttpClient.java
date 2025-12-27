@@ -82,6 +82,7 @@ public class JudgeHttpClient implements JudgeClient {
 
             log.info("成功发送提交测评请求: submissionNo={}", request.getSubmissionId());
         } catch (RestClientException ex) {
+            log.warn("评测端未返回200ok,路径：{}",url,ex);
             throw new JudgeRemoteException("无法向评测端提交", ex);
         }
     }
