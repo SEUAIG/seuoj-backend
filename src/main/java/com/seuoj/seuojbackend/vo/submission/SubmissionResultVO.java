@@ -52,4 +52,14 @@ public class SubmissionResultVO {
      * 评测完成时间
      */
     private LocalDateTime finishTime;
+
+    /**
+     * 用户代码
+     */
+    private String code;
+
+    /**
+     * 提交者用户名
+     */
+    private String username;
 }
