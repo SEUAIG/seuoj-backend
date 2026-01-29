@@ -7,10 +7,9 @@ import lombok.Getter;
  */
 @Getter
 public enum RoleType {
-    ADMIN("ADMIN", "管理员"),
     USER("USER", "普通用户"),
-    STUDENT("STUDENT", "学生"),
-    TEACHER("TEACHER", "教师");
+    ADMIN("ADMIN", "管理员"),
+    SUPER_ADMIN("SUPER_ADMIN", "超管");
 
     private final String code;
     private final String description;
