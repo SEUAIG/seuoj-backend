@@ -1,5 +1,7 @@
 package com.seuoj.seuojbackend.controller.api;
 
+import com.seuoj.seuojbackend.annotation.RequireRole;
+import com.seuoj.seuojbackend.common.RoleType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,11 +26,13 @@ public class SubmissionController {
         this.submissionService = submissionService;
     }
 
+    @RequireRole({RoleType.USER})
     @PostMapping
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {
         return Result.success(submissionService.submit(dto));
     }
 
+    @RequireRole({RoleType.USER})
     @GetMapping("/{submissionNo}")
     public Result<SubmissionResultVO> getResult(@PathVariable String submissionNo) {
         return Result.success(submissionService.getResult(submissionNo));
