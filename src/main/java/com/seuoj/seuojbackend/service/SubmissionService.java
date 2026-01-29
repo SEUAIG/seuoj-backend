@@ -1,12 +1,15 @@
 package com.seuoj.seuojbackend.service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.nio.charset.StandardCharsets;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
@@ -24,14 +27,13 @@ import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.storage.CodeStorage;
-import com.seuoj.seuojbackend.util.TransactionUtil;
+import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
+import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -195,6 +197,38 @@ public class SubmissionService {
         }
 
         return convertToResultVO(submission, problem);
+    }
+
+    /**
+     * 分页查询当前用户的提交记录
+     *
+     * @param current 当前页（从 1 开始）
+     * @param size    每页条数
+     * @return 提交记录分页
+     */
+    public SubmissionPageVO listSubmissions(Integer current, Integer size) {
+        if (current == null || current < 1) {
+            throw new BadRequestException("页码必须大于等于 1");
+        }
+        if (size == null || size < 1 || size > 100) {
+            throw new BadRequestException("每页条数必须在 1 到 100 之间");
+        }
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
+            throw new NotFoundException("查询提交记录：用户未登录");
+        }
+        Long userId = userContext.getUserId();
+
+        Page<SubmissionListItemVO> page = new Page<>(current, size);
+        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectUserSubmissionPage(page, userId);
+        List<SubmissionListItemVO> records = pageResult.getRecords();
+
+        SubmissionPageVO result = new SubmissionPageVO();
+        result.setCurrent(pageResult.getCurrent());
+        result.setSize(pageResult.getSize());
+        result.setTotal(pageResult.getTotal());
+        result.setRecords(records);
+        return result;
     }
 
     private SubmissionResultVO convertToResultVO(Submission submission, Problem problem) {
