@@ -134,44 +134,22 @@ public class ProblemService {
         request.setOutput(dto.getOutput());
 
         if (dto.getExample() != null) {
-            List<JudgeProblemEditRequest.Example> examples = dto.getExample().stream()
+            List<com.seuoj.seuojbackend.common.ProblemCommon.Example> examples = dto.getExample().stream()
                     .filter(Objects::nonNull)
-                    .map(item -> {
-                        JudgeProblemEditRequest.Example example = new JudgeProblemEditRequest.Example();
-                        example.setIn(item.getIn());
-                        example.setAns(item.getAns());
-                        example.setDescription(item.getDescription());
-                        return example;
-                    })
                     .collect(Collectors.toList());
             request.setExample(examples);
         }
 
         if (dto.getInfo() != null) {
-            JudgeProblemEditRequest.Info info = new JudgeProblemEditRequest.Info();
-            info.setMaxCpuTimeMs(dto.getInfo().getMaxCpuTimeMs());
-            info.setMaxRealTimeMs(dto.getInfo().getMaxRealTimeMs());
-            info.setMaxMemoryByte(dto.getInfo().getMaxMemoryByte());
-            info.setMaxStackByte(dto.getInfo().getMaxStackByte());
-            info.setMaxProcessNumber(dto.getInfo().getMaxProcessNumber());
-            info.setMaxOutputSize(dto.getInfo().getMaxOutputSize());
-            info.setProblemType(dto.getInfo().getProblemType());
-            info.setCheckerType(dto.getInfo().getCheckerType());
-            request.setInfo(info);
+            request.setInfo(dto.getInfo());
         }
 
         if (dto.getInteractor() != null) {
-            JudgeProblemEditRequest.Interactor interactor = new JudgeProblemEditRequest.Interactor();
-            interactor.setType(dto.getInteractor().getType());
-            interactor.setData(dto.getInteractor().getData());
-            request.setInteractor(interactor);
+            request.setInteractor(dto.getInteractor());
         }
 
         if (dto.getChecker() != null) {
-            JudgeProblemEditRequest.Checker checker = new JudgeProblemEditRequest.Checker();
-            checker.setType(dto.getChecker().getType());
-            checker.setData(dto.getChecker().getData());
-            request.setChecker(checker);
+            request.setChecker(dto.getChecker());
         }
 
         return request;
