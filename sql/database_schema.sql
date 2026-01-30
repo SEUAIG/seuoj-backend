@@ -1,4 +1,4 @@
-﻿CREATE DATABASE IF NOT EXISTS seuoj
+CREATE DATABASE IF NOT EXISTS seuoj
 -- 字符集 排序规则等等
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
@@ -32,7 +32,7 @@ DROP TABLE IF EXISTS `problem_tag_rel`;
 CREATE TABLE `problem_tag_rel`  (
                                     `id` bigint NOT NULL AUTO_INCREMENT,
                                     `problem_id` bigint NOT NULL,
-                                    `tag_id` int NOT NULL,
+                                    `tag_id` bigint NOT NULL,
                                     PRIMARY KEY (`id`) USING BTREE,
                                     UNIQUE INDEX `uk_problem_tag_rel`(`problem_id` ASC, `tag_id` ASC) USING BTREE,
                                     INDEX `idx_problem_tag_rel_problem_id`(`problem_id` ASC) USING BTREE,
@@ -69,17 +69,35 @@ CREATE TABLE `submission`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户提交与评测结果表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
+-- Table structure for tag_group
+-- ----------------------------
+DROP TABLE IF EXISTS `tag_group`;
+CREATE TABLE `tag_group`  (
+                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                          `type` varchar(32) NOT NULL COMMENT '分组类型，algorithm/source/time/special',
+                          `name` varchar(64) NULL DEFAULT NULL COMMENT '分组名称，NULL 表示默认分组',
+                          `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                          `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+                          PRIMARY KEY (`id`) USING BTREE,
+                          UNIQUE KEY `uk_type_name_del` (`type`, `name`, `is_del`)
+) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '标签分组表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for tag
 -- ----------------------------
 DROP TABLE IF EXISTS `tag`;
 CREATE TABLE `tag`  (
-                        `id` int NOT NULL AUTO_INCREMENT,
+                        `id` bigint NOT NULL AUTO_INCREMENT,
                         `tag_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                        `group_id` bigint NOT NULL COMMENT '分组ID，关联 tag_group 表',
                         `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                         PRIMARY KEY (`id`) USING BTREE,
-                        UNIQUE INDEX `uk_tag_name_del`(`tag_name` ASC, `is_del` ASC) USING BTREE
+                        UNIQUE INDEX `uk_tag_name_del`(`tag_name` ASC, `is_del` ASC) USING BTREE,
+                        INDEX `idx_tag_group_id`(`group_id` ASC) USING BTREE,
+                        CONSTRAINT `fk_tag_group_id` FOREIGN KEY (`group_id`) REFERENCES `tag_group` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '题目标签表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------

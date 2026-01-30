@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.TagMapper">
+
+    <select id="listTagWithGroup" resultType="com.seuoj.seuojbackend.vo.tag.TagGroupTagRow">
+        SELECT
+            g.id AS groupId,
+            g.type AS groupType,
+            g.name AS groupName,
+            t.id AS tagId,
+            t.tag_name AS tagName
+        FROM tag_group g
+        LEFT JOIN tag t
+            ON t.group_id = g.id
+            AND t.is_del = 0
+        WHERE g.is_del = 0
+        ORDER BY g.id ASC, t.id ASC
+    </select>
+
+</mapper>
