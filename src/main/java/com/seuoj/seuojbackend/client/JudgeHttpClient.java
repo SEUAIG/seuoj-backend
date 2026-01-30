@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
+import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.common.Result;
@@ -84,6 +85,31 @@ public class JudgeHttpClient implements JudgeClient {
         } catch (RestClientException ex) {
             log.warn("评测端未返回200ok,路径：{}",url,ex);
             throw new JudgeRemoteException("无法向评测端提交", ex);
+        }
+    }
+
+    @Override
+    public void updateProblem(JudgeProblemEditRequest request) {
+        String url = judgeServerUrl + "/judge/problem/edit";
+        log.info("向评测端请求更新题目信息, pid={}, url={}", request.getPid(), url);
+        try {
+            ResponseEntity<Result<Void>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.PATCH,
+                    new HttpEntity<>(request, buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<Void> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode())) {
+                log.error("更新题目信息失败，异常响应详情：{}", body);
+                throw new JudgeRemoteException("更新题目信息失败");
+            }
+
+            log.info("成功更新题目信息, pid={}", request.getPid());
+        } catch (RestClientException ex) {
+            log.warn("评测端未返回200ok, 路径：{}", url, ex);
+            throw new JudgeRemoteException("无法向评测端更新题目信息", ex);
         }
     }
 

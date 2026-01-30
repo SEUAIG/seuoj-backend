@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
+import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 
@@ -23,4 +24,11 @@ public interface JudgeClient {
      * @param request submission payload
      */
     void submit(JudgeSubmissionRequest request);
+
+    /**
+     * 鍚戣瘎娴嬬鏇存柊棰樼洰淇℃伅
+     *
+     * @param request problem edit payload
+     */
+    void updateProblem(JudgeProblemEditRequest request);
 }
