@@ -75,7 +75,7 @@ public class ProblemController {
         return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
     }
 
-    @AllowAnonymous
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
