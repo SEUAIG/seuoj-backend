@@ -31,3 +31,5 @@ problem:
     max-entry-size: 5242880 # 5MB
     max-total-size: 209715200 # 200MB
     max-compression-ratio: 50
+    max-text-size: 5242880 # 5MB
+    max-line-length: 200000

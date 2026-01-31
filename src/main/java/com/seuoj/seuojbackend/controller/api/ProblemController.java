@@ -3,6 +3,9 @@ package com.seuoj.seuojbackend.controller.api;
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.exception.BadRequestException;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -19,6 +22,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 @RestController
 @RequestMapping("/api/problem")
@@ -49,7 +53,16 @@ public class ProblemController {
     public Result<Void> uploadProblemTestcases(@PathVariable String pid,
                                                @RequestParam("file") MultipartFile file,
                                                @RequestParam("format") String format,
-                                               @RequestParam("name_rule") String nameRule) {
+                                               @RequestParam("name_rule") String nameRule,
+                                               HttpServletRequest request) {
+        if (request instanceof MultipartHttpServletRequest multipartRequest) {
+            int totalFiles = multipartRequest.getMultiFileMap().values().stream()
+                    .mapToInt(List::size)
+                    .sum();
+            if (totalFiles > 1) {
+                throw new BadRequestException("只允许上传一个压缩包");
+            }
+        }
         problemTestcaseService.uploadProblemTestcases(pid, file, format, nameRule);
         return Result.success();
     }

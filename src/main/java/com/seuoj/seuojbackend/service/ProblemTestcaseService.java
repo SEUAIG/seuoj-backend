@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.service;
+package com.seuoj.seuojbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
@@ -7,11 +7,12 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
-import com.seuoj.seuojbackend.util.ProblemArchiveExtractor;
-import java.nio.charset.StandardCharsets;
+import com.seuoj.seuojbackend.archive.ProblemArchiveExtractor;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -74,7 +75,13 @@ public class ProblemTestcaseService {
         List<ProblemArchiveExtractor.NameRuleItem> nameRules = archiveExtractor.parseNameRule(nameRule);
         log.info("解析测试数据命名规则完成, pid={}, count={}", pid, nameRules.size());
 
-        Map<String, byte[]> fileContents = archiveExtractor.readArchiveEntries(file, normalizedFormat);
+        Set<String> expectedNames = new HashSet<>();
+        for (ProblemArchiveExtractor.NameRuleItem rule : nameRules) {
+            expectedNames.add(rule.getInputName());
+            expectedNames.add(rule.getAnswerName());
+        }
+
+        Map<String, byte[]> fileContents = archiveExtractor.readExpectedEntries(file, normalizedFormat, expectedNames);
         log.info("读取压缩包完成, pid={}, fileCount={}", pid, fileContents.size());
 
         List<JudgeProblemDataRequest.TestcaseItem> testcaseItems = new ArrayList<>();
@@ -91,9 +98,9 @@ public class ProblemTestcaseService {
 
             JudgeProblemDataRequest.TestcaseItem item = new JudgeProblemDataRequest.TestcaseItem();
             item.setId(rule.getId());
-            item.setInput(new String(inputBytes, StandardCharsets.UTF_8));
+            item.setInput(archiveExtractor.decodeUtf8Text(inputBytes, rule.getInputName()));
             item.setInputName(rule.getInputName());
-            item.setAnswer(new String(answerBytes, StandardCharsets.UTF_8));
+            item.setAnswer(archiveExtractor.decodeUtf8Text(answerBytes, rule.getAnswerName()));
             item.setAnswerName(rule.getAnswerName());
             testcaseItems.add(item);
         }

@@ -33,4 +33,14 @@ public class ProblemTestcaseProperties {
      * 最大压缩比（解包总大小 / 压缩包大小）
      */
     private int maxCompressionRatio = 50;
+
+    /**
+     * 单文件解码为文本后的最大字符数
+     */
+    private long maxTextSize = 5L * 1024 * 1024;
+
+    /**
+     * 单行最大长度（字符数）
+     */
+    private int maxLineLength = 200000;
 }

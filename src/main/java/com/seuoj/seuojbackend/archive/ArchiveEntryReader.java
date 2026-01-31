@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.util;
+package com.seuoj.seuojbackend.archive;
 
 import com.seuoj.seuojbackend.config.ProblemTestcaseProperties;
 import com.seuoj.seuojbackend.exception.BadRequestException;
@@ -7,165 +7,82 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
-@Component
-public class ProblemArchiveExtractor {
+class ArchiveEntryReader {
 
     private final ProblemTestcaseProperties testcaseProperties;
 
-    public ProblemArchiveExtractor(ProblemTestcaseProperties testcaseProperties) {
+    ArchiveEntryReader(ProblemTestcaseProperties testcaseProperties) {
         this.testcaseProperties = testcaseProperties;
     }
 
-    public String normalizeArchiveFormat(String format) {
-        if (!StringUtils.hasText(format)) {
-            return null;
+    public Map<String, byte[]> readExpectedEntries(MultipartFile file, String format, Set<String> expectedNames) {
+        if (expectedNames == null || expectedNames.isEmpty()) {
+            throw new BadRequestException("测试数据命名规则不能为空");
         }
-        String normalized = format.trim().toLowerCase();
-        return switch (normalized) {
-            case "zip", "tar", "tar.gz", "tgz", "7z" -> normalized;
-            default -> null;
-        };
-    }
-
-    public void validateArchiveSize(long archiveSize) {
-        if (archiveSize > testcaseProperties.getMaxArchiveSize()) {
-            throw new BadRequestException("测试数据压缩包过大");
-        }
-    }
-
-    public void validateArchiveFormat(MultipartFile file, String format) {
-        String detected = detectArchiveFormat(file);
-        if ("zip".equals(format)) {
-            if (!"zip".equals(detected)) {
-                throw new BadRequestException("文件格式与内容不匹配");
-            }
-            return;
-        }
-        if ("7z".equals(format)) {
-            if (!"7z".equals(detected)) {
-                throw new BadRequestException("文件格式与内容不匹配");
-            }
-            return;
-        }
-        if ("tar".equals(format)) {
-            if ("zip".equals(detected) || "7z".equals(detected) || "gzip".equals(detected)) {
-                throw new BadRequestException("文件格式与内容不匹配");
-            }
-            return;
-        }
-        if ("tar.gz".equals(format) || "tgz".equals(format)) {
-            if (!"gzip".equals(detected)) {
-                throw new BadRequestException("文件格式与内容不匹配");
-            }
-            if (!looksLikeTarGz(file)) {
-                throw new BadRequestException("文件格式与内容不匹配");
-            }
-        }
-    }
-
-    public Map<String, byte[]> readArchiveEntries(MultipartFile file, String format) {
         return switch (format) {
-            case "zip" -> readZipEntries(file);
-            case "tar" -> readTarEntries(file);
-            case "tar.gz", "tgz" -> readTarGzEntries(file);
-            case "7z" -> readSevenZEntries(file);
+            case "zip" -> readZipEntries(file, expectedNames);
+            case "tar" -> readTarEntries(file, expectedNames);
+            case "tar.gz", "tgz" -> readTarGzEntries(file, expectedNames);
+            case "7z" -> readSevenZEntries(file, expectedNames);
             default -> throw new BadRequestException("不支持的文件格式");
         };
     }
 
-    /**
-     * 解析测试数据命名规则
-     */
-    public List<NameRuleItem> parseNameRule(String nameRule) {
-        if (!StringUtils.hasText(nameRule)) {
-            throw new BadRequestException("测试数据命名规则不能为空");
+    public String decodeUtf8Text(byte[] content, String entryName) {
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            String text = decoder.decode(ByteBuffer.wrap(content)).toString();
+            validateTextContent(text, entryName);
+            return text;
+        } catch (CharacterCodingException ex) {
+            throw new BadRequestException("测试数据内容必须为UTF-8: " + entryName);
         }
-
-        String[] lines = nameRule.split("\\r?\\n");
-        List<NameRuleItem> rules = new ArrayList<>();
-        Set<Integer> ids = new HashSet<>();
-        Set<String> usedNames = new HashSet<>();
-
-        int lineNo = 0;
-        for (String line : lines) {
-            lineNo++;
-            String trimmed = line == null ? "" : line.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-
-            String[] parts = trimmed.split("\\s+");
-            if (parts.length < 3) {
-                throw new BadRequestException("测试数据命名规则第 " + lineNo + " 行格式错误");
-            }
-
-            int id;
-            try {
-                id = Integer.parseInt(parts[0]);
-            } catch (NumberFormatException ex) {
-                throw new BadRequestException("测试数据命名规则第 " + lineNo + " 行 id 非法");
-            }
-
-            String inputName = normalizeZipName(parts[1], "测试数据命名规则第 " + lineNo + " 行输入文件名非法");
-            String answerName = normalizeZipName(parts[2], "测试数据命名规则第 " + lineNo + " 行输出文件名非法");
-
-            if (inputName.equals(answerName)) {
-                throw new BadRequestException("测试数据命名规则第 " + lineNo + " 行输入输出文件名不能相同");
-            }
-
-            if (!ids.add(id)) {
-                throw new BadRequestException("测试数据命名规则存在重复 id: " + id);
-            }
-
-            if (!usedNames.add(inputName) || !usedNames.add(answerName)) {
-                throw new BadRequestException("测试数据命名规则存在重复文件名: " + inputName + " / " + answerName);
-            }
-
-            rules.add(new NameRuleItem(id, inputName, answerName));
-        }
-
-        if (rules.isEmpty()) {
-            throw new BadRequestException("测试数据命名规则不能为空");
-        }
-        log.info("测试数据命名规则解析完成, total={}, rawLines={}", rules.size(), lines.length);
-        return rules;
     }
 
-    /**
-     * 读取 zip 压缩包内容
-     */
-    private Map<String, byte[]> readZipEntries(MultipartFile file) {
+    private Map<String, byte[]> readZipEntries(MultipartFile file, Set<String> expectedNames) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
-        try (ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream())) {
+        try (ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream(), StandardCharsets.UTF_8)) {
             ZipEntry entry;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
                     continue;
                 }
                 String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-                putEntry(entries, entryNames, state, entryName,
-                        () -> readAllBytes(zipInputStream, entryName, state));
+                boolean keep = shouldKeepEntry(entryName, expectedNames);
+                validateEntryCount(state);
+                byte[] content = readEntryBytes(zipInputStream::read, entryName, state, keep);
+                if (keep) {
+                    ensureNoDuplicate(entries, entryName);
+                    entryNames.add(entryName);
+                    entries.put(entryName, content);
+                }
             }
         } catch (IOException ex) {
             log.error("读取测试数据压缩包失败", ex);
@@ -175,48 +92,40 @@ public class ProblemArchiveExtractor {
         return finalizeEntries(entries, entryNames);
     }
 
-    /**
-     * 读取 tar 压缩包内容
-     */
-    private Map<String, byte[]> readTarEntries(MultipartFile file) {
+    private Map<String, byte[]> readTarEntries(MultipartFile file, Set<String> expectedNames) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
-        try (TarArchiveInputStream tarInputStream = new TarArchiveInputStream(file.getInputStream())) {
-            readTarStreamEntries(tarInputStream, entries, entryNames, state);
+        try (TarArchiveInputStream tarInputStream = createTarInputStream(file.getInputStream())) {
+            readTarStreamEntries(tarInputStream, entries, entryNames, state, expectedNames);
         } catch (IOException ex) {
-            log.error("读取测试数据压缩包失败", ex);
-            throw new InternalServerException("读取测试数据压缩包失败");
+            log.warn("读取测试数据压缩包失败", ex);
+            throw new BadRequestException("压缩包格式错误");
         }
 
         return finalizeEntries(entries, entryNames);
     }
 
-    /**
-     * 读取 tar.gz / tgz 压缩包内容
-     */
-    private Map<String, byte[]> readTarGzEntries(MultipartFile file) {
+    private Map<String, byte[]> readTarGzEntries(MultipartFile file, Set<String> expectedNames) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(file.getInputStream());
-             TarArchiveInputStream tarInputStream = new TarArchiveInputStream(gzipInputStream)) {
-            readTarStreamEntries(tarInputStream, entries, entryNames, state);
+             TarArchiveInputStream tarInputStream = createTarInputStream(gzipInputStream)) {
+            readTarStreamEntries(tarInputStream, entries, entryNames, state, expectedNames);
         } catch (IOException ex) {
-            log.error("读取测试数据压缩包失败", ex);
-            throw new InternalServerException("读取测试数据压缩包失败");
+            log.warn("读取测试数据压缩包失败", ex);
+            throw new BadRequestException("压缩包格式错误");
         }
 
         return finalizeEntries(entries, entryNames);
     }
 
-    /**
-     * 统一处理 tar 流的条目读取逻辑
-     */
     private void readTarStreamEntries(TarArchiveInputStream tarInputStream,
                                       Map<String, byte[]> entries,
                                       List<String> entryNames,
-                                      ArchiveReadState state) throws IOException {
+                                      ArchiveReadState state,
+                                      Set<String> expectedNames) throws IOException {
         while (true) {
             var entry = tarInputStream.getNextEntry();
             if (entry == null) {
@@ -229,15 +138,18 @@ public class ProblemArchiveExtractor {
                 throw new BadRequestException("压缩包包含非法链接文件");
             }
             String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-            putEntry(entries, entryNames, state, entryName,
-                    () -> readAllBytes(tarInputStream, entryName, state));
+            boolean keep = shouldKeepEntry(entryName, expectedNames);
+            validateEntryCount(state);
+            byte[] content = readEntryBytes(tarInputStream::read, entryName, state, keep);
+            if (keep) {
+                ensureNoDuplicate(entries, entryName);
+                entryNames.add(entryName);
+                entries.put(entryName, content);
+            }
         }
     }
 
-    /**
-     * 读取 7z 压缩包内容
-     */
-    private Map<String, byte[]> readSevenZEntries(MultipartFile file) {
+    private Map<String, byte[]> readSevenZEntries(MultipartFile file, Set<String> expectedNames) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
@@ -255,8 +167,14 @@ public class ProblemArchiveExtractor {
                         continue;
                     }
                     String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-                    putEntry(entries, entryNames, state, entryName,
-                            () -> readAllBytes(sevenZFile, entryName, state));
+                    boolean keep = shouldKeepEntry(entryName, expectedNames);
+                    validateEntryCount(state);
+                    byte[] content = readEntryBytes(sevenZFile::read, entryName, state, keep);
+                    if (keep) {
+                        ensureNoDuplicate(entries, entryName);
+                        entryNames.add(entryName);
+                        entries.put(entryName, content);
+                    }
                 }
             }
         } catch (IOException ex) {
@@ -271,16 +189,11 @@ public class ProblemArchiveExtractor {
         return finalizeEntries(entries, entryNames);
     }
 
-    private byte[] readAllBytes(InputStream inputStream, String entryName, ArchiveReadState state) throws IOException {
-        return readAllBytesInternal(inputStream::read, entryName, state);
-    }
-
-    private byte[] readAllBytes(SevenZFile sevenZFile, String entryName, ArchiveReadState state) throws IOException {
-        return readAllBytesInternal(sevenZFile::read, entryName, state);
-    }
-
-    private byte[] readAllBytesInternal(BufferReader reader, String entryName, ArchiveReadState state) throws IOException {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    private byte[] readEntryBytes(BufferReader reader, String entryName, ArchiveReadState state, boolean keep)
+            throws IOException {
+        ByteArrayOutputStream outputStream = keep ? new ByteArrayOutputStream() : null;
+        CharsetDecoder decoder = keep ? createUtf8Decoder(entryName) : null;
+        CharBuffer charBuffer = keep ? CharBuffer.allocate(4096) : null;
         byte[] buffer = new byte[4096];
         long entrySize = 0;
         int len;
@@ -290,37 +203,62 @@ public class ProblemArchiveExtractor {
                 throw new BadRequestException("解压后单文件过大: " + entryName);
             }
             state.addBytes(len);
-            outputStream.write(buffer, 0, len);
+            if (keep) {
+                validateUtf8Chunk(decoder, charBuffer, buffer, len, entryName);
+                outputStream.write(buffer, 0, len);
+            }
         }
-        return outputStream.toByteArray();
+        if (keep) {
+            finishUtf8Decode(decoder, charBuffer, entryName);
+        }
+        return keep ? outputStream.toByteArray() : null;
     }
 
-    /**
-     * 统一处理条目去重、计数与读取
-     */
-    private void putEntry(Map<String, byte[]> entries,
-                          List<String> entryNames,
-                          ArchiveReadState state,
-                          String entryName,
-                          EntryReader reader) throws IOException {
-        validateEntryCount(state);
+    private CharsetDecoder createUtf8Decoder(String entryName) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT);
+        } catch (Exception ex) {
+            throw new BadRequestException("测试数据内容必须为UTF-8: " + entryName);
+        }
+    }
+
+    private void validateUtf8Chunk(CharsetDecoder decoder, CharBuffer charBuffer,
+                                   byte[] buffer, int len, String entryName) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, len);
+        while (byteBuffer.hasRemaining()) {
+            CoderResult result = decoder.decode(byteBuffer, charBuffer, false);
+            if (result.isError()) {
+                try {
+                    result.throwException();
+                } catch (CharacterCodingException ex) {
+                    throw new BadRequestException("测试数据内容必须为UTF-8: " + entryName);
+                }
+            }
+            charBuffer.clear();
+        }
+    }
+
+    private void finishUtf8Decode(CharsetDecoder decoder, CharBuffer charBuffer, String entryName) {
+        try {
+            CoderResult result = decoder.decode(ByteBuffer.allocate(0), charBuffer, true);
+            if (result.isError()) {
+                result.throwException();
+            }
+            result = decoder.flush(charBuffer);
+            if (result.isError()) {
+                result.throwException();
+            }
+        } catch (CharacterCodingException ex) {
+            throw new BadRequestException("测试数据内容必须为UTF-8: " + entryName);
+        }
+    }
+
+    private void ensureNoDuplicate(Map<String, byte[]> entries, String entryName) {
         if (entries.containsKey(entryName)) {
             throw new BadRequestException("压缩包存在重复文件名: " + entryName);
         }
-        byte[] content = reader.read();
-        entryNames.add(entryName);
-        entries.put(entryName, content);
-    }
-
-    private String normalizeZipName(String name, String errorMessage) {
-        if (!StringUtils.hasText(name)) {
-            throw new BadRequestException(errorMessage);
-        }
-        String trimmed = name.trim();
-        if (!isSafeFileName(trimmed)) {
-            throw new BadRequestException(errorMessage);
-        }
-        return trimmed;
     }
 
     private String normalizeZipEntryName(String name, String errorMessage) {
@@ -364,6 +302,21 @@ public class ProblemArchiveExtractor {
             return false;
         }
         return true;
+    }
+
+    private boolean shouldKeepEntry(String entryName, Set<String> expectedNames) {
+        if (expectedNames.contains(entryName)) {
+            return true;
+        }
+        int slashIndex = entryName.indexOf('/');
+        if (slashIndex <= 0) {
+            return false;
+        }
+        if (entryName.indexOf('/', slashIndex + 1) >= 0) {
+            return false;
+        }
+        String leaf = entryName.substring(slashIndex + 1);
+        return expectedNames.contains(leaf);
     }
 
     private void validateEntryCount(ArchiveReadState state) {
@@ -434,55 +387,30 @@ public class ProblemArchiveExtractor {
         return stripped;
     }
 
-    private String detectArchiveFormat(MultipartFile file) {
-        try (InputStream inputStream = file.getInputStream()) {
-            byte[] header = inputStream.readNBytes(512);
-            if (header.length >= 6) {
-                if ((header[0] & 0xFF) == 0x37 && (header[1] & 0xFF) == 0x7A
-                        && (header[2] & 0xFF) == 0xBC && (header[3] & 0xFF) == 0xAF
-                        && (header[4] & 0xFF) == 0x27 && (header[5] & 0xFF) == 0x1C) {
-                    return "7z";
-                }
-            }
-            if (header.length >= 4) {
-                if (header[0] == 'P' && header[1] == 'K'
-                        && (header[2] == 3 || header[2] == 5 || header[2] == 7)
-                        && (header[3] == 4 || header[3] == 6 || header[3] == 8)) {
-                    return "zip";
-                }
-            }
-            if (header.length >= 2) {
-                if ((header[0] & 0xFF) == 0x1F && (header[1] & 0xFF) == 0x8B) {
-                    return "gzip";
-                }
-            }
-            if (hasUstar(header)) {
-                return "tar";
-            }
-            return "unknown";
-        } catch (IOException ex) {
-            log.error("读取压缩包头信息失败", ex);
-            throw new InternalServerException("读取测试数据压缩包失败");
-        }
+    private TarArchiveInputStream createTarInputStream(InputStream inputStream) {
+        return new TarArchiveInputStream(inputStream, StandardCharsets.UTF_8.name());
     }
 
-    private boolean looksLikeTarGz(MultipartFile file) {
-        try (GZIPInputStream gzipInputStream = new GZIPInputStream(file.getInputStream())) {
-            byte[] header = gzipInputStream.readNBytes(512);
-            return hasUstar(header);
-        } catch (IOException ex) {
-            log.warn("读取tar.gz压缩包头失败", ex);
-            return false;
+    private void validateTextContent(String text, String entryName) {
+        long maxTextSize = testcaseProperties.getMaxTextSize();
+        if (maxTextSize > 0 && text.length() > maxTextSize) {
+            throw new BadRequestException("测试数据文本过大: " + entryName);
         }
-    }
-
-    private boolean hasUstar(byte[] header) {
-        if (header.length < 262) {
-            return false;
+        int maxLineLength = testcaseProperties.getMaxLineLength();
+        if (maxLineLength > 0) {
+            int lineLength = 0;
+            for (int i = 0; i < text.length(); i++) {
+                char ch = text.charAt(i);
+                if (ch == '\n' || ch == '\r') {
+                    lineLength = 0;
+                    continue;
+                }
+                lineLength++;
+                if (lineLength > maxLineLength) {
+                    throw new BadRequestException("测试数据存在过长行: " + entryName);
+                }
+            }
         }
-        return header[257] == 'u' && header[258] == 's'
-                && header[259] == 't' && header[260] == 'a'
-                && header[261] == 'r';
     }
 
     private static class ArchiveReadState {
@@ -523,24 +451,6 @@ public class ProblemArchiveExtractor {
         private long getMaxEntrySize() {
             return maxEntrySize;
         }
-    }
-
-    @Getter
-    public static class NameRuleItem {
-        private final int id;
-        private final String inputName;
-        private final String answerName;
-
-        private NameRuleItem(int id, String inputName, String answerName) {
-            this.id = id;
-            this.inputName = inputName;
-            this.answerName = answerName;
-        }
-    }
-
-    @FunctionalInterface
-    private interface EntryReader {
-        byte[] read() throws IOException;
     }
 
     @FunctionalInterface
