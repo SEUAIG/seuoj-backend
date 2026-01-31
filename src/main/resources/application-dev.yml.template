@@ -15,3 +15,10 @@ mybatis-plus:
 judge:
     server-url: http://localhost:8081
     secret: thisisatemplateofthesecret # 和评测端约定的密钥，用于校验请求来源是否是可靠评测端
+problem:
+  testcase:
+    max-archive-size: 52428800 # 50MB
+    max-entry-count: 200
+    max-entry-size: 5242880 # 5MB
+    max-total-size: 209715200 # 200MB
+    max-compression-ratio: 50

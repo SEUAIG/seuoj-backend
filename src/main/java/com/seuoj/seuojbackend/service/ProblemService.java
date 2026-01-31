@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.service;
+﻿package com.seuoj.seuojbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -15,17 +15,16 @@ import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -36,7 +35,8 @@ public class ProblemService {
     private final TagMapper tagMapper;
     private final ProblemTagRelMapper problemTagRelMapper;
 
-    public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper, ProblemTagRelMapper problemTagRelMapper) {
+    public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
+                          ProblemTagRelMapper problemTagRelMapper) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
@@ -52,7 +52,7 @@ public class ProblemService {
     public ProblemDetailVO getProblemDetail(String pid) {
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(pid);
         if (problemDetail == null) {
-            log.warn("获取题目详情时发现题目 {} 不存在", pid);
+            log.warn("获取题目详情时发现题目{} 不存在", pid);
             throw new NotFoundException("题目不存在");
         }
 
@@ -61,7 +61,7 @@ public class ProblemService {
 
         ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(pid);
         if (problemContentDTO == null) {
-            log.warn("题目 {} 的内容在判题服务中缺失", pid);
+            log.warn("题目 {} 的内容在评测服务中缺失", pid);
             throw new NotFoundException("题目不存在");
         }
 

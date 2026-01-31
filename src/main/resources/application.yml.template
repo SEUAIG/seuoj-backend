@@ -23,3 +23,11 @@ jwt:
 
 storage:
   user-code-storage-path: ./data/user-code
+
+problem:
+  testcase:
+    max-archive-size: 52428800 # 50MB
+    max-entry-count: 200
+    max-entry-size: 5242880 # 5MB
+    max-total-size: 209715200 # 200MB
+    max-compression-ratio: 50

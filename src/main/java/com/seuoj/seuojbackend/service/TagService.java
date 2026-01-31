@@ -8,7 +8,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
+
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +18,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class TagService {
 
-    private static final Set<String> SUPPORTED_TYPES = Set.of("algorithm", "source", "time", "special");
+    private static final List<TagGroupType> SUPPORTED_TYPES = List.of(
+            TagGroupType.ALGORITHM,
+            TagGroupType.SOURCE,
+            TagGroupType.TIME,
+            TagGroupType.SPECIAL
+    );
 
     private final TagMapper tagMapper;
 
@@ -33,19 +40,25 @@ public class TagService {
         List<TagGroupTagRow> rows = tagMapper.listTagWithGroup();
 
         Map<String, LinkedHashMap<Long, TagListVO.TagGroup>> grouped = new LinkedHashMap<>();
-        grouped.put("algorithm", new LinkedHashMap<>());
-        grouped.put("source", new LinkedHashMap<>());
-        grouped.put("time", new LinkedHashMap<>());
-        grouped.put("special", new LinkedHashMap<>());
+        for (TagGroupType type : SUPPORTED_TYPES) {
+            grouped.put(type.getCode(), new LinkedHashMap<>());
+        }
 
         for (TagGroupTagRow row : rows) {
-            if (row == null || row.getGroupId() == null || !SUPPORTED_TYPES.contains(row.getGroupType())) {
+            if (row == null || row.getGroupId() == null) {
                 if (row != null && row.getGroupType() != null) {
                     log.warn("获取标签列表时发现未知分组类型, groupId={}, type={}", row.getGroupId(), row.getGroupType());
                 }
                 continue;
             }
-            Map<Long, TagListVO.TagGroup> groupMap = grouped.get(row.getGroupType());
+            TagGroupType type = TagGroupType.fromCode(row.getGroupType()).orElse(null);
+            if (type == null) {
+                if (row.getGroupType() != null) {
+                    log.warn("获取标签列表时发现未知分组类型, groupId={}, type={}", row.getGroupId(), row.getGroupType());
+                }
+                continue;
+            }
+            Map<Long, TagListVO.TagGroup> groupMap = grouped.get(type.getCode());
             TagListVO.TagGroup groupVO = groupMap.get(row.getGroupId());
             if (groupVO == null) {
                 groupVO = new TagListVO.TagGroup();
@@ -62,10 +75,36 @@ public class TagService {
         }
 
         TagListVO vo = new TagListVO();
-        vo.setAlgorithm(new ArrayList<>(grouped.get("algorithm").values()));
-        vo.setSource(new ArrayList<>(grouped.get("source").values()));
-        vo.setTime(new ArrayList<>(grouped.get("time").values()));
-        vo.setSpecial(new ArrayList<>(grouped.get("special").values()));
+        vo.setAlgorithm(new ArrayList<>(grouped.get(TagGroupType.ALGORITHM.getCode()).values()));
+        vo.setSource(new ArrayList<>(grouped.get(TagGroupType.SOURCE.getCode()).values()));
+        vo.setTime(new ArrayList<>(grouped.get(TagGroupType.TIME.getCode()).values()));
+        vo.setSpecial(new ArrayList<>(grouped.get(TagGroupType.SPECIAL.getCode()).values()));
         return vo;
+    }
+
+    @Getter
+    private enum TagGroupType {
+        ALGORITHM("algorithm"),
+        SOURCE("source"),
+        TIME("time"),
+        SPECIAL("special");
+
+        private final String code;
+
+        TagGroupType(String code) {
+            this.code = code;
+        }
+
+        public static Optional<TagGroupType> fromCode(String code) {
+            if (code == null || code.isEmpty()) {
+                return Optional.empty();
+            }
+            for (TagGroupType type : values()) {
+                if (type.code.equals(code)) {
+                    return Optional.of(type);
+                }
+            }
+            return Optional.empty();
+        }
     }
 }
