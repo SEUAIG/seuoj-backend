@@ -8,6 +8,8 @@ import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,9 +20,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * 评测端 HTTP 请求发送统一层
@@ -186,6 +190,71 @@ public class JudgeHttpClient implements JudgeClient {
         } catch (RestClientException ex) {
             log.warn("评测端未返回200ok, 路径: {}", url, ex);
             throw new JudgeRemoteException("无法向评测端获取题目测试点元信息", ex);
+        }
+    }
+
+    @Override
+    public void proxyProblemFile(String pid, String fileName, HttpServletResponse response) {
+        String url = UriComponentsBuilder.fromUriString(judgeServerUrl)
+                .pathSegment("judge", "problem", "file", pid, fileName)
+                .build()
+                .toUriString();
+        log.info("向评测端请求题目文件, pid={}, fileName={}, url={}", pid, fileName, url);
+        try {
+            restTemplate.execute(url, HttpMethod.GET, request -> {
+                if (judgeSecret != null && !judgeSecret.isEmpty()) {
+                    request.getHeaders().set(SECRET_HEADER, judgeSecret);
+                }
+            }, clientResponse -> {
+                response.setStatus(clientResponse.getStatusCode().value());
+                HttpHeaders headers = clientResponse.getHeaders();
+                MediaType contentType = headers.getContentType();
+                if (contentType != null) {
+                    response.setContentType(contentType.toString());
+                }
+                long contentLength = headers.getContentLength();
+                if (contentLength >= 0) {
+                    response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
+                }
+                String disposition = headers.getFirst(HttpHeaders.CONTENT_DISPOSITION);
+                if (disposition != null) {
+                    response.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition);
+                }
+                try (var body = clientResponse.getBody()) {
+                    StreamUtils.copy(body, response.getOutputStream());
+                }
+                response.flushBuffer();
+                return null;
+            });
+        } catch (HttpStatusCodeException ex) {
+            handleProxyError(ex, response);
+        } catch (RestClientException ex) {
+            log.warn("评测端请求题目文件失败, pid={}, fileName={}, url={}", pid, fileName, url, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目文件", ex);
+        }
+    }
+
+    private void handleProxyError(HttpStatusCodeException ex, HttpServletResponse response) {
+        try {
+            response.setStatus(ex.getStatusCode().value());
+            HttpHeaders headers = ex.getResponseHeaders();
+            if (headers != null) {
+                MediaType contentType = headers.getContentType();
+                if (contentType != null) {
+                    response.setContentType(contentType.toString());
+                }
+                String disposition = headers.getFirst(HttpHeaders.CONTENT_DISPOSITION);
+                if (disposition != null) {
+                    response.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition);
+                }
+            }
+            byte[] body = ex.getResponseBodyAsByteArray();
+            if (body.length > 0) {
+                StreamUtils.copy(body, response.getOutputStream());
+            }
+            response.flushBuffer();
+        } catch (IOException ioEx) {
+            throw new JudgeRemoteException("透传评测端响应失败", ioEx);
         }
     }
 

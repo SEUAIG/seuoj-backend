@@ -5,6 +5,7 @@ import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -72,6 +73,14 @@ public class ProblemController {
     @GetMapping("/data/{pid}")
     public Result<List<ProblemTestcaseMetaVO>> getProblemData(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
+    }
+
+    @AllowAnonymous
+    @GetMapping("/file/{pid}/{file_name}")
+    public void getProblemFile(@PathVariable String pid,
+                               @PathVariable("file_name") String fileName,
+                               HttpServletResponse response) {
+        problemTestcaseService.proxyProblemFile(pid, fileName, response);
     }
 
 }

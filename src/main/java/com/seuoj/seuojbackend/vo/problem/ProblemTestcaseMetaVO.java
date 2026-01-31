@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.vo.problem;
+package com.seuoj.seuojbackend.vo.problem;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

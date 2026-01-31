@@ -5,6 +5,7 @@ import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
@@ -49,4 +50,13 @@ public interface JudgeClient {
      * @return 测试点元信息
      */
     List<JudgeProblemDataResponse.TestcaseMeta> fetchProblemDataMeta(String pid);
+
+    /**
+     * 透传题目文件
+     *
+     * @param pid 题目编号
+     * @param fileName 文件名
+     * @param response 响应流
+     */
+    void proxyProblemFile(String pid, String fileName, HttpServletResponse response);
 }

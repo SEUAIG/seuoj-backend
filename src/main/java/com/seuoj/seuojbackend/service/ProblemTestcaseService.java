@@ -10,12 +10,15 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.archive.ProblemArchiveExtractor;
 import com.seuoj.seuojbackend.vo.problem.ProblemTestcaseMetaVO;
+import jakarta.servlet.http.HttpServletResponse;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -39,9 +42,9 @@ public class ProblemTestcaseService {
     /**
      * 上传题目数据
      *
-     * @param pid 题目编号
-     * @param file 测试数据文件
-     * @param format 文件格式
+     * @param pid      题目编号
+     * @param file     测试数据文件
+     * @param format   文件格式
      * @param nameRule 测试数据命名规则
      */
     public void uploadProblemTestcases(String pid, MultipartFile file, String format, String nameRule) {
@@ -144,5 +147,33 @@ public class ProblemTestcaseService {
                     return vo;
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 透传题目文件
+     *
+     * @param pid      题目编号
+     * @param fileName 文件名
+     * @param response 响应流
+     */
+    public void proxyProblemFile(String pid, String fileName, HttpServletResponse response) {
+        if (!StringUtils.hasText(pid) || !StringUtils.hasText(fileName)) {
+            throw new BadRequestException("参数不能为空");
+        }
+        if (containsUnsafePathSegment(pid) || containsUnsafePathSegment(fileName)) {
+            throw new BadRequestException("参数包含非法字符");
+        }
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (problem == null) {
+            log.warn("获取题目文件时发现题目不存在, pid={}", pid);
+            throw new NotFoundException("题目不存在");
+        }
+        judgeClient.proxyProblemFile(pid, fileName, response);
+    }
+
+    private boolean containsUnsafePathSegment(String value) {
+        return value.contains("/") || value.contains("\\")
+                || value.contains("..") || value.contains(":");
     }
 }
