@@ -18,6 +18,7 @@ import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemTestcaseMetaVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -65,6 +66,12 @@ public class ProblemController {
         }
         problemTestcaseService.uploadProblemTestcases(pid, file, format, nameRule);
         return Result.success();
+    }
+
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/data/{pid}")
+    public Result<List<ProblemTestcaseMetaVO>> getProblemData(@PathVariable String pid) {
+        return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
     }
 
 }

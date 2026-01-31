@@ -3,16 +3,19 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataRequest;
+import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.archive.ProblemArchiveExtractor;
+import com.seuoj.seuojbackend.vo.problem.ProblemTestcaseMetaVO;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -111,5 +114,35 @@ public class ProblemTestcaseService {
         request.setTestcase(testcaseItems);
         judgeClient.uploadProblemData(request);
         log.info("上传题目数据结束, pid={}", pid);
+    }
+
+    /**
+     * 获取题目测试点元信息
+     *
+     * @param pid 题目编号
+     * @return 测试点元信息
+     */
+    public List<ProblemTestcaseMetaVO> getProblemTestcaseMeta(String pid) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (problem == null) {
+            log.warn("获取题目测试点元信息时发现题目不存在, pid={}", pid);
+            throw new NotFoundException("题目不存在");
+        }
+
+        List<JudgeProblemDataResponse.TestcaseMeta> testcases = judgeClient.fetchProblemDataMeta(pid);
+        if (testcases == null || testcases.isEmpty()) {
+            return List.of();
+        }
+
+        return testcases.stream()
+                .map(item -> {
+                    ProblemTestcaseMetaVO vo = new ProblemTestcaseMetaVO();
+                    vo.setId(item.getId());
+                    vo.setInputName(item.getInputName());
+                    vo.setAnswerName(item.getAnswerName());
+                    return vo;
+                })
+                .collect(Collectors.toList());
     }
 }

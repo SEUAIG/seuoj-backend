@@ -1,12 +1,14 @@
 package com.seuoj.seuojbackend.client;
 
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataRequest;
+import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import jakarta.annotation.Resource;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -149,6 +151,41 @@ public class JudgeHttpClient implements JudgeClient {
 
             log.warn("评测端未返回200ok, 路径: {}", url, ex);
             throw new JudgeRemoteException("无法向评测端上传题目数据", ex);
+        }
+    }
+
+    @Override
+    public List<JudgeProblemDataResponse.TestcaseMeta> fetchProblemDataMeta(String pid) {
+        String url = judgeServerUrl + "/judge/problem/data/" + pid;
+        log.info("向评测端请求题目测试点元信息, pid={}, url={}", pid, url);
+        try {
+            ResponseEntity<Result<JudgeProblemDataResponse>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<JudgeProblemDataResponse> body = response.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.getCode())
+                    && body.getData() != null && body.getData().getTestCases() != null) {
+                log.info("成功获取题目测试点元信息, pid={}, count={}", pid, body.getData().getTestCases().size());
+                return body.getData().getTestCases();
+            }
+
+            log.error("获取题目测试点元信息失败, pid={}, body={}", pid, body);
+            throw new JudgeRemoteException("获取题目测试点元信息失败");
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                log.warn("评测端未找到题目, pid={}, url={}", pid, url);
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            log.warn("评测端返回了非200ok, status={}, url={}", statusCode, url, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目测试点元信息", ex);
+        } catch (RestClientException ex) {
+            log.warn("评测端未返回200ok, 路径: {}", url, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目测试点元信息", ex);
         }
     }
 

@@ -1,9 +1,11 @@
 package com.seuoj.seuojbackend.client;
 
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataRequest;
+import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
+import java.util.List;
 
 /**
  * 评测服务请求抽象类
@@ -39,4 +41,12 @@ public interface JudgeClient {
      * @param request 题目数据请求
      */
     void uploadProblemData(JudgeProblemDataRequest request);
+
+    /**
+     * 获取题目测试点元信息
+     *
+     * @param pid problem id
+     * @return 测试点元信息
+     */
+    List<JudgeProblemDataResponse.TestcaseMeta> fetchProblemDataMeta(String pid);
 }
