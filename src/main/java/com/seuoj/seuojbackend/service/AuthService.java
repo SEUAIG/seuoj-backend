@@ -72,13 +72,13 @@ public class AuthService {
     public LoginVO login(LoginDTO dto) {
         UserInfo user = userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("email", dto.getEmail()));
         if (user == null) {
-            throw new AuthorizationException("邮箱错误");
+            throw new AuthorizationException("密码或邮箱错误");
         }
 
         boolean isPasswordMatch = passwordEncoder.matches(dto.getPassword(), user.getPassword());
 
         if (!isPasswordMatch) {
-            throw new AuthorizationException("密码错误");
+            throw new AuthorizationException("密码或邮箱错误");
         }
 
         String token = jwtUtil.createToken(user.getId());

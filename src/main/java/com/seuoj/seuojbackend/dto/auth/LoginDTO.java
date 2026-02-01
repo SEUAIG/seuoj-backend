@@ -12,6 +12,7 @@ import lombok.Data;
 public class LoginDTO {
     @NotEmpty(message = "邮箱不能为空")
     @Email(message = "邮箱格式不正确")
+    @Size(max = 128, message = "邮箱长度不能超过128个字符")
     String email;
 
     @NotEmpty(message = "密码不能为空")

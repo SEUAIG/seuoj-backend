@@ -1,5 +1,7 @@
 package com.seuoj.seuojbackend.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.seuoj.seuojbackend.dto.auth.SendCodeDTO;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.vo.auth.SendCodeVO;
@@ -10,9 +12,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 验证码服务
@@ -37,22 +38,48 @@ public class VerificationCodeService {
     private static final int SEND_INTERVAL_SECONDS = 60; // 1分钟
 
     /**
-     * 存储验证码信息：verificationId -> CodeInfo
+     * 缓存最大容量，防止内存溢出
      */
-    private final Map<String, CodeInfo> codeStore = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 10000;
 
     /**
-     * 存储邮箱最后发送时间：email -> timestamp
+     * 存储验证码：verificationId -> code
+     * 写入后 CODE_EXPIRE_SECONDS 秒自动过期
      */
-    private final Map<String, Long> emailLastSendTime = new ConcurrentHashMap<>();
+    private final Cache<String, String> codeStore;
 
     /**
      * 存储 verificationId 与 email 的映射
+     * 与验证码同时过期
      */
-    private final Map<String, String> verificationIdToEmail = new ConcurrentHashMap<>();
+    private final Cache<String, String> verificationIdToEmail;
+
+    /**
+     * 存储邮箱最后发送时间：email -> timestamp
+     * 写入后 SEND_INTERVAL_SECONDS 秒自动过期
+     */
+    private final Cache<String, Long> emailLastSendTime;
 
     public VerificationCodeService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
+
+        // 初始化验证码存储缓存
+        this.codeStore = Caffeine.newBuilder()
+                .expireAfterWrite(CODE_EXPIRE_SECONDS, TimeUnit.SECONDS)
+                .maximumSize(MAX_CACHE_SIZE)
+                .build();
+
+        // 初始化 verificationId -> email 映射缓存
+        this.verificationIdToEmail = Caffeine.newBuilder()
+                .expireAfterWrite(CODE_EXPIRE_SECONDS, TimeUnit.SECONDS)
+                .maximumSize(MAX_CACHE_SIZE)
+                .build();
+
+        // 初始化邮箱发送频率限制缓存
+        this.emailLastSendTime = Caffeine.newBuilder()
+                .expireAfterWrite(SEND_INTERVAL_SECONDS, TimeUnit.SECONDS)
+                .maximumSize(MAX_CACHE_SIZE)
+                .build();
     }
 
     /**
@@ -60,14 +87,13 @@ public class VerificationCodeService {
      */
     public SendCodeVO sendCode(SendCodeDTO dto) {
         String email = dto.getEmail();
-        long now = System.currentTimeMillis();
 
         // 检查发送频率
-        Long lastSendTime = emailLastSendTime.get(email);
+        Long lastSendTime = emailLastSendTime.getIfPresent(email);
         if (lastSendTime != null) {
-            long elapsed = (now - lastSendTime) / 1000;
-            if (elapsed < SEND_INTERVAL_SECONDS) {
-                int nextSendIn = (int) (SEND_INTERVAL_SECONDS - elapsed);
+            long elapsed = (System.currentTimeMillis() - lastSendTime) / 1000;
+            int nextSendIn = (int) (SEND_INTERVAL_SECONDS - elapsed);
+            if (nextSendIn > 0) {
                 throw new BadRequestException("发送过于频繁，请 " + nextSendIn + " 秒后再试");
             }
         }
@@ -79,10 +105,9 @@ public class VerificationCodeService {
         String verificationId = UUID.randomUUID().toString();
 
         // 存储验证码信息
-        CodeInfo codeInfo = new CodeInfo(code, now + CODE_EXPIRE_SECONDS * 1000L);
-        codeStore.put(verificationId, codeInfo);
+        codeStore.put(verificationId, code);
         verificationIdToEmail.put(verificationId, email);
-        emailLastSendTime.put(email, now);
+        emailLastSendTime.put(email, System.currentTimeMillis());
 
         // 发送邮件
         sendEmail(email, code);
@@ -106,24 +131,18 @@ public class VerificationCodeService {
      * @return 验证通过返回对应的邮箱，否则返回null
      */
     public String verifyCode(String verificationId, String code) {
-        CodeInfo codeInfo = codeStore.get(verificationId);
-        if (codeInfo == null) {
-            return null;
-        }
-
-        // 检查是否过期
-        if (System.currentTimeMillis() > codeInfo.expireTime) {
-            codeStore.remove(verificationId);
-            verificationIdToEmail.remove(verificationId);
+        // getIfPresent 返回 null 表示已过期或不存在
+        String storedCode = codeStore.getIfPresent(verificationId);
+        if (storedCode == null) {
             return null;
         }
 
         // 验证码匹配
-        if (codeInfo.code.equals(code)) {
-            String email = verificationIdToEmail.get(verificationId);
+        if (storedCode.equals(code)) {
+            String email = verificationIdToEmail.getIfPresent(verificationId);
             // 验证成功后删除验证码（一次性使用）
-            codeStore.remove(verificationId);
-            verificationIdToEmail.remove(verificationId);
+            codeStore.invalidate(verificationId);
+            verificationIdToEmail.invalidate(verificationId);
             return email;
         }
 
@@ -155,11 +174,5 @@ public class VerificationCodeService {
             log.error("验证码邮件发送失败: {}", to, e);
             throw new BadRequestException("邮件发送失败，请稍后重试");
         }
-    }
-
-    /**
-     * 验证码信息
-     */
-    private record CodeInfo(String code, long expireTime) {
     }
 }

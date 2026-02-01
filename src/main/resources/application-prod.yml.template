@@ -7,6 +7,17 @@ spring:
     url: jdbc:mysql://<prod_db_host>:<prod_db_port>/<prod_db_name>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: <your_prod_db_username>
     password: <your_prod_db_password>
+  mail:
+    host: <smtp_host>           # 例如: smtp.qq.com, smtp.163.com, smtp.gmail.com
+    port: <smtp_port>           # 例如: 465 (SSL) 或 587 (TLS)
+    username: <your_email>      # 发件邮箱地址
+    password: <your_password>   # 邮箱授权码（非登录密码）
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true        # 使用 SSL 加密
 
 mybatis-plus:
   configuration:
