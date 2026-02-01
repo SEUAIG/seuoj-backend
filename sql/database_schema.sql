@@ -97,7 +97,6 @@ CREATE TABLE `user_info`  (
                               `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                               `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                               PRIMARY KEY (`id`) USING BTREE,
-                              UNIQUE INDEX `uk_username_del`(`username` ASC, `is_del` ASC) USING BTREE,
                               UNIQUE INDEX `uk_email_del`(`email` ASC, `is_del` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户基础表' ROW_FORMAT = DYNAMIC;
 

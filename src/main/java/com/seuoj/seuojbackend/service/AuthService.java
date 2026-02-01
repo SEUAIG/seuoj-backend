@@ -15,6 +15,7 @@ import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,16 +48,11 @@ public class AuthService {
      */
     @Transactional
     public void register(RegisterDTO dto) {
-
-        // 检查用户名是否已存在
-        if (userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("username", dto.getUsername())) != null) {
-            throw new ConflictException("用户名已存在");
-        }
-
         // 检查邮箱是否已存在
         if (userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("email", dto.getEmail())) != null) {
             throw new ConflictException("邮箱已被注册");
         }
+
         // 验证验证码
         String verifiedEmail = verificationCodeService.verifyCode(dto.getVerificationId(), dto.getCode());
         if (verifiedEmail == null) {
@@ -74,7 +70,11 @@ public class AuthService {
         // 使用 passwordEncoder 加密密码
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
-        userInfoMapper.insert(newUser);
+        try {
+            userInfoMapper.insert(newUser);
+        } catch (DuplicateKeyException e) {
+            throw new ConflictException("邮箱已被注册");
+        }
 
         UserRole defaultRole = userRoleMapper.selectOne(new QueryWrapper<UserRole>()
                 .eq("role_code", RoleType.USER.getCode())
