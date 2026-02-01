@@ -1,6 +1,6 @@
 package com.seuoj.seuojbackend.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
@@ -49,8 +49,11 @@ public class AuthService {
      */
     @Transactional
     public void register(RegisterDTO dto) {
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+
         // 检查邮箱是否已存在
-        if (userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("email", dto.getEmail())) != null) {
+        if (userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                .eq(UserInfo::getEmail, normalizedEmail)) != null) {
             throw new ConflictException("邮箱已被注册");
         }
 
@@ -61,13 +64,13 @@ public class AuthService {
         }
 
         // 验证邮箱是否与验证码对应的邮箱一致
-        if (!verifiedEmail.equals(dto.getEmail())) {
+        if (!verifiedEmail.equals(normalizedEmail)) {
             throw new BadRequestException("邮箱与验证码不匹配");
         }
 
         UserInfo newUser = new UserInfo();
         newUser.setUsername(dto.getUsername());
-        newUser.setEmail(dto.getEmail());
+        newUser.setEmail(normalizedEmail);
         // 使用 passwordEncoder 加密密码
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
@@ -77,9 +80,9 @@ public class AuthService {
             throw new ConflictException("邮箱已被注册");
         }
 
-        UserRole defaultRole = userRoleMapper.selectOne(new QueryWrapper<UserRole>()
-                .eq("role_code", RoleType.USER.getCode())
-                .eq("is_del", 0));
+        UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                .eq(UserRole::getIsDel, 0));
         if (defaultRole == null) {
             throw new BadRequestException("默认角色 USER 不存在");
         }
@@ -94,7 +97,9 @@ public class AuthService {
      * 用户登录（使用邮箱+密码登录）
      */
     public LoginVO login(LoginDTO dto) {
-        UserInfo user = userInfoMapper.selectOne(new QueryWrapper<UserInfo>().eq("email", dto.getEmail()));
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                .eq(UserInfo::getEmail, normalizedEmail));
         if (user == null) {
             throw new AuthorizationException("密码或邮箱错误");
         }
@@ -111,5 +116,12 @@ public class AuthService {
         loginVO.setJwt(token);
 
         return loginVO;
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase();
     }
 }

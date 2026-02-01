@@ -1,6 +1,6 @@
 package com.seuoj.seuojbackend.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.ErrorCode;
@@ -162,9 +162,9 @@ class AuthServiceRegisterRaceTest {
     }
 
     private void ensureUserRoleExists() {
-        UserRole role = userRoleMapper.selectOne(new QueryWrapper<UserRole>()
-                .eq("role_code", RoleType.USER.getCode())
-                .eq("is_del", 0));
+        UserRole role = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                .eq(UserRole::getIsDel, 0));
         if (role != null) {
             return;
         }

@@ -112,7 +112,7 @@ public class VerificationCodeService {
      * 发送验证码
      */
     public SendCodeVO sendCode(SendCodeDTO dto) {
-        String email = dto.getEmail();
+        String email = normalizeEmail(dto.getEmail());
 
         // 检查发送频率
         Long lastSendTime = emailLastSendTime.getIfPresent(email);
@@ -213,8 +213,16 @@ public class VerificationCodeService {
             log.info("验证码邮件发送成功: {}", to);
         } catch (Exception e) {
             log.error("验证码邮件发送失败: {}", to, e);
+            // TODO: 可以考虑异步发送与失败重试，避免阻塞并提升可用性
             throw new BadRequestException("邮件发送失败，请稍后重试");
         }
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase();
     }
 
     private void invalidateVerification(String verificationId) {
