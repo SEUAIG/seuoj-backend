@@ -25,12 +25,19 @@ public class ProblemPageDTO {
     private Integer size = 10;
 
     /**
-     * 标题模糊搜索（可选）
+     * 标题模糊搜索
      */
     private String title;
 
     /**
-     * 标签ID列表，多选做完全匹配（可选）
+     * 标签ID列表，多选做完全匹配
      */
     private List<Long> tagIds;
+
+    /**
+     * 支持前端传 tag_ids 参数（snake_case）
+     */
+    public void setTag_ids(List<Long> tagIds) {
+        this.tagIds = tagIds;
+    }
 }

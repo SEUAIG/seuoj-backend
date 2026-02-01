@@ -104,13 +104,12 @@ public class VerificationCodeService {
         // 生成验证会话ID
         String verificationId = UUID.randomUUID().toString();
 
-        // 存储验证码信息
+        // 先发送邮件，成功后再写入缓存
+        sendEmail(email, code);
+
         codeStore.put(verificationId, code);
         verificationIdToEmail.put(verificationId, email);
         emailLastSendTime.put(email, System.currentTimeMillis());
-
-        // 发送邮件
-        sendEmail(email, code);
 
         log.info("验证码已发送到邮箱: {}, verificationId: {}", email, verificationId);
 
