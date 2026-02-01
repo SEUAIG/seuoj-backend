@@ -1,39 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.seuoj.seuojbackend.mapper.ProblemMapper">
-    <update id="atomicallyIncreaseTotalSubmissionCount">
-        UPDATE problem
-        SET total_submit = total_submit + 1
-        WHERE id = #{problemId}
-    </update>
-    <update id="atomicallyIncreaseTotalAcceptCount">
-        UPDATE problem
-        SET total_accept = total_accept + 1
-        WHERE id = #{problemId}
-    </update>
+    <update id="atomicallyIncreaseTotalSubmissionCount"> UPDATE problem SET total_submit =
+        total_submit + 1 WHERE id = #{problemId} </update>
+    <update id="atomicallyIncreaseTotalAcceptCount"> UPDATE problem SET total_accept = total_accept
+        + 1 WHERE id = #{problemId} </update>
 
 
     <resultMap id="ProblemDetailMap" type="com.seuoj.seuojbackend.vo.problem.ProblemDetailVO">
-        <id column="pid" property="pid"/>
-        <result column="title" property="title"/>
-        <result column="total_submit" property="totalSubmit"/>
-        <result column="total_accept" property="totalAccept"/>
+        <id column="pid" property="pid" />
+        <result column="title" property="title" />
+        <result column="total_submit" property="totalSubmit" />
+        <result column="total_accept" property="totalAccept" />
     </resultMap>
 
-    <select id="getProblemDetail" resultMap="ProblemDetailMap">
-        SELECT p.pid,
-               p.title,
-               p.total_submit,
-               p.total_accept
-        FROM problem p
-        WHERE p.pid = #{pid}
-    </select>
+    <select id="getProblemDetail" resultMap="ProblemDetailMap"> SELECT p.pid, p.title,
+        p.total_submit, p.total_accept FROM problem p WHERE p.pid = #{pid} </select>
 
-    <select id="getProblemTags" resultType="java.lang.String">
-        SELECT t.tag_name
-        FROM tag t
-                 JOIN problem_tag_rel ptr ON t.id = ptr.tag_id
-                 JOIN problem p ON ptr.problem_id = p.id
-        WHERE p.pid = #{pid}
-    </select>
+    <select id="getProblemTags" resultType="java.lang.String"> SELECT t.tag_name FROM tag t JOIN
+        problem_tag_rel ptr ON t.id = ptr.tag_id JOIN problem p ON ptr.problem_id = p.id WHERE p.pid
+        = #{pid} </select>
+
+    <!-- 题目列表项映射 -->
+    <resultMap id="ProblemListItemMap" type="com.seuoj.seuojbackend.vo.problem.ProblemListItemVO">
+        <id column="pid" property="pid" />
+        <result column="title" property="title" />
+        <result column="total_submit" property="totalSubmit" />
+        <result column="total_accept" property="totalAccept" />
+    </resultMap>
+
+    <!-- 分页查询题目列表 -->
+    <select id="selectProblemPage" resultMap="ProblemListItemMap"> SELECT DISTINCT p.pid, p.title,
+        p.total_submit, p.total_accept FROM problem p <if test="tagIdsSize > 0"> INNER JOIN
+        problem_tag_rel ptr ON p.id = ptr.problem_id </if>
+        <where> p.is_del = 0 <if
+                test="title != null and title != ''"> AND p.title LIKE CONCAT('%', #{title}, '%') </if>
+            <if
+                test="tagIdsSize > 0"> AND ptr.tag_id IN <foreach collection="tagIds" item="tagId"
+                    open="(" separator="," close=")"> #{tagId} </foreach>
+            </if>
+        </where>
+        <if
+            test="tagIdsSize > 0"> GROUP BY p.id HAVING COUNT(DISTINCT ptr.tag_id) = #{tagIdsSize} </if>
+        ORDER BY p.pid ASC </select>
+
+    <!-- 批量获取题目标签 -->
+    <resultMap id="ProblemTagResultMap"
+        type="com.seuoj.seuojbackend.mapper.ProblemMapper$ProblemTagResult">
+        <result column="pid" property="pid" />
+        <result column="tag_name" property="tagName" />
+    </resultMap>
+
+    <select id="getProblemTagsBatch" resultMap="ProblemTagResultMap"> SELECT p.pid, t.tag_name FROM
+        tag t INNER JOIN problem_tag_rel ptr ON t.id = ptr.tag_id INNER JOIN problem p ON
+        ptr.problem_id = p.id WHERE p.pid IN <foreach collection="pids" item="pid" open="("
+            separator="," close=")"> #{pid} </foreach> AND t.is_del = 0 AND ptr.is_del = 0 </select>
 </mapper>

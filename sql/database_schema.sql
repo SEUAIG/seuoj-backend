@@ -91,12 +91,14 @@ DROP TABLE IF EXISTS `user_info`;
 CREATE TABLE `user_info`  (
                               `id` bigint NOT NULL AUTO_INCREMENT,
                               `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录名',
+                              `email` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邮箱',
                               `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '加密密码',
                               `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
                               `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                               `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                               PRIMARY KEY (`id`) USING BTREE,
-                              UNIQUE INDEX `uk_username_del`(`username` ASC, `is_del` ASC) USING BTREE
+                              UNIQUE INDEX `uk_username_del`(`username` ASC, `is_del` ASC) USING BTREE,
+                              UNIQUE INDEX `uk_email_del`(`email` ASC, `is_del` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户基础表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
