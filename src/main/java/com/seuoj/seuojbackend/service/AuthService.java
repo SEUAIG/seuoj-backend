@@ -1,17 +1,23 @@
 package com.seuoj.seuojbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.entity.UserInfo;
+import com.seuoj.seuojbackend.entity.UserRole;
+import com.seuoj.seuojbackend.entity.UserRoleRel;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户身份相关服务
@@ -20,13 +26,17 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final UserInfoMapper userInfoMapper;
+    private final UserRoleMapper userRoleMapper;
+    private final UserRoleRelMapper userRoleRelMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final VerificationCodeService verificationCodeService;
 
-    public AuthService(UserInfoMapper userInfoMapper, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-            VerificationCodeService verificationCodeService) {
+    public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
+                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil, VerificationCodeService verificationCodeService) {
         this.userInfoMapper = userInfoMapper;
+        this.userRoleMapper = userRoleMapper;
+        this.userRoleRelMapper = userRoleRelMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.verificationCodeService = verificationCodeService;
@@ -35,6 +45,7 @@ public class AuthService {
     /**
      * 用户注册（邮箱验证码确认）
      */
+    @Transactional
     public void register(RegisterDTO dto) {
 
         // 检查用户名是否已存在
@@ -64,6 +75,18 @@ public class AuthService {
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         userInfoMapper.insert(newUser);
+
+        UserRole defaultRole = userRoleMapper.selectOne(new QueryWrapper<UserRole>()
+                .eq("role_code", RoleType.USER.getCode())
+                .eq("is_del", 0));
+        if (defaultRole == null) {
+            throw new BadRequestException("默认角色 USER 不存在");
+        }
+
+        UserRoleRel rel = new UserRoleRel();
+        rel.setUserId(newUser.getId());
+        rel.setRoleId(defaultRole.getId());
+        userRoleRelMapper.insert(rel);
     }
 
     /**
