@@ -19,6 +19,12 @@ spring:
           ssl:
             enable: true        # 使用 SSL 加密
 
+verification:
+  code-expire-seconds: 300
+  send-interval-seconds: 60
+  cache-max-size: 10000
+  max-verify-fails: 5
+
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl

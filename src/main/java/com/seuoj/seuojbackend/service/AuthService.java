@@ -1,6 +1,7 @@
 package com.seuoj.seuojbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
@@ -56,7 +57,7 @@ public class AuthService {
         // 验证验证码
         String verifiedEmail = verificationCodeService.verifyCode(dto.getVerificationId(), dto.getCode());
         if (verifiedEmail == null) {
-            throw new BadRequestException("验证码无效或已过期");
+            throw new BadRequestException(ErrorCode.CODE_INVALID_OR_EXPIRED.getCode(), "验证码无效或已过期");
         }
 
         // 验证邮箱是否与验证码对应的邮箱一致

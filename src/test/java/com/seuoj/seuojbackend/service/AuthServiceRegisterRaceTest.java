@@ -3,8 +3,10 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.entity.UserRole;
+import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -88,6 +90,38 @@ class AuthServiceRegisterRaceTest {
         if (!others.isEmpty()) {
             Assertions.fail("出现非预期异常: " + others.get(0));
         }
+    }
+
+    @Test
+    void register_verification_code_too_many_tries() {
+        ensureUserRoleExists();
+
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String email = "fail_" + suffix + "@example.com";
+        String password = "test1234";
+        String verificationId = UUID.randomUUID().toString();
+
+        putTestCode(verificationId, email, "123456");
+
+        RegisterDTO dto = new RegisterDTO();
+        dto.setUsername("user_fail_" + suffix);
+        dto.setPassword(password);
+        dto.setEmail(email);
+        dto.setVerificationId(verificationId);
+        dto.setCode("000000");
+
+        BadRequestException last = null;
+        for (int i = 0; i < 5; i++) {
+            try {
+                authService.register(dto);
+            } catch (BadRequestException e) {
+                last = e;
+                log.warn("验证码错误尝试: {}，{}", i + 1, e.getMessage());
+            }
+        }
+
+        Assertions.assertNotNull(last, "应捕获验证码错误异常");
+        Assertions.assertEquals(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), last.getCode(), "应触发尝试次数过多");
     }
 
     private void runRegister(RegisterDTO dto, CountDownLatch start, CountDownLatch done,
