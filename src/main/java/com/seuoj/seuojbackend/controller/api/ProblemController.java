@@ -1,14 +1,14 @@
 package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.seuoj.seuojbackend.dto.problem.ProblemPageDTO;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 
 @RestController
 @RequestMapping("/api/problem")
@@ -17,6 +17,15 @@ public class ProblemController {
 
     public ProblemController(ProblemService problemService) {
         this.problemService = problemService;
+    }
+
+    /**
+     * 分页查询题目列表
+     */
+    @AllowAnonymous
+    @GetMapping("/page")
+    public Result<ProblemPageVO> getProblemPage(@Valid ProblemPageDTO dto) {
+        return Result.success(problemService.getProblemPage(dto));
     }
 
     @AllowAnonymous
