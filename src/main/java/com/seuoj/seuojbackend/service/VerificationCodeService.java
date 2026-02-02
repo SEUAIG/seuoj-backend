@@ -6,12 +6,12 @@ import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.dto.auth.SendCodeDTO;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.vo.auth.SendCodeVO;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
-import jakarta.annotation.PostConstruct;
 
 import java.security.SecureRandom;
 import java.util.UUID;
@@ -60,10 +60,16 @@ public class VerificationCodeService {
     private Cache<String, String> codeStore;
 
     /**
-     * 存储 verificationId 与 email 的映射
+     * 存储 verificationId -> email 的映射
      * 与验证码同时过期
      */
     private Cache<String, String> verificationIdToEmail;
+
+    /**
+     * 存储验证码预留状态：verificationId -> reserved
+     * 与验证码同时过期
+     */
+    private Cache<String, Boolean> reservedStore;
 
     /**
      * 存储邮箱最后发送时间：email -> timestamp
@@ -95,6 +101,12 @@ public class VerificationCodeService {
                 .maximumSize(cacheMaxSize)
                 .build();
 
+        // 初始化验证码预留状态缓存
+        this.reservedStore = Caffeine.newBuilder()
+                .expireAfterWrite(codeExpireSeconds, TimeUnit.SECONDS)
+                .maximumSize(cacheMaxSize)
+                .build();
+
         // 初始化邮箱发送频率限制缓存
         this.emailLastSendTime = Caffeine.newBuilder()
                 .expireAfterWrite(sendIntervalSeconds, TimeUnit.SECONDS)
@@ -121,7 +133,7 @@ public class VerificationCodeService {
             int nextSendIn = (int) (sendIntervalSeconds - elapsed);
             if (nextSendIn > 0) {
                 throw new BadRequestException(ErrorCode.CODE_SEND_TOO_FREQUENT.getCode(),
-                        "发送过于频繁，请 " + nextSendIn + " 秒后再试");
+                        "发送过于频繁，请" + nextSendIn + " 秒后再试");
             }
         }
 
@@ -151,16 +163,19 @@ public class VerificationCodeService {
     }
 
     /**
-     * 验证验证码
+     * 验证验证码（单次使用，原子消费）
      *
      * @param verificationId 验证会话ID
      * @param code           用户输入的验证码
      * @return 验证通过返回对应的邮箱，否则返回null
      */
     public String verifyCode(String verificationId, String code) {
-        // getIfPresent 返回 null 表示已过期或不存在
         String storedCode = codeStore.getIfPresent(verificationId);
         if (storedCode == null) {
+            return null;
+        }
+
+        if (reservedStore.getIfPresent(verificationId) != null) {
             return null;
         }
 
@@ -171,7 +186,6 @@ public class VerificationCodeService {
             throw new BadRequestException(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), "验证码尝试次数过多，请重新获取");
         }
 
-        // 验证码匹配
         if (storedCode.equals(code)) {
             String email = verificationIdToEmail.getIfPresent(verificationId);
             // 验证成功后删除验证码（一次性使用）
@@ -188,6 +202,80 @@ public class VerificationCodeService {
             throw new BadRequestException(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), "验证码尝试次数过多，请重新获取");
         }
         return null;
+    }
+
+    /**
+     * 预校验验证码并进行预留，避免注册失败时验证码被提前消费
+     *
+     * @param verificationId 验证会话ID
+     * @param code           用户输入的验证码
+     * @return 验证通过返回对应的邮箱，否则返回null
+     */
+    public String preVerifyCode(String verificationId, String code) {
+        // 首先尝试获取验证码条目
+        String storedCode = codeStore.getIfPresent(verificationId);
+        if (storedCode == null) {
+            return null;
+        }
+
+        if (reservedStore.getIfPresent(verificationId) != null) {
+            return null;
+        }
+
+        // 检查验证码失败次数，避免暴力破解
+        Integer failCount = verifyFailCount.getIfPresent(verificationId);
+        if (failCount != null && failCount >= maxVerifyFails) {
+            invalidateVerification(verificationId);
+            log.warn("验证码失败次数超限，已作废 - verificationId: {}", verificationId);
+            throw new BadRequestException(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), "验证码尝试次数过多，请重新获取");
+        }
+
+        // 尝试匹配验证码
+        if (storedCode.equals(code)) {
+            Boolean existing = reservedStore.asMap().putIfAbsent(verificationId, Boolean.TRUE);
+            if (existing != null) {
+                return null;
+            }
+
+            String latestCode = codeStore.getIfPresent(verificationId);
+            if (latestCode == null || !latestCode.equals(code)) {
+                releaseReservation(verificationId);
+                return null;
+            }
+
+            String email = verificationIdToEmail.getIfPresent(verificationId);
+            if (email == null) {
+                // email 映射丢失时避免预留卡死
+                invalidateVerification(verificationId);
+                return null;
+            }
+            return email;
+        }
+
+        // 验证码匹配失败，更新失败次数，并再次校验
+        int nextFailCount = failCount == null ? 1 : failCount + 1;
+        verifyFailCount.put(verificationId, nextFailCount);
+        if (nextFailCount >= maxVerifyFails) {
+            invalidateVerification(verificationId);
+            log.warn("验证码失败次数超限，已作废 - verificationId: {}", verificationId);
+            throw new BadRequestException(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), "验证码尝试次数过多，请重新获取");
+        }
+        return null;
+    }
+
+    /**
+     * 注册成功后消费验证码
+     */
+    public void consumeVerification(String verificationId) {
+        invalidateVerification(verificationId);
+        verifyFailCount.invalidate(verificationId);
+    }
+
+    /**
+     * 注册失败时释放预留
+     */
+    public void releaseReservation(String verificationId) {
+        reservedStore.invalidate(verificationId);
     }
 
     /**
@@ -213,7 +301,6 @@ public class VerificationCodeService {
             log.info("验证码邮件发送成功: {}", to);
         } catch (Exception e) {
             log.error("验证码邮件发送失败: {}", to, e);
-            // TODO: 可以考虑异步发送与失败重试，避免阻塞并提升可用性
             throw new BadRequestException("邮件发送失败，请稍后重试");
         }
     }
@@ -228,5 +315,6 @@ public class VerificationCodeService {
     private void invalidateVerification(String verificationId) {
         codeStore.invalidate(verificationId);
         verificationIdToEmail.invalidate(verificationId);
+        reservedStore.invalidate(verificationId);
     }
 }

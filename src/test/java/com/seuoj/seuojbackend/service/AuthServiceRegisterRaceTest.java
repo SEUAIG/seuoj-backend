@@ -88,7 +88,7 @@ class AuthServiceRegisterRaceTest {
         Assertions.assertEquals(1, success.get(), "应只有一个注册成功");
         Assertions.assertEquals(1, conflict.get(), "应有一个注册冲突");
         if (!others.isEmpty()) {
-            Assertions.fail("出现非预期异常: " + others.get(0));
+            Assertions.fail("出现非预期异常 " + others.getFirst());
         }
     }
 
@@ -116,12 +116,31 @@ class AuthServiceRegisterRaceTest {
                 authService.register(dto);
             } catch (BadRequestException e) {
                 last = e;
-                log.warn("验证码错误尝试: {}，{}", i + 1, e.getMessage());
+                log.warn("验证码错误尝试 {}，{}", i + 1, e.getMessage());
             }
         }
 
         Assertions.assertNotNull(last, "应捕获验证码错误异常");
         Assertions.assertEquals(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), last.getCode(), "应触发尝试次数过多");
+    }
+
+    @Test
+    void pre_verify_code_missing_email_mapping_invalidates_reservation() {
+        String verificationId = UUID.randomUUID().toString();
+        String code = "123456";
+
+        @SuppressWarnings("unchecked")
+        Cache<String, String> codeStore =
+                (Cache<String, String>) ReflectionTestUtils.getField(verificationCodeService, "codeStore");
+        if (codeStore == null) {
+            throw new IllegalStateException("验证码缓存字段为空");
+        }
+
+        codeStore.put(verificationId, code);
+
+        String email = verificationCodeService.preVerifyCode(verificationId, code);
+        Assertions.assertNull(email, "邮箱映射丢失时不应返回邮箱");
+        Assertions.assertNull(codeStore.getIfPresent(verificationId), "邮箱映射丢失时应作废验证码缓存");
     }
 
     private void runRegister(RegisterDTO dto, CountDownLatch start, CountDownLatch done,
