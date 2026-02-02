@@ -42,6 +42,11 @@ public interface ProblemMapper extends BaseMapper<Problem> {
     IPage<ProblemListItemVO> selectProblemPage(
             Page<ProblemListItemVO> page,
             @Param("title") String title,
+            @Param("titleLike") String titleLike,
+            @Param("useFulltext") boolean useFulltext,
+            @Param("singleTokens") List<String> singleTokens,
+            @Param("useLikeSingle") boolean useLikeSingle,
+            @Param("useLikeRaw") boolean useLikeRaw,
             @Param("tagIds") List<Long> tagIds,
             @Param("tagIdsSize") int tagIdsSize);
 

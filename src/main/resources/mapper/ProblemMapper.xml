@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.seuoj.seuojbackend.mapper.ProblemMapper">
 
@@ -39,7 +39,7 @@
         WHERE p.pid = #{pid}
     </select>
 
-    <!-- 题目列表项映射 -->
+    <!-- 棰樼洰鍒楄〃椤规槧灏?-->
     <resultMap id="ProblemListItemMap" type="com.seuoj.seuojbackend.vo.problem.ProblemListItemVO">
         <id column="pid" property="pid"/>
         <result column="title" property="title"/>
@@ -47,38 +47,99 @@
         <result column="total_accept" property="totalAccept"/>
     </resultMap>
 
-    <!-- 分页查询题目列表 -->
+    <sql id="ProblemBaseColumns">
+        p.pid,
+        p.title,
+        p.total_submit,
+        p.total_accept
+    </sql>
+
+    <sql id="ProblemBaseWhere">
+        p.is_del = 0
+        <if test="tagIdsSize > 0">
+            <!-- 瀛愭煡璇細鎵惧嚭鍚屾椂鍖呭惈鎵€鏈夋寚瀹氭爣绛剧殑棰樼洰ID -->
+            AND p.id IN (
+                SELECT ptr.problem_id
+                FROM problem_tag_rel ptr
+                WHERE ptr.tag_id IN
+                <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                    #{tagId}
+                </foreach>
+                  AND ptr.is_del = 0
+                GROUP BY ptr.problem_id
+                HAVING COUNT(DISTINCT ptr.tag_id) = #{tagIdsSize}
+            )
+        </if>
+    </sql>
+
+    
+
+    
+
+    <!-- 鍒嗛〉鏌ヨ棰樼洰鍒楄〃 -->
     <select id="selectProblemPage" resultMap="ProblemListItemMap">
         SELECT
-            p.pid,
-            p.title,
-            p.total_submit,
-            p.total_accept
-        FROM problem p
-        <where>
-            p.is_del = 0
-            <if test="title != null and title != ''">
-                AND p.title LIKE CONCAT('%', #{title}, '%')
-            </if>
-            <if test="tagIdsSize > 0">
-                <!-- 子查询：找出同时包含所有指定标签的题目ID -->
-                AND p.id IN (
-                    SELECT ptr.problem_id
-                    FROM problem_tag_rel ptr
-                    WHERE ptr.tag_id IN
-                    <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
-                        #{tagId}
-                    </foreach>
-                      AND ptr.is_del = 0
-                    GROUP BY ptr.problem_id
-                    HAVING COUNT(DISTINCT ptr.tag_id) = #{tagIdsSize}
-                )
-            </if>
-        </where>
-        ORDER BY p.pid ASC
+            u.pid,
+            u.title,
+            u.total_submit,
+            u.total_accept,
+            MAX(u.score) AS score
+        FROM (
+            <trim prefixOverrides="UNION ALL">
+                <if test="useFulltext">
+                    UNION ALL
+                    SELECT
+                        <include refid="ProblemBaseColumns"/>,
+                        MATCH(p.title) AGAINST (#{title} IN BOOLEAN MODE) AS score
+                    FROM problem p
+                    <where>
+                        <include refid="ProblemBaseWhere"/>
+                        AND MATCH(p.title) AGAINST (#{title} IN BOOLEAN MODE)
+                    </where>
+                </if>
+                <if test="useLikeSingle">
+                    UNION ALL
+                    SELECT
+                        <include refid="ProblemBaseColumns"/>,
+                        0.1 AS score
+                    FROM problem p
+                    <where>
+                        <include refid="ProblemBaseWhere"/>
+                        AND (
+                            <foreach collection="singleTokens" item="tok" separator=" OR ">
+                                p.title LIKE CONCAT('%', #{tok}, '%')
+                            </foreach>
+                        )
+                    </where>
+                </if>
+                <if test="useLikeRaw">
+                    UNION ALL
+                    SELECT
+                        <include refid="ProblemBaseColumns"/>,
+                        0.1 AS score
+                    FROM problem p
+                    <where>
+                        <include refid="ProblemBaseWhere"/>
+                        AND p.title LIKE CONCAT('%', #{titleLike}, '%')
+                    </where>
+                </if>
+                <if test="!useFulltext and !useLikeSingle and !useLikeRaw">
+                    UNION ALL
+                    SELECT
+                        <include refid="ProblemBaseColumns"/>,
+                        0.0 AS score
+                    FROM problem p
+                    <where>
+                        <include refid="ProblemBaseWhere"/>
+                    </where>
+                </if>
+            </trim>
+        ) u
+        GROUP BY u.pid, u.title, u.total_submit, u.total_accept
+        ORDER BY score DESC, u.pid ASC
     </select>
 
-    <!-- 批量获取题目标签 -->
+    <!-- 鎵归噺鑾峰彇棰樼洰鏍囩 -->
     <resultMap id="ProblemTagResultMap" type="com.seuoj.seuojbackend.mapper.ProblemMapper$ProblemTagResult">
         <result column="pid" property="pid"/>
         <result column="tag_name" property="tagName"/>
@@ -100,3 +161,5 @@
     </select>
 
 </mapper>
+
+

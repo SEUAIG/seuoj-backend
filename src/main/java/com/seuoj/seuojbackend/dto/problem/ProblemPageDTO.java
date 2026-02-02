@@ -1,7 +1,9 @@
 package com.seuoj.seuojbackend.dto.problem;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -27,17 +29,13 @@ public class ProblemPageDTO {
     /**
      * 标题模糊搜索
      */
+    @Size(max = 100, message = "标题长度不能超过100")
     private String title;
 
     /**
      * 标签ID列表，多选做完全匹配
      */
+    @JsonProperty("tag_ids")
+    @Size(max = 50, message = "标签数量不能超过50")
     private List<Long> tagIds;
-
-    /**
-     * 支持前端传 tag_ids 参数（snake_case）
-     */
-    public void setTag_ids(List<Long> tagIds) {
-        this.tagIds = tagIds;
-    }
 }

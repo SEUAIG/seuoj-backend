@@ -22,7 +22,8 @@ CREATE TABLE `problem`  (
                             `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                             `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                             PRIMARY KEY (`id`) USING BTREE,
-                            UNIQUE INDEX `pid`(`pid` ASC) USING BTREE
+                            UNIQUE INDEX `pid`(`pid` ASC) USING BTREE,
+                            FULLTEXT INDEX `idx_problem_title_ft`(`title`) WITH PARSER ngram
 ) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '题目表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
