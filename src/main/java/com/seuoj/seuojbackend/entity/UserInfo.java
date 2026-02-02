@@ -34,6 +34,12 @@ public class UserInfo implements Serializable {
     private String username;
 
     /**
+     * 邮箱
+     */
+    @TableField("email")
+    private String email;
+
+    /**
      * 加密密码
      */
     @TableField("password")
@@ -57,6 +63,5 @@ public class UserInfo implements Serializable {
     @TableField("is_del")
     @TableLogic
     private Integer isDel;
-
 
 }

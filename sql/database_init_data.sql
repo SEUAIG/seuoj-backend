@@ -34,17 +34,23 @@ VALUES (1, 1, 1),
 
 -- ----
 
-INSERT INTO `user_info` (id, username, password)
-VALUES (1, '123', '$2a$10$0Sav7AssgISibD2Kd3XTq.wfqMZ4aClgRcZOZqfaEuPn/.dLa4b4y');
+INSERT INTO `user_info` (id, username, email, password)
+VALUES (1, '123', '1234567891@qq.com', '$10$hwsFr7kTG6B4NSBrCg45aOfUDI8q1BgP7Vv88ADR9DCs8WWkFRyuq');
+
 
 -- ----
 
 INSERT INTO `user_role`
-VALUES (1, 'STUDENT', 'STUDENT', 0);
+VALUES (1, 'USER', 'USER', 0),
+    (2, 'ADMIN', 'ADMIN', 0),
+    (3, 'SUPER_ADMIN', 'SUPER_ADMIN', 0);
 
 -- ----
 
 INSERT INTO `user_role_rel`
-VALUES (1, 1, 1, 0, DEFAULT);
+VALUES (1, 1, 1, 0, DEFAULT),
+       (2, 1, 2, 0, DEFAULT),
+       (3, 1, 3, 0, DEFAULT);
+
 
 SET FOREIGN_KEY_CHECKS = 1;

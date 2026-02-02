@@ -1,5 +1,7 @@
 package com.seuoj.seuojbackend.dto.auth;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,4 +18,16 @@ public class RegisterDTO {
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 20, message = "密码长度必须在6-20个字符之间")
     private String password;
+
+    @NotBlank(message = "邮箱不能为空")
+    @Email(message = "邮箱格式不正确")
+    @Size(max = 128, message = "邮箱长度不能超过128个字符")
+    private String email;
+
+    @NotBlank(message = "验证码会话ID不能为空")
+    @JsonProperty("verification_id")
+    private String verificationId;
+
+    @NotBlank(message = "验证码不能为空")
+    private String code;
 }

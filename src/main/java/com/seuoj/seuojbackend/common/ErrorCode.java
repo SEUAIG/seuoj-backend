@@ -10,14 +10,17 @@ public enum ErrorCode {
 
     SUCCESS(0, "ok"),
     PARAMS_ERROR(40000, "请求参数错误"),
+    CODE_INVALID_OR_EXPIRED(40001, "验证码无效或已过期"),
     NOT_LOGIN_ERROR(40100, "未登录或登录已过期"),
     AUTH_ERROR(40101, "认证失败"),
     FORBIDDEN_ERROR(40300, "无权限访问"),
     JUDGE_AUTH_ERROR(40301, "测评服务身份认证失败"),
     NOT_FOUND_ERROR(40400, "请求资源不存在"),
     CONFLICT_ERROR(40900, "业务冲突"),
+    CODE_SEND_TOO_FREQUENT(42900, "发送过于频繁"),
+    CODE_TOO_MANY_TRIES(42901, "验证码尝试次数过多"),
     SYSTEM_ERROR(50000, "系统内部异常"),
-    JUDGE_SERVICE_ERROR(50001, "评测端服务异常"),
+    JUDGE_SERVICE_ERROR(50001, "测评端服务异常"),
     CODE_STORAGE_ERROR(50002, "代码存储异常"),
     THIRD_PARTY_ERROR(50200, "第三方服务异常");
 

@@ -21,6 +21,12 @@ jwt:
     secret: your_jwt_secret_key
     expiration: 86400 # Token expiration time in seconds
 
+verification:
+  code-expire-seconds: 300
+  send-interval-seconds: 60
+  cache-max-size: 10000
+  max-verify-fails: 5
+
 storage:
   user-code-storage-path: ./data/user-code
 
@@ -33,3 +39,4 @@ problem:
     max-compression-ratio: 50
     max-text-size: 5242880 # 5MB
     max-line-length: 200000
+
