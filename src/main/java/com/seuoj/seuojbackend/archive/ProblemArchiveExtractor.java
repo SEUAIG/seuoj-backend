@@ -1,11 +1,13 @@
-package com.seuoj.seuojbackend.archive;
+﻿package com.seuoj.seuojbackend.archive;
 
 import com.seuoj.seuojbackend.config.ProblemTestcaseProperties;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -71,6 +73,7 @@ public class ProblemArchiveExtractor {
         List<NameRuleItem> rules = new ArrayList<>();
         Set<Integer> ids = new HashSet<>();
         Set<String> usedNames = new HashSet<>();
+        int maxRuleCount = testcaseProperties.getMaxEntryCount();
 
         int lineNo = 0;
         for (String line : lines) {
@@ -83,6 +86,9 @@ public class ProblemArchiveExtractor {
             String[] parts = trimmed.split("\\s+");
             if (parts.length < 3) {
                 throw new BadRequestException("测试数据命名规则第 " + lineNo + " 行格式错误");
+            }
+            if (rules.size() >= maxRuleCount) {
+                throw new BadRequestException("测试数据命名规则超出上限");
             }
 
             int id;
