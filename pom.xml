@@ -30,6 +30,17 @@
         <java.version>21</java.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-framework-bom</artifactId>
+                <version>6.2.8</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -55,6 +66,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>4.12.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -115,6 +132,17 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.26.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.tukaani</groupId>
+            <artifactId>xz</artifactId>
+            <version>1.9</version>
+        </dependency>
+
         <!-- Spring Mail for sending verification codes -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -128,7 +156,6 @@
         </dependency>
     </dependencies>
 
-    
 
     <build>
         <plugins>

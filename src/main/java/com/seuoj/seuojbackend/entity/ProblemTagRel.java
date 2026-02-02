@@ -38,12 +38,5 @@ public class ProblemTagRel implements Serializable {
     @TableField("tag_id")
     private Long tagId;
 
-    /**
-     * 是否删除，0-未删除，1-已删除
-     */
-    @TableField("is_del")
-    @TableLogic
-    private Integer isDel;
-
 
 }

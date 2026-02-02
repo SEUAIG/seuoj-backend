@@ -1,63 +1,55 @@
 package com.seuoj.seuojbackend.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.io.Serial;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.experimental.Accessors;
 
 /**
- * 题目标签表实体类
+ * 标签分组实体类
  */
 @Data
-@EqualsAndHashCode(callSuper = false)
-@Accessors(chain = true)
-@TableName("tag")
-public class Tag implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
+@TableName("tag_group")
+public class TagGroup {
 
     /**
      * 主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 标签名称
+     * 分组类型，algorithm/source/time/special
      */
-    @TableField("tag_name")
-    private String tagName;
+    @TableField("type")
+    private String type;
+
+    /**
+     * 分组名称（允许为空，表示默认分组）
+     */
+    @TableField("name")
+    private String name;
 
     /**
      * 创建时间
      */
-    @TableField(value = "created_at")
+    @TableField(value = "created_at", fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
-    @TableField(value = "updated_at")
+    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
 
     /**
      * 是否删除，0-未删除，1-已删除
      */
-    @TableField("is_del")
     @TableLogic
+    @TableField(value = "is_del", fill = FieldFill.INSERT)
     private Integer isDel;
-
-    /**
-     * 分组ID，关联 tag_group 表
-     */
-    @TableField("group_id")
-    private Long groupId;
 }

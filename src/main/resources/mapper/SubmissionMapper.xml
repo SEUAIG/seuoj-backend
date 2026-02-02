@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.SubmissionMapper">
+    <select id="selectUserSubmissionPage"
+            resultType="com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO">
+        SELECT s.submission_no,
+               p.pid,
+               s.language,
+               s.status,
+               s.verdict,
+               s.submit_time,
+               s.finish_time,
+               u.username
+        FROM submission s
+                 LEFT JOIN problem p ON s.problem_id = p.id AND p.is_del = 0
+                 LEFT JOIN user_info u ON s.user_id = u.id AND u.is_del = 0
+        WHERE s.user_id = #{userId}
+          AND s.is_del = 0
+        ORDER BY s.submit_time DESC, s.id DESC
+    </select>
+</mapper>

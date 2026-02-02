@@ -5,21 +5,32 @@ VALUES (1, 'p01', 'a+b', 0, 0);
 
 -- ----
 
-INSERT INTO `problem_tag_rel`
-VALUES (1, 1, 1, 0, DEFAULT);
-INSERT INTO `problem_tag_rel`
-VALUES (2, 1, 2, 0, DEFAULT);
+INSERT INTO `tag_group` (id, type, name, created_at, updated_at, is_del) VALUES
+(1, 'algorithm', NULL, NOW(), NOW(), 0),
+(2, 'algorithm', '基础算法', NOW(), NOW(), 0),
+(3, 'algorithm', '高级算法', NOW(), NOW(), 0),
+(4, 'source', NULL, NOW(), NOW(), 0),
+(5, 'source', '竞赛来源', NOW(), NOW(), 0),
+(6, 'time', NULL, NOW(), NOW(), 0),
+(7, 'time', '时间复杂度', NOW(), NOW(), 0),
+(8, 'special', NULL, NOW(), NOW(), 0),
+(9, 'special', '专题训练', NOW(), NOW(), 0);
 
 -- ----
 
+INSERT INTO `tag` (id, tag_name, group_id, created_at, updated_at, is_del)
+VALUES
+(1, '贪心', 2, NOW(), NOW(), 0),
+(2, '动态规划', 2, NOW(), NOW(), 0),
+(3, '图论', 3, NOW(), NOW(), 0),
+(4, '交互题', 8, NOW(), NOW(), 0),
+(5, '冷门标签', 1, NOW(), NOW(), 0);
+
 -- ----
 
-INSERT INTO `tag` (id, tag_name)
-VALUES (1, 'tag1');
-INSERT INTO `tag` (id, tag_name)
-VALUES (2, 'tag2');
-INSERT INTO `tag` (id, tag_name)
-VALUES (3, 'tag3');
+INSERT INTO `problem_tag_rel` (id, problem_id, tag_id)
+VALUES (1, 1, 1),
+       (2, 1, 2);
 
 -- ----
 
