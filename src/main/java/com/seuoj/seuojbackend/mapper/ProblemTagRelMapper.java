@@ -2,6 +2,7 @@ package com.seuoj.seuojbackend.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -10,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface ProblemTagRelMapper extends BaseMapper<ProblemTagRel> {
 
+    int insertBatch(List<ProblemTagRel> rels);
 }

@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -319,12 +321,14 @@ public class ProblemService {
             throw new BadRequestException("标签不存在");
         }
 
+        List<ProblemTagRel> rels = new ArrayList<>(existingTags.size());
         for (Tag tag : existingTags) {
             ProblemTagRel rel = new ProblemTagRel();
             rel.setProblemId(problemId);
             rel.setTagId(tag.getId());
-            problemTagRelMapper.insert(rel);
+            rels.add(rel);
         }
+        problemTagRelMapper.insertBatch(rels);
     }
 
     private JudgeProblemEditRequest buildJudgeRequest(ProblemEditDTO dto) {
