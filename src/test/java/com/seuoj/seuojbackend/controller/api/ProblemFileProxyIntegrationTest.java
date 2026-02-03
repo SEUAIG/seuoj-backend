@@ -17,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -78,8 +80,14 @@ class ProblemFileProxyIntegrationTest {
                 .setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"1.in\"")
                 .setBody(new okio.Buffer().write(payload)));
 
-        ResponseEntity<byte[]> response = restTemplate.getForEntity(
-                "http://localhost:" + port + "/api/problem/file/P1000/1.in", byte[].class);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhdXRoIiwiaWF0IjoxNzcwMTAzOTczLCJleHAiOjE3NzAxOTAzNzMsInVzZXJJZCI6MX0.UuJ9zdLPBCbLEjsQGgPGSJkHWhN1TyUJMA53pi3e-VT2IL06BDMU5BdyukxLQEhBxuaOsu99J92JFpZYIsMZog");
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+                "http://localhost:" + port + "/api/problem/file/P1000/1.in",
+                HttpMethod.GET,
+                requestEntity,
+                byte[].class);
         assertEquals(200, response.getStatusCode().value());
         assertEquals("attachment; filename=\"1.in\"",
                 response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
