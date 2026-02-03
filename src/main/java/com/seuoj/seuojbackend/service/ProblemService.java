@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -307,10 +308,8 @@ public class ProblemService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        problemTagRelMapper.delete(new LambdaQueryWrapper<ProblemTagRel>()
-                .eq(ProblemTagRel::getProblemId, problemId));
-
         if (tagIds.isEmpty()) {
+            problemTagRelMapper.markAllDeletedByProblemId(problemId);
             return;
         }
 
@@ -321,14 +320,27 @@ public class ProblemService {
             throw new BadRequestException("标签不存在");
         }
 
-        List<ProblemTagRel> rels = new ArrayList<>(existingTags.size());
-        for (Tag tag : existingTags) {
-            ProblemTagRel rel = new ProblemTagRel();
-            rel.setProblemId(problemId);
-            rel.setTagId(tag.getId());
-            rels.add(rel);
+        problemTagRelMapper.markAllDeletedByProblemId(problemId);
+
+        List<Long> existingRelTagIds = problemTagRelMapper
+                .selectTagIdsByProblemIdAndTagIds(problemId, tagIds);
+        Set<Long> existingRelTagIdSet = new LinkedHashSet<>(existingRelTagIds);
+        if (!existingRelTagIdSet.isEmpty()) {
+            problemTagRelMapper.restoreByProblemIdAndTagIds(problemId, existingRelTagIdSet);
         }
-        problemTagRelMapper.insertBatch(rels);
+
+        List<ProblemTagRel> rels = new ArrayList<>(tagIds.size());
+        for (Tag tag : existingTags) {
+            if (existingRelTagIdSet.contains(tag.getId())) {
+                continue;
+            }
+            rels.add(new ProblemTagRel()
+                    .setProblemId(problemId)
+                    .setTagId(tag.getId()));
+        }
+        if (!rels.isEmpty()) {
+            problemTagRelMapper.insertBatch(rels);
+        }
     }
 
     private JudgeProblemEditRequest buildJudgeRequest(ProblemEditDTO dto) {

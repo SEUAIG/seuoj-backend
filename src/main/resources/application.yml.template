@@ -6,10 +6,27 @@ spring:
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/seuoj?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: <db_username>
+    password: <db_password>
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: <mail_username>
+    password: <mail_password>
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
 
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: is_del
@@ -18,8 +35,8 @@ mybatis-plus:
   mapper-locations: classpath:/mapper/**/*.xml
 
 jwt:
-    secret: your_jwt_secret_key
-    expiration: 86400 # Token expiration time in seconds
+  secret: <jwt_secret>
+  expiration: 86400
 
 verification:
   code-expire-seconds: 300
@@ -32,11 +49,15 @@ storage:
 
 problem:
   testcase:
-    max-archive-size: 52428800 # 50MB
+    max-archive-size: 52428800
     max-entry-count: 200
-    max-entry-size: 5242880 # 5MB
-    max-total-size: 209715200 # 200MB
+    max-entry-size: 5242880
+    max-total-size: 209715200
     max-compression-ratio: 50
-    max-text-size: 5242880 # 5MB
+    max-text-size: 5242880
     max-line-length: 200000
+
+judge:
+  server-url: http://localhost:8081
+  secret: <judge_secret>
 

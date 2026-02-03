@@ -9,8 +9,10 @@ import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.util.List;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -159,7 +161,7 @@ public class JudgeHttpClient implements JudgeClient {
     }
 
     @Override
-    public List<JudgeProblemDataResponse.TestcaseMeta> fetchProblemDataMeta(String pid) {
+    public JudgeProblemDataResponse fetchProblemDataMeta(String pid) {
         String url = judgeServerUrl + "/judge/problem/data/" + pid;
         log.info("向评测端请求题目测试点元信息, pid={}, url={}", pid, url);
         try {
@@ -174,7 +176,7 @@ public class JudgeHttpClient implements JudgeClient {
             if (body != null && Integer.valueOf(0).equals(body.getCode())
                     && body.getData() != null && body.getData().getTestCases() != null) {
                 log.info("成功获取题目测试点元信息, pid={}, count={}", pid, body.getData().getTestCases().size());
-                return body.getData().getTestCases();
+                return body.getData();
             }
 
             log.error("获取题目测试点元信息失败, pid={}, body={}", pid, body);

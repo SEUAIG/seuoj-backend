@@ -1,4 +1,4 @@
-﻿package com.seuoj.seuojbackend.archive;
+package com.seuoj.seuojbackend.archive;
 
 import com.seuoj.seuojbackend.config.ProblemTestcaseProperties;
 import com.seuoj.seuojbackend.exception.BadRequestException;

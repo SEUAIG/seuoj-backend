@@ -34,6 +34,7 @@ CREATE TABLE `problem_tag_rel`  (
                                     `id` bigint NOT NULL AUTO_INCREMENT,
                                     `problem_id` bigint NOT NULL,
                                     `tag_id` bigint NOT NULL,
+                                    `is_del` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
                                     PRIMARY KEY (`id`) USING BTREE,
                                     UNIQUE INDEX `uk_problem_tag_rel`(`problem_id` ASC, `tag_id` ASC) USING BTREE,
                                     INDEX `idx_problem_tag_rel_problem_id`(`problem_id` ASC) USING BTREE,

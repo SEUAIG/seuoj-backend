@@ -12,4 +12,30 @@
         </foreach>
     </insert>
 
+    <update id="markAllDeletedByProblemId">
+        UPDATE problem_tag_rel
+        SET is_del = 1
+        WHERE problem_id = #{problemId}
+    </update>
+
+    <update id="restoreByProblemIdAndTagIds">
+        UPDATE problem_tag_rel
+        SET is_del = 0
+        WHERE problem_id = #{problemId}
+          AND tag_id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+    </update>
+
+    <select id="selectTagIdsByProblemIdAndTagIds" resultType="java.lang.Long">
+        SELECT tag_id
+        FROM problem_tag_rel
+        WHERE problem_id = #{problemId}
+          AND tag_id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+    </select>
+
 </mapper>

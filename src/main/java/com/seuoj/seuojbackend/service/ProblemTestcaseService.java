@@ -125,7 +125,7 @@ public class ProblemTestcaseService {
      * @param pid 题目编号
      * @return 测试点元信息
      */
-    public List<ProblemTestcaseMetaVO> getProblemTestcaseMeta(String pid) {
+    public JudgeProblemDataResponse getProblemTestcaseMeta(String pid) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, pid));
         if (problem == null) {
@@ -133,20 +133,7 @@ public class ProblemTestcaseService {
             throw new NotFoundException("题目不存在");
         }
 
-        List<JudgeProblemDataResponse.TestcaseMeta> testcases = judgeClient.fetchProblemDataMeta(pid);
-        if (testcases == null || testcases.isEmpty()) {
-            return List.of();
-        }
-
-        return testcases.stream()
-                .map(item -> {
-                    ProblemTestcaseMetaVO vo = new ProblemTestcaseMetaVO();
-                    vo.setId(item.getId());
-                    vo.setInputName(item.getInputName());
-                    vo.setAnswerName(item.getAnswerName());
-                    return vo;
-                })
-                .collect(Collectors.toList());
+        return judgeClient.fetchProblemDataMeta(pid);
     }
 
     /**

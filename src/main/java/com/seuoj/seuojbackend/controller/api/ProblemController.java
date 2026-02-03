@@ -6,7 +6,9 @@ import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,6 +26,7 @@ import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemTestcaseMetaVO;
+import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -84,7 +87,7 @@ public class ProblemController {
 
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/data/{pid}")
-    public Result<List<ProblemTestcaseMetaVO>> getProblemData(@PathVariable String pid) {
+    public Result<JudgeProblemDataResponse> getProblemData(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
     }
 
