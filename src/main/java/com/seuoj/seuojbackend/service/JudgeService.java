@@ -5,21 +5,22 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
-import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
+import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-
+@Slf4j
 @Service
 public class JudgeService {
 
@@ -48,15 +49,7 @@ public class JudgeService {
             throw new NotFoundException("提交记录不存在: " + submissionNo);
         }
 
-        // 校验状态合法性（防止重复回调）
-        List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
-        if (!modifiableStatusStrs.contains(submission.getStatus())) {
-            throw new BadRequestException("该提交已经完成评测，无法更新");
-        }
-
-        // 更新提交记录：分生命周期状态和最终判定状态
         String verdict;
-
         if (!SubmitExecStatus.SUCCESS.equals(dto.getStatus())) {
             verdict = dto.getStatus().getStatus();
         } else {
@@ -74,14 +67,24 @@ public class JudgeService {
             }
         }
 
-        submission.setStatus(SubmissionStatus.FINISHED.getStatus());
-        submission.setVerdict(verdict);
-        submission.setResultDetail(dto.getResultDetail());
-        submission.setErrorDetail(dto.getErrorDetail());
-        submission.setFinishTime(LocalDateTime.now());
-        submissionMapper.updateById(submission);
+        List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
+        int updatedRows = submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                .set(Submission::getStatus, SubmissionStatus.FINISHED.getStatus())
+                .set(Submission::getVerdict, verdict)
+                .set(Submission::getResultDetail, dto.getResultDetail())
+                .set(Submission::getErrorDetail, dto.getErrorDetail())
+                .set(Submission::getFinishTime, LocalDateTime.now())
+                .eq(Submission::getSubmissionNo, submissionNo)
+                .in(Submission::getStatus, modifiableStatusStrs));
 
-        // 如果通过，更新题目通过数
+        // 并发或重复回调场景下，状态未成功迁移则直接忽略
+        if (updatedRows == 0) {
+            log.info("忽略重复或不可修改状态的评测回调，submissionNo={}, currentStatus={}",
+                    submissionNo, submission.getStatus());
+            return;
+        }
+
+        // 仅在本次成功迁移到 Finished 且判定为 AC 时累计通过数
         if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict)) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
