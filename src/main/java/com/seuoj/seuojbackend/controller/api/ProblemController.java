@@ -49,7 +49,11 @@ public class ProblemController {
      */
     @AllowAnonymous
     @GetMapping("/page")
-    public Result<ProblemPageVO> getProblemPage(@Valid ProblemPageDTO dto) {
+    public Result<ProblemPageVO> getProblemPage(@Valid ProblemPageDTO dto,
+                                                @RequestParam(value = "tag_ids", required = false) List<Long> tagIds) {
+        if (tagIds != null) {
+            dto.setTagIds(tagIds);
+        }
         return Result.success(problemService.getProblemPage(dto));
     }
 
