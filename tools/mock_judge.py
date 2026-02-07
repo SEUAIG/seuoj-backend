@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
+from pathlib import Path
 import threading
 import time
 import requests
@@ -6,6 +7,8 @@ import random
 import json
 
 app = Flask(__name__)
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEST_FILE_PATH = BASE_DIR / "data" / "testcase.md"
 
 # 模拟 GET /judge/problem/{pid}
 @app.route('/judge/problem/<pid>', methods=['GET'])
@@ -18,6 +21,24 @@ def get_problem_content(pid):
             "content": f"# 题目 {pid} 的详细描述\n\n这是一道经典算法题...\n\n## 输入格式\n第一行输入一个整数 n\n\n## 输出格式\n输出结果"
         }
     })
+
+
+@app.route('/judge/problem/file/<pid>/<file_name>', methods=['GET'])
+def get_problem_file(pid, file_name):
+    if not TEST_FILE_PATH.exists():
+        return jsonify({"code": 404, "message": f"test file not found: {TEST_FILE_PATH}"}), 404
+
+    payload = TEST_FILE_PATH.read_bytes()
+    return Response(
+        payload,
+        status=200,
+        content_type="application/octet-stream",
+        headers={
+            "Content-Disposition": 'attachment; filename="description.md"',
+            "Content-Length": str(len(payload))
+        }
+    )
+
 
 def process_judge(submission_id):
     """模拟评测过程并在完成后回调后端"""
@@ -79,5 +100,5 @@ if __name__ == '__main__':
     print("Endpoints:")
     print("  GET  /judge/problem/{pid}")
     print("  POST /judge/submission")
+    print("  GET /judge/problem/file/{pid}/{file_name}")
     app.run(port=8081)
-

@@ -12,36 +12,27 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
 import com.seuoj.seuojbackend.entity.Tag;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.dto.problem.ProblemPageDTO;
 import com.seuoj.seuojbackend.exception.NotFoundException;
-import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
+import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemListItemVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -63,12 +54,9 @@ public class ProblemService {
 
     /**
      * 分页查询题目列表
-     *
-     * @param dto 分页查询参数
-     * @return 分页结果
      */
-    public ProblemPageVO getProblemPage(ProblemPageDTO dto) {
-        List<Long> tagIds = dto.getTagIds();
+    // TODO: 考虑查询功能使用更优雅的实现？比如 Redis Search？代价是系统整体复杂度提升？
+    public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
         if (tagIds != null && !tagIds.isEmpty()) {
             tagIds = tagIds.stream()
                     .filter(Objects::nonNull)
@@ -77,9 +65,9 @@ public class ProblemService {
         }
         int tagIdsSize = (tagIds == null) ? 0 : tagIds.size();
 
-        SearchSpec searchSpec = SearchSpec.from(dto.getTitle());
+        SearchSpec searchSpec = SearchSpec.from(title);
 
-        Page<ProblemListItemVO> page = new Page<>(dto.getCurrent(), dto.getSize());
+        Page<ProblemListItemVO> page = new Page<>(current, size);
         IPage<ProblemListItemVO> resultPage = problemMapper.selectProblemPage(
                 page,
                 searchSpec.fulltextQuery,
@@ -117,8 +105,8 @@ public class ProblemService {
 
         // 构建返回结果
         ProblemPageVO vo = new ProblemPageVO();
-        vo.setCurrent(dto.getCurrent());
-        vo.setSize(dto.getSize());
+        vo.setCurrent(current);
+        vo.setSize(size);
         vo.setTotal(resultPage.getTotal());
         vo.setRecords(records != null ? records : Collections.emptyList());
 
@@ -139,23 +127,8 @@ public class ProblemService {
         return builder.toString();
     }
 
-    private static final class SearchSpec {
-        private final String fulltextQuery;
-        private final String titleLike;
-        private final List<String> singleTokens;
-        private final boolean useFulltext;
-        private final boolean useLikeSingle;
-        private final boolean useLikeRaw;
-
-        private SearchSpec(String fulltextQuery, String titleLike, List<String> singleTokens,
-                           boolean useFulltext, boolean useLikeSingle, boolean useLikeRaw) {
-            this.fulltextQuery = fulltextQuery;
-            this.titleLike = titleLike;
-            this.singleTokens = singleTokens;
-            this.useFulltext = useFulltext;
-            this.useLikeSingle = useLikeSingle;
-            this.useLikeRaw = useLikeRaw;
-        }
+    private record SearchSpec(String fulltextQuery, String titleLike, List<String> singleTokens, boolean useFulltext,
+                              boolean useLikeSingle, boolean useLikeRaw) {
 
         private static SearchSpec from(String title) {
             List<String> tokens = tokenizeForFulltext(title);
@@ -249,14 +222,11 @@ public class ProblemService {
 
     /**
      * 根据 pid 获取题目详情
-     *
-     * @param pid 题目编号
-     * @return 题目详情 VO
      */
     public ProblemDetailVO getProblemDetail(String pid) {
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(pid);
         if (problemDetail == null) {
-            log.warn("获取题目详情时发现题目{} 不存在", pid);
+            log.warn("获取题目详情时题目不存在, pid={}", pid);
             throw new NotFoundException("题目不存在");
         }
 
@@ -275,15 +245,13 @@ public class ProblemService {
 
     /**
      * 编辑题面
-     *
-     * @param dto 编辑请求
      */
     @Transactional(rollbackFor = Exception.class)
     public void editProblem(ProblemEditDTO dto) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, dto.getPid()));
         if (problem == null) {
-            log.warn("编辑题面时发现题目不存在, pid={}", dto.getPid());
+            log.warn("编辑题面时题目不存在, pid={}", dto.getPid());
             throw new NotFoundException("题目不存在");
         }
 

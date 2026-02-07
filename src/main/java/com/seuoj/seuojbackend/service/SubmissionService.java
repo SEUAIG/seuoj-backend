@@ -147,21 +147,29 @@ public class SubmissionService {
      * 向评测机发送评测请求（带异常处理）
      */
     private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
-        log.info("Send judge request submissionNo={}, pid={}", submissionNo, pid);
+        log.info("发送评测请求 submissionNo={}, pid={}", submissionNo, pid);
         JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
         try {
             judgeClient.submit(requestBody);
-            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+            int runningUpdated = submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
                     .set(Submission::getStatus, SubmissionStatus.RUNNING.getStatus())
-                    .eq(Submission::getSubmissionNo, submissionNo));
+                    .eq(Submission::getSubmissionNo, submissionNo)
+                    .eq(Submission::getStatus, SubmissionStatus.PENDING.getStatus()));
+            if (runningUpdated == 0) {
+                log.info("跳过更新为 Running，当前状态不是 Pending，submissionNo={}", submissionNo);
+            }
         } catch (JudgeRemoteException e) {
             log.error("向评测端提交评测失败  - submissionNo: {}, error: {}", submissionNo, e.getMessage());
             // TODO: 更具体的处理 比如重试机制
 
             // 更新提交状态为失败
-            submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+            int failedUpdated = submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
                     .set(Submission::getStatus, SubmissionStatus.FAILED.getStatus())
-                    .eq(Submission::getSubmissionNo, submissionNo));
+                    .eq(Submission::getSubmissionNo, submissionNo)
+                    .eq(Submission::getStatus, SubmissionStatus.PENDING.getStatus()));
+            if (failedUpdated == 0) {
+                log.info("跳过更新为 Failed，当前状态不是 Pending，submissionNo={}", submissionNo);
+            }
         }
     }
 

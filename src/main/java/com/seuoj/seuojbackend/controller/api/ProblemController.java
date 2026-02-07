@@ -2,38 +2,36 @@ package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
-import com.seuoj.seuojbackend.common.RoleType;
-import com.seuoj.seuojbackend.exception.BadRequestException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import java.util.List;
-
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.seuoj.seuojbackend.dto.problem.ProblemPageDTO;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
-
+import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
+import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
+import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
-import com.seuoj.seuojbackend.vo.problem.ProblemTestcaseMetaVO;
-import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 @RestController
+@Validated
 @RequestMapping("/api/problem")
 public class ProblemController {
     private final ProblemService problemService;
@@ -49,12 +47,15 @@ public class ProblemController {
      */
     @AllowAnonymous
     @GetMapping("/page")
-    public Result<ProblemPageVO> getProblemPage(@Valid ProblemPageDTO dto,
-                                                @RequestParam(value = "tag_ids", required = false) List<Long> tagIds) {
-        if (tagIds != null) {
-            dto.setTagIds(tagIds);
-        }
-        return Result.success(problemService.getProblemPage(dto));
+    public Result<ProblemPageVO> getProblemPage(
+            @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为1") Integer current,
+            @RequestParam(defaultValue = "10")
+            @Min(value = 1, message = "每页条数最小为1")
+            @Max(value = 100, message = "每页条数最大为100") Integer size,
+            @RequestParam(required = false) @Size(max = 100, message = "标题长度不能超过100") String title,
+            @RequestParam(value = "tag_ids", required = false)
+            @Size(max = 50, message = "标签数量不能超过50") List<Long> tagIds) {
+        return Result.success(problemService.getProblemPage(current, size, title, tagIds));
     }
 
     @AllowAnonymous
@@ -102,5 +103,4 @@ public class ProblemController {
                                HttpServletResponse response) {
         problemTestcaseService.proxyProblemFile(pid, fileName, response);
     }
-
 }
