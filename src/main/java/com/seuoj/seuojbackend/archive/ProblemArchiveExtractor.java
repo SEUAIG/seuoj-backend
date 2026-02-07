@@ -49,8 +49,7 @@ public class ProblemArchiveExtractor {
         String detected = formatDetector.detectArchiveFormat(file);
         String fileName = getOriginalName(file);
         switch (format) {
-            case "zip" -> ensureDetected(format, detected, fileName);
-            case "7z" -> ensureDetected(format, detected, fileName);
+            case "zip", "7z" -> ensureDetected(format, detected, fileName);
             case "tar" -> {
                 if ("zip".equals(detected) || "7z".equals(detected) || "gzip".equals(detected)) {
                     logAndThrowFormatMismatch(format, detected, fileName);

@@ -55,6 +55,7 @@ public class ProblemService {
     /**
      * 分页查询题目列表
      */
+    // TODO: 考虑查询功能使用更优雅的实现？比如 Redis Search？代价是系统整体复杂度提升？
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
         if (tagIds != null && !tagIds.isEmpty()) {
             tagIds = tagIds.stream()
@@ -126,23 +127,8 @@ public class ProblemService {
         return builder.toString();
     }
 
-    private static final class SearchSpec {
-        private final String fulltextQuery;
-        private final String titleLike;
-        private final List<String> singleTokens;
-        private final boolean useFulltext;
-        private final boolean useLikeSingle;
-        private final boolean useLikeRaw;
-
-        private SearchSpec(String fulltextQuery, String titleLike, List<String> singleTokens,
-                           boolean useFulltext, boolean useLikeSingle, boolean useLikeRaw) {
-            this.fulltextQuery = fulltextQuery;
-            this.titleLike = titleLike;
-            this.singleTokens = singleTokens;
-            this.useFulltext = useFulltext;
-            this.useLikeSingle = useLikeSingle;
-            this.useLikeRaw = useLikeRaw;
-        }
+    private record SearchSpec(String fulltextQuery, String titleLike, List<String> singleTokens, boolean useFulltext,
+                              boolean useLikeSingle, boolean useLikeRaw) {
 
         private static SearchSpec from(String title) {
             List<String> tokens = tokenizeForFulltext(title);

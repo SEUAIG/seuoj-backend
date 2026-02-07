@@ -27,7 +27,7 @@
                p.total_submit,
                p.total_accept
         FROM problem p
-        WHERE p.pid = #{pid}
+        WHERE p.pid = #{pid} AND p.is_del = 0
     </select>
 
     <select id="getProblemTags" resultType="java.lang.String">
@@ -35,7 +35,7 @@
         FROM tag t
                  JOIN problem_tag_rel ptr ON t.id = ptr.tag_id
                  JOIN problem p ON ptr.problem_id = p.id
-        WHERE p.pid = #{pid}
+        WHERE p.pid = #{pid} AND t.is_del=0 AND ptr.is_del=0
     </select>
 
     <!-- 题目列表项映射 -->
