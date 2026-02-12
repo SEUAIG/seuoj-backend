@@ -135,6 +135,16 @@ class ProblemTestcaseUploadTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void updateConfigInvalidTypeShouldReturn400() throws Exception {
+        mockMvc.perform(put("/api/problem/config/{pid}", "P1000")
+                        .param("type", "INVALID")
+                        .contentType("text/plain")
+                        .content("some content")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isBadRequest());
+    }
+
     // ========== GET /api/problem/tree/{pid} ==========
 
     @Test

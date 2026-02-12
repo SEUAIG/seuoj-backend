@@ -26,6 +26,18 @@ public class ProblemTestcaseService {
     }
 
     /**
+     * 校验 pid 参数合法性，禁止特殊字符
+     */
+    private void validatePid(String pid) {
+        if (!StringUtils.hasText(pid)) {
+            throw new BadRequestException("pid 不能为空");
+        }
+        if (pid.contains("/") || pid.contains("\\") || pid.contains("..") || pid.contains(":")) {
+            throw new BadRequestException("pid 包含非法字符");
+        }
+    }
+
+    /**
      * 上传题目测试数据（X-Accel-Redirect 重定向版本）
      * 仅校验题目是否存在，然后返回 X-Accel-Redirect 头由 nginx 转发到评测端
      *
@@ -34,6 +46,7 @@ public class ProblemTestcaseService {
      */
     public void redirectTestcaseUpload(String pid, HttpServletResponse response) {
         log.info("测试数据上传重定向, pid={}", pid);
+        validatePid(pid);
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, pid));
         if (problem == null) {
@@ -50,7 +63,7 @@ public class ProblemTestcaseService {
     private static final java.util.Set<String> VALID_CONFIG_TYPES = java.util.Set.of("META", "CASE");
 
     /**
-     * 获取题目配置              
+     * 获取题目配置
      * 仅校验题目是否存在和参数合法性，然后返回 X-Accel-Redirect 头由 nginx 转发到评测端
      *
      * @param pid      题目编号
@@ -59,6 +72,7 @@ public class ProblemTestcaseService {
      */
     public void redirectProblemConfig(String pid, String type, HttpServletResponse response) {
         log.info("题目配置重定向, pid={}, type={}", pid, type);
+        validatePid(pid);
 
         if (!StringUtils.hasText(type) || !VALID_CONFIG_TYPES.contains(type.toUpperCase())) {
             throw new BadRequestException("type 参数无效，仅支持 META 或 CASE");
@@ -105,13 +119,10 @@ public class ProblemTestcaseService {
      */
     public void redirectProblemFile(String pid, String fileName, HttpServletResponse response) {
         log.info("题目文件重定向, pid={}, fileName={}", pid, fileName);
+        validatePid(pid);
 
-        if (!StringUtils.hasText(pid) || !StringUtils.hasText(fileName)) {
-            throw new BadRequestException("参数不能为空");
-        }
-        // pid 不允许特殊字符
-        if (pid.contains("/") || pid.contains("\\") || pid.contains("..") || pid.contains(":")) {
-            throw new BadRequestException("pid 包含非法字符");
+        if (!StringUtils.hasText(fileName)) {
+            throw new BadRequestException("文件名不能为空");
         }
         // fileName 允许 / （子目录）但不允许路径穿越
         if (fileName.contains("..") || fileName.contains("\\") || fileName.contains(":")) {
@@ -145,6 +156,7 @@ public class ProblemTestcaseService {
      */
     public void redirectProblemTree(String pid, HttpServletResponse response) {
         log.info("题目文件树重定向, pid={}", pid);
+        validatePid(pid);
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, pid));
         if (problem == null) {
