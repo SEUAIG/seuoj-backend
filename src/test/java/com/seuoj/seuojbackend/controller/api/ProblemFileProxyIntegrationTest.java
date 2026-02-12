@@ -1,99 +1,93 @@
 package com.seuoj.seuojbackend.controller.api;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.common.AuthStatus;
 import com.seuoj.seuojbackend.entity.Problem;
+import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterAll;
+import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
+import com.seuoj.seuojbackend.util.JwtUtil;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
+@AutoConfigureMockMvc
 class ProblemFileProxyIntegrationTest {
 
-    private static MockWebServer mockWebServer;
-
-    @LocalServerPort
-    private int port;
-
     @Autowired
-    private TestRestTemplate restTemplate;
-
-    @Autowired
-    private com.seuoj.seuojbackend.client.JudgeHttpClient judgeHttpClient;
+    private MockMvc mockMvc;
 
     @MockBean
     private ProblemMapper problemMapper;
 
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        if (mockWebServer == null) {
-            try {
-                mockWebServer = new MockWebServer();
-                mockWebServer.start();
-            } catch (Exception ex) {
-                throw new IllegalStateException("无法启动 MockWebServer", ex);
-            }
-        }
-        registry.add("judge.server-url", () -> mockWebServer.url("/").toString());
-    }
+    @MockBean
+    private JudgeClient judgeClient;
 
-    @AfterAll
-    static void tearDownServer() throws Exception {
-        if (mockWebServer != null) {
-            mockWebServer.shutdown();
-        }
-    }
+    @MockBean
+    private UserRoleRelMapper userRoleRelMapper;
+
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @BeforeEach
     void setUp() {
         Problem problem = new Problem();
         problem.setPid("P1000");
         when(problemMapper.selectOne(any())).thenReturn(problem);
-        ReflectionTestUtils.setField(judgeHttpClient, "judgeServerUrl", mockWebServer.url("/").toString());
+        when(userRoleRelMapper.getRoleCodesByUserId(1L)).thenReturn(List.of("ADMIN"));
+        when(jwtUtil.parseUserId(any())).thenReturn(1L);
+        UserContextHolder.set(com.seuoj.seuojbackend.interceptor.UserContext.of(1L, AuthStatus.AUTHENTICATED));
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
     }
 
     @Test
-    void proxyProblemFileShouldStreamFromJudgeServer() throws Exception {
-        byte[] payload = "test-content".getBytes();
-        mockWebServer.enqueue(new MockResponse()
-                .setResponseCode(200)
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                .setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"1.in\"")
-                .setBody(new okio.Buffer().write(payload)));
+    void fileShouldReturnXAccelRedirectHeader() throws Exception {
+        mockMvc.perform(get("/api/problem/file/{pid}/1.in", "P1000")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Accel-Redirect",
+                        "/internal/judgend/judge/problem/file/P1000/1.in"));
+    }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth("eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhdXRoIiwiaWF0IjoxNzcwMTAzOTczLCJleHAiOjE3NzAxOTAzNzMsInVzZXJJZCI6MX0.UuJ9zdLPBCbLEjsQGgPGSJkHWhN1TyUJMA53pi3e-VT2IL06BDMU5BdyukxLQEhBxuaOsu99J92JFpZYIsMZog");
-        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-                "http://localhost:" + port + "/api/problem/file/P1000/1.in",
-                HttpMethod.GET,
-                requestEntity,
-                byte[].class);
-        assertEquals(200, response.getStatusCode().value());
-        assertEquals("attachment; filename=\"1.in\"",
-                response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
-        assertArrayEquals(payload, response.getBody());
+    @Test
+    void fileWithSubdirectoryShouldReturnCorrectRedirect() throws Exception {
+        mockMvc.perform(get("/api/problem/file/{pid}/subtask1/1.in", "P1000")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Accel-Redirect",
+                        "/internal/judgend/judge/problem/file/P1000/subtask1/1.in"));
+    }
 
-        var recorded = mockWebServer.takeRequest();
-        org.junit.jupiter.api.Assertions.assertEquals("/judge/problem/file/P1000/1.in", recorded.getPath());
+    @Test
+    void fileNonExistentProblemShouldReturn404() throws Exception {
+        when(problemMapper.selectOne(any())).thenReturn(null);
+
+        mockMvc.perform(get("/api/problem/file/{pid}/1.in", "P9999")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void fileWithPathTraversalShouldReturn400() throws Exception {
+        mockMvc.perform(get("/api/problem/file/{pid}/../../../etc/passwd", "P1000")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isBadRequest());
     }
 }

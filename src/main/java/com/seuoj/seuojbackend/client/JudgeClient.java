@@ -1,13 +1,10 @@
 package com.seuoj.seuojbackend.client;
 
-import com.seuoj.seuojbackend.client.dto.JudgeProblemDataRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
-import jakarta.servlet.http.HttpServletResponse;
 
-import java.util.List;
 
 /**
  * 评测服务请求抽象类
@@ -37,12 +34,6 @@ public interface JudgeClient {
      */
     void updateProblem(JudgeProblemEditRequest request);
 
-    /**
-     * 上传题目数据
-     *
-     * @param request 题目数据请求
-     */
-    void uploadProblemData(JudgeProblemDataRequest request);
 
     /**
      * 获取题目测试点元信息
@@ -51,13 +42,4 @@ public interface JudgeClient {
      * @return 测试点元信息
      */
     JudgeProblemDataResponse fetchProblemDataMeta(String pid);
-
-    /**
-     * 透传题目文件
-     *
-     * @param pid      题目编号
-     * @param fileName 文件名
-     * @param response 响应流
-     */
-    void proxyProblemFile(String pid, String fileName, HttpServletResponse response);
 }
