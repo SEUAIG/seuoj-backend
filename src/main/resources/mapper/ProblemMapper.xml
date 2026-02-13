@@ -27,7 +27,8 @@
                p.total_submit,
                p.total_accept
         FROM problem p
-        WHERE p.pid = #{pid} AND p.is_del = 0
+        WHERE p.pid = #{pid}
+          AND p.is_del = 0
     </select>
 
     <select id="getProblemTags" resultType="java.lang.String">
@@ -35,7 +36,10 @@
         FROM tag t
                  JOIN problem_tag_rel ptr ON t.id = ptr.tag_id
                  JOIN problem p ON ptr.problem_id = p.id
-        WHERE p.pid = #{pid} AND t.is_del=0 AND ptr.is_del=0
+        WHERE p.pid = #{pid}
+          AND p.is_del = 0
+          AND t.is_del=0
+          AND ptr.is_del=0
     </select>
 
     <!-- 题目列表项映射 -->
@@ -55,6 +59,7 @@
 
     <sql id="ProblemBaseWhere">
         p.is_del = 0
+        AND p.is_public = 1
         <if test="tagIdsSize > 0">
             <!-- 子查询：找出同时包含所有指定标签的题目ID -->
             AND p.id IN (
@@ -65,7 +70,6 @@
                 #{tagId}
             </foreach>
             AND ptr.is_del = 0
-            AND p.is_public = 1
             GROUP BY ptr.problem_id
             HAVING COUNT(DISTINCT ptr.tag_id) = #{tagIdsSize}
             )
@@ -153,6 +157,7 @@
         <foreach collection="pids" item="pid" open="(" separator="," close=")">
             #{pid}
         </foreach>
+        AND p.is_del = 0
         AND t.is_del = 0
         AND ptr.is_del = 0
     </select>

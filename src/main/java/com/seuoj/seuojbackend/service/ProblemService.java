@@ -266,6 +266,12 @@ public class ProblemService {
                     .eq(Problem::getId, problem.getId()));
         }
 
+        if (dto.getIsPublic() != null) {
+            problemMapper.update(null, new LambdaUpdateWrapper<Problem>()
+                    .set(Problem::getIsPublic, dto.getIsPublic())
+                    .eq(Problem::getId, problem.getId()));
+        }
+
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
         }
