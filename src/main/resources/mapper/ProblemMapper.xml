@@ -65,6 +65,7 @@
                 #{tagId}
             </foreach>
             AND ptr.is_del = 0
+            AND p.is_public = 1
             GROUP BY ptr.problem_id
             HAVING COUNT(DISTINCT ptr.tag_id) = #{tagIdsSize}
             )
