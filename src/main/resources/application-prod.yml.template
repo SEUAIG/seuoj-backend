@@ -2,6 +2,10 @@ spring:
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+  servlet:
+    multipart:
+      max-file-size: 256MB
+      max-request-size: 256MB
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://<prod_db_host>:<prod_db_port>/<prod_db_name>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai

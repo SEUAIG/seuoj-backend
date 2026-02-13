@@ -6,12 +6,10 @@ import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
-import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -23,12 +21,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 @RestController
 @Validated
@@ -71,23 +68,45 @@ public class ProblemController {
         return Result.success();
     }
 
+    /**
+     * 上传题目测试数据
+     * 后端仅负责鉴权，通过 nginx 重定向到评测端
+     */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/testcases/{pid}")
-    public Result<Void> uploadProblemTestcases(@PathVariable String pid,
-                                               @RequestParam("file") MultipartFile file,
-                                               @RequestParam("format") String format,
-                                               @RequestParam("name_rule") String nameRule,
-                                               HttpServletRequest request) {
-        if (request instanceof MultipartHttpServletRequest multipartRequest) {
-            int totalFiles = multipartRequest.getMultiFileMap().values().stream()
-                    .mapToInt(List::size)
-                    .sum();
-            if (totalFiles > 1) {
-                throw new BadRequestException("只允许上传一个压缩包");
-            }
-        }
-        problemTestcaseService.uploadProblemTestcases(pid, file, format, nameRule);
-        return Result.success();
+    public void uploadProblemTestcases(@PathVariable String pid,
+            HttpServletResponse response) {
+        problemTestcaseService.redirectTestcaseUpload(pid, response);
+    }
+
+    /**
+     * 获取题目配置
+     * 后端仅负责鉴权，通过 nginx 重定向到评测端获取配置
+     *
+     * @param pid  题目编号
+     * @param type 配置类型：META（元数据）或 CASE（测试点配置）
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/config/{pid}")
+    public void getProblemConfig(@PathVariable String pid,
+                                @RequestParam("type") String type,
+                                HttpServletResponse response) {
+        problemTestcaseService.redirectProblemConfig(pid, type, response);
+    }
+
+    /**
+     * 直接修改题目配置文件
+     * 后端不做内容处理，内容校验由评测端完成，上传内容采用全量覆盖
+     *
+     * @param pid  题目编号
+     * @param type 配置类型：META（元数据）或 CASE（测试点配置）
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @PutMapping("/config/{pid}")
+    public void updateProblemConfig(@PathVariable String pid,
+                                   @RequestParam("type") String type,
+                                   HttpServletResponse response) {
+        problemTestcaseService.redirectProblemConfig(pid, type, response);
     }
 
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
@@ -96,11 +115,32 @@ public class ProblemController {
         return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
     }
 
+    /**
+     * 获取题目文件
+     * 后端仅负责鉴权，通过 nginx 重定向到评测端获取文件
+     * file_name 支持子目录路径（如 subtask1/1.in），但不允许向外遍历
+     *
+     * @param pid      题目编号
+     * @param fileName 文件名（可含子目录）
+     */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @GetMapping("/file/{pid}/{file_name}")
+    @GetMapping("/file/{pid}/{*file_name}")
     public void getProblemFile(@PathVariable String pid,
-                               @PathVariable("file_name") String fileName,
+            @PathVariable("file_name") String fileName,
+            HttpServletResponse response) {
+        problemTestcaseService.redirectProblemFile(pid, fileName, response);
+    }
+
+    /**
+     * 获取题目文件树
+     * 后端仅负责鉴权，通过 nginx 重定向到评测端
+     *
+     * @param pid 题目编号
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/tree/{pid}")
+    public void getProblemTree(@PathVariable String pid,
                                HttpServletResponse response) {
-        problemTestcaseService.proxyProblemFile(pid, fileName, response);
+        problemTestcaseService.redirectProblemTree(pid, response);
     }
 }
