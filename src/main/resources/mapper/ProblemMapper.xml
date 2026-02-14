@@ -29,6 +29,7 @@
         FROM problem p
         WHERE p.pid = #{pid}
           AND p.is_del = 0
+          AND p.is_public = 1
     </select>
 
     <select id="getProblemTags" resultType="java.lang.String">
@@ -38,6 +39,7 @@
                  JOIN problem p ON ptr.problem_id = p.id
         WHERE p.pid = #{pid}
           AND p.is_del = 0
+          AND p.is_public = 1
           AND t.is_del=0
           AND ptr.is_del=0
     </select>

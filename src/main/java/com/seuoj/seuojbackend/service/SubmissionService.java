@@ -73,7 +73,9 @@ public class SubmissionService {
         }
         Long userId = userContext.getUserId();
 
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, dto.getPid()));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, dto.getPid())
+                .eq(Problem::getIsPublic, 1));
         if (problem == null) {
             throw new NotFoundException("提交流程中发现题目不存在:" + dto.getPid());
         }
