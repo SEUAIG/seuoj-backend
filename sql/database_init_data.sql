@@ -117,8 +117,7 @@ VALUES (1, 1, 1, 0),
        (3, 1, 3, 0);
 
 INSERT INTO `contest` (
-    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`,
-    `status`, `is_public`, `hide_statistics`, `creator_user_id`, `is_del`
+    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `creator_user_id`, `is_del`
 )
 VALUES (
     1,
@@ -129,8 +128,6 @@ VALUES (
     '2026-03-01 09:00:00',
     '2026-03-01 12:00:00',
     'ACM',
-    'NOT_STARTED',
-    1,
     0,
     1,
     0
