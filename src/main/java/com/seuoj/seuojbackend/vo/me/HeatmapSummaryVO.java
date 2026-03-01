@@ -7,5 +7,5 @@ import lombok.Data;
 public class HeatmapSummaryVO {
     private Long total;
     @JsonProperty("active_days")
-    private String activeDays;
+    private Integer activeDays;
 }
