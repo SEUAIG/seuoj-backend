@@ -18,4 +18,17 @@
           AND s.is_del = 0
         ORDER BY s.submit_time DESC, s.id DESC
     </select>
+
+    <select id="selectUserHeatmapDays"
+            resultType="com.seuoj.seuojbackend.vo.me.HeatmapDayVO">
+        SELECT DATE_FORMAT(s.submit_time, '%Y-%m-%d') AS date,
+               COUNT(*) AS count
+        FROM submission s
+        WHERE s.user_id = #{userId}
+          AND s.is_del = 0
+          AND s.submit_time >= STR_TO_DATE(CONCAT(#{year}, '-01-01'), '%Y-%m-%d')
+          AND s.submit_time &lt; DATE_ADD(STR_TO_DATE(CONCAT(#{year}, '-01-01'), '%Y-%m-%d'), INTERVAL 1 YEAR)
+        GROUP BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
+        ORDER BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
+    </select>
 </mapper>

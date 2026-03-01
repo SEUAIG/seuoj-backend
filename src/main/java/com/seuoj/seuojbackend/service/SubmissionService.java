@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -27,6 +28,9 @@ import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.storage.CodeStorage;
+import com.seuoj.seuojbackend.vo.me.HeatmapDayVO;
+import com.seuoj.seuojbackend.vo.me.HeatmapSummaryVO;
+import com.seuoj.seuojbackend.vo.me.MeHeatmapVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
@@ -43,6 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SubmissionService {
 
     private static final int MAX_CODE_BYTES = 65535;
+    private static final Pattern YEAR_PATTERN = Pattern.compile("\\d{4}");
 
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
@@ -238,6 +243,34 @@ public class SubmissionService {
         result.setSize(pageResult.getSize());
         result.setTotal(pageResult.getTotal());
         result.setRecords(records);
+        return result;
+    }
+
+    public MeHeatmapVO getHeatmap(String year) {
+        if (year == null || !YEAR_PATTERN.matcher(year).matches()) {
+            throw new BadRequestException("年份必须是4位数字");
+        }
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
+            throw new NotFoundException("用户未登录");
+        }
+        Long userId = userContext.getUserId();
+
+        List<HeatmapDayVO> days = submissionMapper.selectUserHeatmapDays(userId, Integer.parseInt(year));
+        long total = days.stream()
+                .map(HeatmapDayVO::getCount)
+                .filter(Objects::nonNull)
+                .mapToLong(Integer::longValue)
+                .sum();
+
+        HeatmapSummaryVO summary = new HeatmapSummaryVO();
+        summary.setTotal(total);
+        summary.setActiveDays(String.valueOf(days.size()));
+
+        MeHeatmapVO result = new MeHeatmapVO();
+        result.setYear(year);
+        result.setDays(days);
+        result.setSummary(summary);
         return result;
     }
 
