@@ -47,7 +47,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SubmissionService {
 
     private static final int MAX_CODE_BYTES = 65535;
-    private static final Pattern YEAR_PATTERN = Pattern.compile("\\d{4}");
 
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
@@ -247,9 +246,6 @@ public class SubmissionService {
     }
 
     public MeHeatmapVO getHeatmap(String year) {
-        if (year == null || !YEAR_PATTERN.matcher(year).matches()) {
-            throw new BadRequestException("年份必须是4位数字");
-        }
         var userContext = UserContextHolder.get();
         if (userContext == null || userContext.getUserId() == null) {
             throw new NotFoundException("用户未登录");
@@ -265,7 +261,7 @@ public class SubmissionService {
 
         HeatmapSummaryVO summary = new HeatmapSummaryVO();
         summary.setTotal(total);
-        summary.setActiveDays(String.valueOf(days.size()));
+        summary.setActiveDays(days.size());
 
         MeHeatmapVO result = new MeHeatmapVO();
         result.setYear(year);
