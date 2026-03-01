@@ -2,6 +2,8 @@ package com.seuoj.seuojbackend.dto.problem;
 
 import com.seuoj.seuojbackend.common.ProblemCommon;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import lombok.Data;
@@ -15,6 +17,10 @@ public class ProblemEditDTO {
     private String pid;
 
     private String title;
+
+    @Min(value = 0, message = "isPublic 只能是 0 或 1")
+    @Max(value = 1, message = "isPublic 只能是 0 或 1")
+    private Integer isPublic;
 
     private List<Long> tags;
 

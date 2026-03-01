@@ -51,6 +51,9 @@ public class Problem implements Serializable {
     @TableField("total_accept")
     private Integer totalAccept;
 
+    @TableField("is_public")
+    private Integer isPublic;
+
     /**
      * 创建时间
      */
