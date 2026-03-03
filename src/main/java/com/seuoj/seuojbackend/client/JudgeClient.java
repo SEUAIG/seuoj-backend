@@ -42,4 +42,21 @@ public interface JudgeClient {
      * @return 测试点元信息
      */
     JudgeProblemDataResponse fetchProblemDataMeta(String pid);
+
+    /**
+     * 获取题目文件树
+     *
+     * @param pid problem id
+     * @return 文件树（List of FileNode maps）
+     */
+    Object fetchProblemTree(String pid);
+
+    /**
+     * 代理获取题目文件（字节流）
+     *
+     * @param pid      problem id
+     * @param fileName 文件路径
+     * @return 文件字节数组
+     */
+    byte[] fetchProblemFile(String pid, String fileName);
 }

@@ -116,8 +116,11 @@ public class ProblemController {
     }
 
     /**
-     * 获取题目文件
-     * 后端仅负责鉴权，通过 nginx 重定向到评测端获取文件
+     * 获取题目文件（代理到评测端）
+     * <p>
+     * 开发环境：后端直接代理请求到评测端，通过 RestTemplate 获取字节流后写入响应。
+     * 生产环境：可改用 Nginx X-Accel-Redirect 由 Nginx 内部转发，减轻后端 IO 负担。
+     * <p>
      * file_name 支持子目录路径（如 subtask1/1.in），但不允许向外遍历
      *
      * @param pid      题目编号
@@ -128,19 +131,20 @@ public class ProblemController {
     public void getProblemFile(@PathVariable String pid,
             @PathVariable("file_name") String fileName,
             HttpServletResponse response) {
-        problemTestcaseService.redirectProblemFile(pid, fileName, response);
+        problemTestcaseService.proxyProblemFile(pid, fileName, response);
     }
 
     /**
-     * 获取题目文件树
-     * 后端仅负责鉴权，通过 nginx 重定向到评测端
+     * 获取题目文件树（代理到评测端）
+     * <p>
+     * 开发环境：后端直接代理请求到评测端，通过 RestTemplate 获取 JSON 后返回。
+     * 生产环境：可改用 Nginx X-Accel-Redirect 由 Nginx 内部转发。
      *
      * @param pid 题目编号
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/tree/{pid}")
-    public void getProblemTree(@PathVariable String pid,
-                               HttpServletResponse response) {
-        problemTestcaseService.redirectProblemTree(pid, response);
+    public Result<Object> getProblemTree(@PathVariable String pid) {
+        return Result.success(problemTestcaseService.getProblemTree(pid));
     }
 }

@@ -151,6 +151,79 @@ public class JudgeHttpClient implements JudgeClient {
         }
     }
 
+    @Override
+    public Object fetchProblemTree(String pid) {
+        String url = judgeServerUrl + "/judge/problem/tree/" + pid;
+        log.info("向评测端请求题目文件树, pid={}, url={}", pid, url);
+        try {
+            ResponseEntity<Result<java.util.Map<String, Object>>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<java.util.Map<String, Object>> body = response.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.getCode()) && body.getData() != null) {
+                Object tree = body.getData().get("tree");
+                if (tree != null) {
+                    log.info("成功获取题目文件树, pid={}", pid);
+                    return tree;
+                }
+            }
+
+            log.error("获取题目文件树失败, pid={}, body={}", pid, body);
+            throw new JudgeRemoteException("获取题目文件树失败");
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                log.warn("评测端未找到题目, pid={}, url={}", pid, url);
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            log.warn("评测端返回了非200ok, status={}, url={}", statusCode, url, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目文件树", ex);
+        } catch (RestClientException ex) {
+            log.warn("评测端未返回200ok, 路径: {}", url, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目文件树", ex);
+        }
+    }
+
+    @Override
+    public byte[] fetchProblemFile(String pid, String fileName) {
+        String url = judgeServerUrl + "/judge/problem/file/" + pid + "/" + fileName;
+        log.info("向评测端请求题目文件, pid={}, fileName={}, url={}", pid, fileName, url);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            if (judgeSecret != null && !judgeSecret.isEmpty()) {
+                headers.set(SECRET_HEADER, judgeSecret);
+            }
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    byte[].class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                log.info("成功获取题目文件, pid={}, fileName={}, size={}", pid, fileName, response.getBody().length);
+                return response.getBody();
+            }
+
+            log.error("获取题目文件失败, pid={}, fileName={}", pid, fileName);
+            throw new JudgeRemoteException("获取题目文件失败");
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                log.warn("评测端未找到文件, pid={}, fileName={}", pid, fileName);
+                throw new JudgeRemoteException("评测端未找到该文件", ex);
+            }
+            log.warn("评测端返回了非200ok, status={}, pid={}, fileName={}", statusCode, pid, fileName, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目文件", ex);
+        } catch (RestClientException ex) {
+            log.warn("评测端请求失败, pid={}, fileName={}", pid, fileName, ex);
+            throw new JudgeRemoteException("无法向评测端获取题目文件", ex);
+        }
+    }
+
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
