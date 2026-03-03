@@ -104,17 +104,23 @@ VALUES (1, 1, 1),
        (42, 21, 4);
 
 INSERT INTO `user_info` (id, public_id, username, email, password)
-VALUES (1, '123', '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.');
+VALUES (1, '123', '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.'),
+       (2, '00000000-0000-0000-0000-000000000002', 'test', 'test@test.com', '$2b$12$ieCFljnNZGJRUNhio1N/s.U8/8R35p74FXKIv/s/1G3pXuEMa1KrK'),
+       (3, '00000000-0000-0000-0000-000000000003', 'testu', 'testu@test.com', '$2a$10$LSfRC3/lPblawhSjqFUbdOq/kh5zAZGJe5Dwlofs/e8ydUlozesyu');
 
 INSERT INTO `user_role` (id, role_code, role_name, is_del)
 VALUES (1, 'USER', 'USER', 0),
        (2, 'ADMIN', 'ADMIN', 0),
        (3, 'SUPER_ADMIN', 'SUPER_ADMIN', 0);
 
+-- 用户角色关联：user_id=1(123) → SUPER_ADMIN, user_id=2(test) → ADMIN, user_id=3(testu) → USER
 INSERT INTO `user_role_rel` (id, user_id, role_id, is_del)
 VALUES (1, 1, 1, 0),
        (2, 1, 2, 0),
-       (3, 1, 3, 0);
+       (3, 1, 3, 0),
+       (4, 2, 1, 0),
+       (5, 2, 2, 0),
+       (6, 3, 1, 0);
 
 INSERT INTO `contest` (
     `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `creator_user_id`, `is_del`

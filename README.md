@@ -85,10 +85,35 @@ STORAGE_USER_CODE_STORAGE_PATH: ./data/user-code
 ```
 
 ## 初始化数据库
+
+> ⚠️ **重要**：MySQL 必须配置 `utf8mb4` 字符集，否则中文数据会乱码。  
+
+如果使用 Docker 运行 MySQL，请确保字符集正确：
 ```bash
-mysql -u <user> -p<pass> < sql/database_schema.sql
-# 如需示例数据
-mysql -u <user> -p<pass> < sql/database_init_data.sql
+# 方式1：启动参数指定（推荐）
+docker run -d --name seuoj-mysql -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=password \
+  mysql:8.0 \
+  --character-set-server=utf8mb4 \
+  --collation-server=utf8mb4_unicode_ci
+
+# 方式2：创建配置文件并挂载
+# 参见 docs/improvement-proposals.md MySQL 字符集章节
+```
+
+验证字符集是否正确：
+```bash
+docker exec -i seuoj-mysql mysql -u root -ppassword \
+  -e "SHOW VARIABLES LIKE 'character_set%';"
+# character_set_client / connection / results 必须为 utf8mb4
+```
+
+导入表结构和初始数据：
+```bash
+# 建表
+docker exec -i seuoj-mysql mysql -u root -ppassword < sql/database_schema.sql
+# 初始数据（含测试账号）
+docker exec -i seuoj-mysql mysql -u root -ppassword seuoj < sql/database_init_data.sql
 ```
 
 ## 本地运行
@@ -98,6 +123,17 @@ mysql -u <user> -p<pass> < sql/database_init_data.sql
 mvnw.cmd spring-boot:run
 ```
 健康检查：`http://localhost:8080/actuator/health`。
+
+## 默认测试账号
+
+初始数据（`sql/database_init_data.sql`）中包含以下预置账号：
+
+| 用户名 | 邮箱 | 密码 | 角色 |
+|--------|------|------|------|
+| `test` | test@test.com | `123456` | ADMIN |
+| `testu` | testu@test.com | `123456` | USER |
+
+> 仅用于开发和测试环境，**切勿在生产环境中使用**。
 
 ## 构建与测试
 - 运行测试：`./mvnw test`
