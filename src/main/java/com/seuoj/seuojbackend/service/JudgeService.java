@@ -6,12 +6,15 @@ import java.util.List;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.InternalServerException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
@@ -26,10 +29,12 @@ public class JudgeService {
 
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
+    private final ObjectMapper objectMapper;
 
-    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper) {
+    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, ObjectMapper objectMapper) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -67,11 +72,23 @@ public class JudgeService {
             }
         }
 
+        // 手动将 resultDetail 序列化为 JSON 字符串
+        // 因为 LambdaUpdateWrapper.set() 不会自动应用 @TableField 上的 typeHandler
+        String resultDetailJson = null;
+        if (dto.getResultDetail() != null) {
+            try {
+                resultDetailJson = objectMapper.writeValueAsString(dto.getResultDetail());
+            } catch (JsonProcessingException e) {
+                log.error("序列化 resultDetail 失败, submissionNo={}", submissionNo, e);
+                throw new InternalServerException("评测结果处理失败");
+            }
+        }
+
         List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
         int updatedRows = submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
                 .set(Submission::getStatus, SubmissionStatus.FINISHED.getStatus())
                 .set(Submission::getVerdict, verdict)
-                .set(Submission::getResultDetail, dto.getResultDetail())
+                .set(Submission::getResultDetail, resultDetailJson)
                 .set(Submission::getErrorDetail, dto.getErrorDetail())
                 .set(Submission::getFinishTime, LocalDateTime.now())
                 .eq(Submission::getSubmissionNo, submissionNo)
