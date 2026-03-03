@@ -8,4 +8,6 @@ import lombok.Data;
 @Data
 public class LoginVO {
     String jwt;
+    String username;
+    String role;
 }

@@ -146,8 +146,19 @@ public class AuthService {
 
         String token = jwtUtil.createToken(user.getId());
 
+        // 查询用户角色，取最高权限返回
+        java.util.List<String> roleCodes = userRoleRelMapper.getRoleCodesByUserId(user.getId());
+        String role = "user";
+        if (roleCodes.contains(RoleType.SUPER_ADMIN.getCode())) {
+            role = "superadmin";
+        } else if (roleCodes.contains(RoleType.ADMIN.getCode())) {
+            role = "admin";
+        }
+
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
+        loginVO.setUsername(user.getUsername());
+        loginVO.setRole(role);
 
         return loginVO;
     }
