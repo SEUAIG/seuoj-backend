@@ -1,6 +1,5 @@
 package com.seuoj.seuojbackend.vo.problem;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
