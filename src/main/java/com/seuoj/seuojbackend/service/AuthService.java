@@ -16,6 +16,8 @@ import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,9 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * 用户身份相关服务
- */
 @Service
 public class AuthService {
 
@@ -94,6 +93,7 @@ public class AuthService {
             UserInfo newUser = new UserInfo();
             newUser.setUsername(dto.getUsername());
             newUser.setEmail(normalizedEmail);
+            newUser.setPublicId(UUID.randomUUID().toString());
             // 使用 passwordEncoder 加密密码
             newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
