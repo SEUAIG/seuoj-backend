@@ -6,12 +6,15 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
+import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
+import com.seuoj.seuojbackend.common.ProblemCommon;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
 import com.seuoj.seuojbackend.entity.Tag;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
@@ -224,6 +227,7 @@ public class ProblemService {
      * 根据 pid 获取题目详情
      */
     public ProblemDetailVO getProblemDetail(String pid) {
+        // 从数据库获取题目元信息
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(pid);
         if (problemDetail == null) {
             log.warn("获取题目详情时题目不存在, pid={}", pid);
@@ -233,6 +237,7 @@ public class ProblemService {
         List<String> tags = problemMapper.getProblemTags(pid);
         problemDetail.setTags(tags != null ? tags : Collections.emptyList());
 
+        // 从评测段获取题目详情
         ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(pid);
         if (problemContentDTO == null) {
             log.warn("题目 {} 的内容在评测服务中缺失", pid);
@@ -240,9 +245,14 @@ public class ProblemService {
         }
 
         problemDetail.setContent(problemContentDTO);
+
+        // 从评测端获取题目配置数据
+        ProblemConfigDTO problemConfigDTO = judgeClient.fetchProblemConfig(pid);
+        fillProblemContentByProblemConfig(problemContentDTO, problemConfigDTO);
         return problemDetail;
     }
 
+    // TODO: 会不会有并发修改的风险？
     /**
      * 编辑题面
      */
@@ -255,29 +265,94 @@ public class ProblemService {
             throw new NotFoundException("题目不存在");
         }
 
-        updateProblemMeta(problem, dto);
+        updateProblemMeta(problem.getId(), dto.getTitle(), dto.getIsPublic());
+        updateProblemTags(problem.getId(), dto.getTags());
         judgeClient.updateProblem(buildJudgeRequest(dto));
     }
 
-    private void updateProblemMeta(Problem problem, ProblemEditDTO dto) {
-        if (StringUtils.hasText(dto.getTitle())) {
-            problemMapper.update(null, new LambdaUpdateWrapper<Problem>()
-                    .set(Problem::getTitle, dto.getTitle())
-                    .eq(Problem::getId, problem.getId()));
+    /**
+     * 删除题目
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProblem(String pid) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (problem == null) {
+            log.warn("删除题目时题目不存在, pid={}", pid);
+            throw new NotFoundException("题目不存在");
         }
 
-        if (dto.getIsPublic() != null) {
-            problemMapper.update(null, new LambdaUpdateWrapper<Problem>()
-                    .set(Problem::getIsPublic, dto.getIsPublic())
-                    .eq(Problem::getId, problem.getId()));
+        // 校验
+        validateProblemDeleteRules(problem.getId(), pid);
+
+
+        // 删数据库
+        problemTagRelMapper.markAllDeletedByProblemId(problem.getId());
+        problemMapper.deleteById(problem.getId());
+
+        // 删评测端数据
+        judgeClient.deleteProblem(pid);
+    }
+
+    /**
+     * 校验题目是否可以删除（是否存在关联记录）
+     *
+     * @param problemId 题目主键id
+     * @param pid       题目pid
+     */
+    private void validateProblemDeleteRules(Long problemId, String pid) {
+        List<String> reasons = new ArrayList<>();
+
+        long activeSubmissionCount = problemMapper.countActiveSubmissionsByProblemId(problemId);
+        if (activeSubmissionCount > 0) {
+            reasons.add("存在提交记录（" + activeSubmissionCount + "）");
         }
 
-        if (dto.getTags() != null) {
-            updateProblemTags(problem.getId(), dto.getTags());
+        long activeContestRelationCount = problemMapper.countActiveContestRelationsByProblemId(problemId);
+        if (activeContestRelationCount > 0) {
+            reasons.add("仍在比赛中被引用（" + activeContestRelationCount + "）");
+        }
+
+        long activeContestSubmissionCount = problemMapper.countActiveContestSubmissionsByProblemId(problemId);
+        if (activeContestSubmissionCount > 0) {
+            reasons.add("存在比赛提交关联记录（" + activeContestSubmissionCount + "）");
+        }
+
+        long activeProblemSetRelationCount = problemMapper.countActiveProblemSetRelationsByProblemId(problemId);
+        if (activeProblemSetRelationCount > 0) {
+            reasons.add("仍在题单中被引用（" + activeProblemSetRelationCount + "）");
+        }
+
+        if (!reasons.isEmpty()) {
+            throw new ConflictException("题目 " + pid + " 删除校验未通过，请先清理关联数据：" + String.join("；", reasons));
         }
     }
 
+    /**
+     * 更新题目元数据
+     *
+     * @param problemId 题目主键id
+     * @param title     标题
+     * @param isPublic  是否公开
+     */
+    private void updateProblemMeta(Long problemId, String title, Boolean isPublic) {
+        Problem problem = new Problem();
+        problem.setId(problemId);
+        problem.setTitle(title);
+        if (isPublic != null) {
+            problem.setIsPublic(isPublic ? 1 : 0);
+        }
+        problemMapper.updateById(problem);
+    }
+
+    /**
+     * 更新题目标签信息
+     *
+     * @param problemId 题目主键id
+     * @param tags      标签主键id列表
+     */
     private void updateProblemTags(Long problemId, List<Long> tags) {
+        // 去重去null清洗
         Set<Long> tagIds = tags.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -287,6 +362,7 @@ public class ProblemService {
             return;
         }
 
+        // 验证标签存在性
         List<Tag> existingTags = tagMapper.selectList(new LambdaQueryWrapper<Tag>()
                 .in(Tag::getId, tagIds));
         if (existingTags.size() != tagIds.size()) {
@@ -294,8 +370,10 @@ public class ProblemService {
             throw new BadRequestException("标签不存在");
         }
 
+        // 移除所有标签关联
         problemTagRelMapper.markAllDeletedByProblemId(problemId);
 
+        // 恢复标签关联
         List<Long> existingRelTagIds = problemTagRelMapper
                 .selectTagIdsByProblemIdAndTagIds(problemId, tagIds);
         Set<Long> existingRelTagIdSet = new LinkedHashSet<>(existingRelTagIds);
@@ -303,6 +381,7 @@ public class ProblemService {
             problemTagRelMapper.restoreByProblemIdAndTagIds(problemId, existingRelTagIdSet);
         }
 
+        // 新增标签关联
         List<ProblemTagRel> rels = new ArrayList<>(tagIds.size());
         for (Tag tag : existingTags) {
             if (existingRelTagIdSet.contains(tag.getId())) {
@@ -331,18 +410,65 @@ public class ProblemService {
             request.setExample(examples);
         }
 
-        if (dto.getInfo() != null) {
-            request.setInfo(dto.getInfo());
-        }
-
-        if (dto.getInteractor() != null) {
-            request.setInteractor(dto.getInteractor());
-        }
-
-        if (dto.getChecker() != null) {
-            request.setChecker(dto.getChecker());
-        }
+        request.setHint(dto.getHint());
 
         return request;
+    }
+
+    /**
+     * 用题目配置填充题目详情info
+     */
+    private void fillProblemContentByProblemConfig(ProblemContentDTO problemContent, ProblemConfigDTO problemConfig) {
+        if (problemConfig == null) {
+            return;
+        }
+
+        long defaultTimeLimitMs = 1000L;
+        long defaultMemoryLimitKb = 256L * 1024;
+
+        if (problemConfig.getProblemInfo() != null) {
+            if (problemConfig.getProblemInfo().getTimeLimitMs() != null) {
+                defaultTimeLimitMs = problemConfig.getProblemInfo().getTimeLimitMs();
+            }
+            if (problemConfig.getProblemInfo().getMemoryLimitKb() != null) {
+                defaultMemoryLimitKb = problemConfig.getProblemInfo().getMemoryLimitKb();
+            }
+        }
+
+        long minTimeLimitMs = defaultTimeLimitMs;
+        long maxTimeLimitMs = defaultTimeLimitMs;
+        long minMemoryLimitKb = defaultMemoryLimitKb;
+        long maxMemoryLimitKb = defaultMemoryLimitKb;
+
+        if (problemConfig.getTestcases() != null) {
+            for (ProblemConfigDTO.Testcase testcase : problemConfig.getTestcases()) {
+                if (testcase == null) {
+                    continue;
+                }
+
+                if (testcase.getTimeLimitMs() != null) {
+                    minTimeLimitMs = Math.min(minTimeLimitMs, testcase.getTimeLimitMs());
+                    maxTimeLimitMs = Math.max(maxTimeLimitMs, testcase.getTimeLimitMs());
+                }
+
+                if (testcase.getTimeLimitMs() != null) {
+                    minMemoryLimitKb = Math.min(minMemoryLimitKb, testcase.getTimeLimitMs());
+                    maxMemoryLimitKb = Math.max(maxMemoryLimitKb, testcase.getTimeLimitMs());
+                }
+            }
+        }
+
+        ProblemCommon.ContentInfo info = problemContent.getInfo();
+        if (info == null) {
+            info = new ProblemCommon.ContentInfo();
+            problemContent.setInfo(info);
+        }
+        info.setMinCpuTimeMs(minTimeLimitMs);
+        info.setMaxCpuTimeMs(maxTimeLimitMs);
+        info.setMinMemoryByte(minMemoryLimitKb);
+        info.setMaxMemoryByte(maxMemoryLimitKb);
+
+        info.setProblemType(problemConfig.getProblemInfo().getProblemType());
+        info.setCheckerType(problemConfig.getProblemInfo().getCheckerType());
     }
 }

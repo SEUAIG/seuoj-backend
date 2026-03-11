@@ -1,9 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
-import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
-import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
-import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
-import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
+import com.seuoj.seuojbackend.client.dto.*;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import jakarta.annotation.Resource;
@@ -112,6 +109,60 @@ public class JudgeHttpClient implements JudgeClient {
         } catch (RestClientException ex) {
             log.warn("评测端未返回200ok, 路径: {}", url, ex);
             throw new JudgeRemoteException("无法向评测端更新题目信息", ex);
+        }
+    }
+
+    @Override
+    public ProblemConfigDTO fetchProblemConfig(String pid) {
+        String url = judgeServerUrl + "/judge/problem/config/" + pid;
+        log.info("请求评测端题目配置, pid={}, url={}", pid, url);
+        try {
+            ResponseEntity<Result<ProblemConfigDTO>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<ProblemConfigDTO> body = response.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.getCode()) && body.getData() != null) {
+                return body.getData();
+            }
+
+            log.error("获取题目配置失败, pid={}, body={}", pid, body);
+            throw new JudgeRemoteException("获取题目配置失败");
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            throw new JudgeRemoteException("无法向评测端获取题目配置", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法向评测端获取题目配置", ex);
+        }
+    }
+
+    @Override
+    public void deleteProblem(String pid) {
+        String url = judgeServerUrl + "/judge/problem/" + pid;
+        log.info("请求评测端删除题目, pid={}, url={}", pid, url);
+        try {
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.DELETE,
+                    new HttpEntity<>(buildHeaders()),
+                    Void.class);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new JudgeRemoteException("删除题目失败");
+            }
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            throw new JudgeRemoteException("无法向评测端删除题目", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法向评测端删除题目", ex);
         }
     }
 

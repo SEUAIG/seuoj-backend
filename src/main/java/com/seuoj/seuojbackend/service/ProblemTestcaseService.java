@@ -97,6 +97,7 @@ public class ProblemTestcaseService {
      * @param pid 题目编号
      * @return 测试点元信息
      */
+    @Deprecated
     public JudgeProblemDataResponse getProblemTestcaseMeta(String pid) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, pid));

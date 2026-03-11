@@ -1,11 +1,15 @@
 package com.seuoj.seuojbackend.controller.api;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
+import com.seuoj.seuojbackend.entity.Problem;
+import com.seuoj.seuojbackend.exception.NotFoundException;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
@@ -15,17 +19,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+
 import java.util.List;
+
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @Validated
@@ -33,10 +31,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProblemController {
     private final ProblemService problemService;
     private final ProblemTestcaseService problemTestcaseService;
+    private final ProblemMapper problemMapper;
 
-    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService) {
+    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService,
+                             ProblemMapper problemMapper) {
         this.problemService = problemService;
         this.problemTestcaseService = problemTestcaseService;
+        this.problemMapper = problemMapper;
     }
 
     /**
@@ -75,40 +76,44 @@ public class ProblemController {
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/testcases/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
-            HttpServletResponse response) {
+                                       HttpServletResponse response) {
         problemTestcaseService.redirectTestcaseUpload(pid, response);
     }
 
     /**
-     * 获取题目配置
+     * 获取题目数据配置
      * 后端仅负责鉴权，通过 nginx 重定向到评测端获取配置
      *
-     * @param pid  题目编号
-     * @param type 配置类型：META（元数据）或 CASE（测试点配置）
+     * @param pid 题目编号
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/config/{pid}")
     public void getProblemConfig(@PathVariable String pid,
-                                @RequestParam("type") String type,
-                                HttpServletResponse response) {
-        problemTestcaseService.redirectProblemConfig(pid, type, response);
+                                 HttpServletResponse response) {
+        validateProblemExists(pid);
+        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid);
+        response.setStatus(HttpServletResponse.SC_OK);
     }
 
     /**
      * 直接修改题目配置文件
      * 后端不做内容处理，内容校验由评测端完成，上传内容采用全量覆盖
      *
-     * @param pid  题目编号
-     * @param type 配置类型：META（元数据）或 CASE（测试点配置）
+     * @param pid 题目编号
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/config/{pid}")
     public void updateProblemConfig(@PathVariable String pid,
-                                   @RequestParam("type") String type,
-                                   HttpServletResponse response) {
-        problemTestcaseService.redirectProblemConfig(pid, type, response);
+                                    HttpServletResponse response) {
+        validateProblemExists(pid);
+        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid);
+        response.setStatus(HttpServletResponse.SC_OK);
     }
 
+    /**
+     * 获取题目测试点元数据（已废弃）
+     */
+    @Deprecated
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/data/{pid}")
     public Result<JudgeProblemDataResponse> getProblemData(@PathVariable String pid) {
@@ -129,8 +134,8 @@ public class ProblemController {
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/file/{pid}/{*file_name}")
     public void getProblemFile(@PathVariable String pid,
-            @PathVariable("file_name") String fileName,
-            HttpServletResponse response) {
+                               @PathVariable("file_name") String fileName,
+                               HttpServletResponse response) {
         problemTestcaseService.proxyProblemFile(pid, fileName, response);
     }
 
@@ -146,5 +151,35 @@ public class ProblemController {
     @GetMapping("/tree/{pid}")
     public Result<Object> getProblemTree(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTree(pid));
+    }
+
+    /**
+     * 删除题目
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @DeleteMapping("/file/{pid}")
+    public Result<Void> deleteProblem(@PathVariable String pid) {
+        problemService.deleteProblem(pid);
+        return Result.success();
+    }
+
+    /**
+     * 删除题目文件
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @DeleteMapping("/file/{pid}/{file_name}")
+    public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
+                                  HttpServletResponse response) {
+        validateProblemExists(pid);
+        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid + "/" + fileName);
+        response.setStatus(HttpServletResponse.SC_OK);
+    }
+
+    private void validateProblemExists(String pid) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (problem == null) {
+            throw new NotFoundException("题目不存在");
+        }
     }
 }

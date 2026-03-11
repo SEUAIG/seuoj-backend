@@ -1,11 +1,15 @@
 package com.seuoj.seuojbackend.dto.problem;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.seuoj.seuojbackend.common.ProblemCommon;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+
 import java.util.List;
+
 import lombok.Data;
 
 /**
@@ -18,9 +22,8 @@ public class ProblemEditDTO {
 
     private String title;
 
-    @Min(value = 0, message = "isPublic 只能是 0 或 1")
-    @Max(value = 1, message = "isPublic 只能是 0 或 1")
-    private Integer isPublic;
+    @JsonProperty("is_public")
+    private Boolean isPublic;
 
     private List<Long> tags;
 
@@ -33,12 +36,5 @@ public class ProblemEditDTO {
     @Valid
     private List<ProblemCommon.Example> example;
 
-    @Valid
-    private ProblemCommon.EditInfo info;
-
-    @Valid
-    private ProblemCommon.Interactor interactor;
-
-    @Valid
-    private ProblemCommon.Checker checker;
+    private String hint;
 }
