@@ -17,6 +17,7 @@
     <resultMap id="ProblemDetailMap" type="com.seuoj.seuojbackend.vo.problem.ProblemDetailVO">
         <id column="pid" property="pid"/>
         <result column="title" property="title"/>
+        <result column="is_public" property="isPublic"/>
         <result column="total_submit" property="totalSubmit"/>
         <result column="total_accept" property="totalAccept"/>
     </resultMap>

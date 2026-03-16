@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -378,7 +379,9 @@ public class ProblemService {
     private void updateProblemMeta(Long problemId, String title, Boolean isPublic) {
         Problem problem = new Problem();
         problem.setId(problemId);
-        problem.setTitle(title);
+        if (StringUtils.hasText(title)) {
+            problem.setTitle(title.trim());
+        }
         if (isPublic != null) {
             problem.setIsPublic(isPublic ? 1 : 0);
         }
