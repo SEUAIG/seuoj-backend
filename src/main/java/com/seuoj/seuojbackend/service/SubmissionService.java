@@ -13,6 +13,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
+import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
@@ -27,6 +28,7 @@ import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.vo.me.HeatmapDayVO;
 import com.seuoj.seuojbackend.vo.me.HeatmapSummaryVO;
@@ -53,14 +55,18 @@ public class SubmissionService {
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
     private final UserInfoMapper userInfoMapper;
+    private final UserRoleRelMapper userRoleRelMapper;
     private final TransactionTemplate transactionTemplate;
 
-    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient, CodeStorage codeStorage, UserInfoMapper userInfoMapper, TransactionTemplate transactionTemplate) {
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient,
+                             CodeStorage codeStorage, UserInfoMapper userInfoMapper,
+                             UserRoleRelMapper userRoleRelMapper, TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
         this.userInfoMapper = userInfoMapper;
+        this.userRoleRelMapper = userRoleRelMapper;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -206,7 +212,7 @@ public class SubmissionService {
             throw new NotFoundException("查询提交: 问题不存在: " + submission.getProblemId());
         }
         // 校验记录是否属于自己
-        if (!Objects.equals(submission.getUserId(), userId)) {
+        if (!Objects.equals(submission.getUserId(), userId) && !isAdmin(userId)) {
             throw new BadRequestException("不可查询不属于自己的测评记录信息");
         }
 
@@ -234,7 +240,12 @@ public class SubmissionService {
         Long userId = userContext.getUserId();
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
-        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectUserSubmissionPage(page, userId);
+        IPage<SubmissionListItemVO> pageResult;
+        if (isAdmin(userId)) {
+            pageResult = submissionMapper.selectAllSubmissionPage(page);
+        } else {
+            pageResult = submissionMapper.selectUserSubmissionPage(page, userId);
+        }
         List<SubmissionListItemVO> records = pageResult.getRecords();
 
         SubmissionPageVO result = new SubmissionPageVO();
@@ -291,6 +302,14 @@ public class SubmissionService {
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
         return vo;
+    }
+
+    private boolean isAdmin(Long userId) {
+        if (userId == null || userRoleRelMapper == null) {
+            return false;
+        }
+        List<String> roleCodes = userRoleRelMapper.getRoleCodesByUserId(userId);
+        return RoleType.hasAdminRole(roleCodes);
     }
 
 }

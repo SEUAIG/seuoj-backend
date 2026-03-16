@@ -18,6 +18,7 @@ import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -55,6 +56,8 @@ class SubmissionServiceTest {
     @Mock
     private UserInfoMapper userInfoMapper;
     @Mock
+    private UserRoleRelMapper userRoleRelMapper;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SubmissionService submissionService;
@@ -62,7 +65,8 @@ class SubmissionServiceTest {
     @BeforeEach
     void setUp() {
         submissionService = new SubmissionService(
-                submissionMapper, problemMapper, judgeClient, codeStorage, userInfoMapper, transactionTemplate);
+                submissionMapper, problemMapper, judgeClient, codeStorage, userInfoMapper, userRoleRelMapper,
+                transactionTemplate);
         // 初始化 MyBatis-Plus 元数据以便 LambdaUpdateWrapper 在单元测试中正常工作
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "mapper");
         assistant.setCurrentNamespace("dummy");

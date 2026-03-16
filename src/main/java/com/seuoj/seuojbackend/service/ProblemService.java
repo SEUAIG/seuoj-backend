@@ -8,6 +8,7 @@ import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.common.ProblemCommon;
+import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
@@ -19,6 +20,7 @@ import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemListItemVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 
@@ -44,13 +46,15 @@ public class ProblemService {
     private final JudgeClient judgeClient;
     private final TagMapper tagMapper;
     private final ProblemTagRelMapper problemTagRelMapper;
+    private final ProblemPidGenerator problemPidGenerator;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
-                          ProblemTagRelMapper problemTagRelMapper) {
+                          ProblemTagRelMapper problemTagRelMapper, ProblemPidGenerator problemPidGenerator) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
         this.problemTagRelMapper = problemTagRelMapper;
+        this.problemPidGenerator = problemPidGenerator;
     }
 
     /**
@@ -250,6 +254,36 @@ public class ProblemService {
         return problemDetail;
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
+        Problem problem = new Problem();
+        problem.setTitle(dto.getTitle());
+        problem.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()) ? 1 : 0);
+        problem.setTotalSubmit(0);
+        problem.setTotalAccept(0);
+        problemMapper.insert(problem);
+
+        String pid = problemPidGenerator.generate(problem.getId());
+        problem.setPid(pid);
+        problemMapper.updateById(problem);
+
+        if (dto.getTags() != null) {
+            updateProblemTags(problem.getId(), dto.getTags());
+        }
+        judgeClient.updateProblem(buildJudgeRequest(
+                pid,
+                dto.getDescription(),
+                dto.getInput(),
+                dto.getOutput(),
+                dto.getExample(),
+                dto.getHint()
+        ));
+
+        ProblemCreateVO vo = new ProblemCreateVO();
+        vo.setPid(pid);
+        return vo;
+    }
+
     // TODO: 会不会有并发修改的风险？
     /**
      * 编辑题面
@@ -397,21 +431,32 @@ public class ProblemService {
     }
 
     private JudgeProblemEditRequest buildJudgeRequest(ProblemEditDTO dto) {
-        JudgeProblemEditRequest request = new JudgeProblemEditRequest();
-        request.setPid(dto.getPid());
-        request.setDescription(dto.getDescription());
-        request.setInput(dto.getInput());
-        request.setOutput(dto.getOutput());
+        return buildJudgeRequest(
+                dto.getPid(),
+                dto.getDescription(),
+                dto.getInput(),
+                dto.getOutput(),
+                dto.getExample(),
+                dto.getHint()
+        );
+    }
 
-        if (dto.getExample() != null) {
-            List<com.seuoj.seuojbackend.common.ProblemCommon.Example> examples = dto.getExample().stream()
+    private JudgeProblemEditRequest buildJudgeRequest(String pid, String description, String input, String output,
+                                                      List<ProblemCommon.Example> example, String hint) {
+        JudgeProblemEditRequest request = new JudgeProblemEditRequest();
+        request.setPid(pid);
+        request.setDescription(description);
+        request.setInput(input);
+        request.setOutput(output);
+
+        if (example != null) {
+            List<ProblemCommon.Example> examples = example.stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             request.setExample(examples);
         }
 
-        request.setHint(dto.getHint());
-
+        request.setHint(hint);
         return request;
     }
 
@@ -425,6 +470,8 @@ public class ProblemService {
 
         long defaultTimeLimitMs = 1000L;
         long defaultMemoryLimitKb = 256L * 1024;
+        String problemType = "Standard";
+        String checkerType = "Standard";
 
         if (problemConfig.getProblemInfo() != null) {
             if (problemConfig.getProblemInfo().getTimeLimitMs() != null) {
@@ -432,6 +479,12 @@ public class ProblemService {
             }
             if (problemConfig.getProblemInfo().getMemoryLimitKb() != null) {
                 defaultMemoryLimitKb = problemConfig.getProblemInfo().getMemoryLimitKb();
+            }
+            if (problemConfig.getProblemInfo().getProblemType() != null) {
+                problemType = problemConfig.getProblemInfo().getProblemType();
+            }
+            if (problemConfig.getProblemInfo().getCheckerType() != null) {
+                checkerType = problemConfig.getProblemInfo().getCheckerType();
             }
         }
 
@@ -465,10 +518,17 @@ public class ProblemService {
         }
         info.setMinCpuTimeMs(minTimeLimitMs);
         info.setMaxCpuTimeMs(maxTimeLimitMs);
-        info.setMinMemoryByte(minMemoryLimitKb);
-        info.setMaxMemoryByte(maxMemoryLimitKb);
+        info.setMinMemoryByte(convertMemoryKbToByte(minMemoryLimitKb));
+        info.setMaxMemoryByte(convertMemoryKbToByte(maxMemoryLimitKb));
 
-        info.setProblemType(problemConfig.getProblemInfo().getProblemType());
-        info.setCheckerType(problemConfig.getProblemInfo().getCheckerType());
+        info.setProblemType(problemType);
+        info.setCheckerType(checkerType);
+    }
+
+    private long convertMemoryKbToByte(long memoryLimitKb) {
+        if (memoryLimitKb < 0) {
+            return memoryLimitKb;
+        }
+        return memoryLimitKb * 1024L;
     }
 }

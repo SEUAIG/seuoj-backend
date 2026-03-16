@@ -32,13 +32,13 @@ public class SubmissionController {
         return Result.success(submissionService.submit(dto));
     }
 
-    @RequireRole({RoleType.USER})
+    @RequireRole({RoleType.USER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/submission/{submissionNo}")
     public Result<SubmissionResultVO> getResult(@PathVariable String submissionNo) {
         return Result.success(submissionService.getResult(submissionNo));
     }
 
-    @RequireRole({RoleType.USER})
+    @RequireRole({RoleType.USER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/submission/page")
     public Result<SubmissionPageVO> listSubmissions(
             @RequestParam(defaultValue = "1") Integer current,

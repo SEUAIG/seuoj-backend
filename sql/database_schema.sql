@@ -218,7 +218,7 @@ DROP TABLE IF EXISTS `problem`;
 CREATE TABLE `problem`
 (
     `id`           bigint                                                        NOT NULL AUTO_INCREMENT,
-    `pid`          varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '题目编号',
+    `pid`          varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL DEFAULT '' COMMENT '题目编号',
     `title`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题目标题',
     `total_submit` int                                                           NOT NULL DEFAULT 0,
     `total_accept` int                                                           NOT NULL DEFAULT 0,

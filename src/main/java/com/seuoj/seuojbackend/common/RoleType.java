@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.common;
 
+import java.util.Collection;
 import lombok.Getter;
 
 /**
@@ -17,5 +18,12 @@ public enum RoleType {
     RoleType(String code, String description) {
         this.code = code;
         this.description = description;
+    }
+
+    public static boolean hasAdminRole(Collection<String> roleCodes) {
+        if (roleCodes == null || roleCodes.isEmpty()) {
+            return false;
+        }
+        return roleCodes.contains(ADMIN.getCode()) || roleCodes.contains(SUPER_ADMIN.getCode());
     }
 }

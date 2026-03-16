@@ -19,6 +19,23 @@
         ORDER BY s.submit_time DESC, s.id DESC
     </select>
 
+    <select id="selectAllSubmissionPage"
+            resultType="com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO">
+        SELECT s.submission_no,
+               p.pid,
+               s.language,
+               s.status,
+               s.verdict,
+               s.submit_time,
+               s.finish_time,
+               u.username
+        FROM submission s
+                 LEFT JOIN problem p ON s.problem_id = p.id AND p.is_del = 0
+                 LEFT JOIN user_info u ON s.user_id = u.id AND u.is_del = 0
+        WHERE s.is_del = 0
+        ORDER BY s.submit_time DESC, s.id DESC
+    </select>
+
     <select id="selectUserHeatmapDays"
             resultType="com.seuoj.seuojbackend.vo.me.HeatmapDayVO">
         SELECT DATE_FORMAT(s.submit_time, '%Y-%m-%d') AS date,

@@ -6,12 +6,14 @@ import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
+import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,12 +58,27 @@ public class ProblemController {
         return Result.success(problemService.getProblemPage(current, size, title, tagIds));
     }
 
+    /**
+     * 查看某题详情
+     */
     @AllowAnonymous
     @GetMapping("/{pid}")
     public Result<ProblemDetailVO> getProblemDetail(@PathVariable String pid) {
         return Result.success(problemService.getProblemDetail(pid));
     }
 
+    /**
+     * 新建题面
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @PostMapping
+    public Result<ProblemCreateVO> createProblem(@Valid @RequestBody ProblemCreateDTO dto) {
+        return Result.success(problemService.createProblem(dto));
+    }
+
+    /**
+     * 编辑题目信息
+     */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PatchMapping("/edit")
     public Result<Void> editProblem(@Valid @RequestBody ProblemEditDTO dto) {
@@ -157,7 +174,7 @@ public class ProblemController {
      * 删除题目
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @DeleteMapping("/file/{pid}")
+    @DeleteMapping("/{pid}")
     public Result<Void> deleteProblem(@PathVariable String pid) {
         problemService.deleteProblem(pid);
         return Result.success();
@@ -167,11 +184,11 @@ public class ProblemController {
      * 删除题目文件
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @DeleteMapping("/file/{pid}/{file_name}")
+    @DeleteMapping("/file/{pid}/{*file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletResponse response) {
         validateProblemExists(pid);
-        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/file/" + pid + "/" + fileName);
+        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/file/" + pid + "/" + fileName);
         response.setStatus(HttpServletResponse.SC_OK);
     }
 
