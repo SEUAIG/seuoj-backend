@@ -14,8 +14,6 @@ public class ProblemContentDTO {
     private String output;
     @Valid
     private ProblemCommon.ContentInfo info;
-    private Long timeLimit;
-    private Long memLimit;
-    private String type;
     private List<ProblemCommon.Example> example;
+    private String hint;
 }

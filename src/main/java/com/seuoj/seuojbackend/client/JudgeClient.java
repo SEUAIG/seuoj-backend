@@ -1,9 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
-import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
-import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
-import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
-import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
+import com.seuoj.seuojbackend.client.dto.*;
 
 
 /**
@@ -34,13 +31,23 @@ public interface JudgeClient {
      */
     void updateProblem(JudgeProblemEditRequest request);
 
+    /**
+     * 获取题目配置
+     *
+     * @param pid 题目pid
+     * @return 题目配置dto
+     */
+    ProblemConfigDTO fetchProblemConfig(String pid);
 
     /**
-     * 获取题目测试点元信息
-     *
-     * @param pid problem id
-     * @return 测试点元信息
+     * 删除题目
      */
+    void deleteProblem(String pid);
+
+    /**
+     *获取题目测试点元数据（已废弃）
+     */
+    @Deprecated
     JudgeProblemDataResponse fetchProblemDataMeta(String pid);
 
     /**

@@ -7,7 +7,7 @@ import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
-import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
+import com.seuoj.seuojbackend.service.UserRoleService;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -25,10 +25,10 @@ import java.util.List;
 @Aspect
 @Component
 public class AuthAspect {
-    private final UserRoleRelMapper userRoleRelMapper;
+    private final UserRoleService userRoleService;
 
-    public AuthAspect(UserRoleRelMapper userRoleRelMapper) {
-        this.userRoleRelMapper = userRoleRelMapper;
+    public AuthAspect(UserRoleService userRoleService) {
+        this.userRoleService = userRoleService;
     }
 
     /**
@@ -97,7 +97,7 @@ public class AuthAspect {
         }
 
         log.debug("查询用户角色 - userId: {}", userId);
-        List<String> roleCodesByUserId = userRoleRelMapper.getRoleCodesByUserId(userId);
+        List<String> roleCodesByUserId = userRoleService.getRoleCodesByUserId(userId);
         log.debug("查询到用户角色列表 - userId: {}, roles: {}", userId, roleCodesByUserId);
 
         if (roleCodesByUserId.isEmpty()) {

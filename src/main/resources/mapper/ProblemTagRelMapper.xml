@@ -22,7 +22,7 @@
         UPDATE problem_tag_rel
         SET is_del = 0
         WHERE problem_id = #{problemId}
-          AND tag_id IN
+        AND tag_id IN
         <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
             #{tagId}
         </foreach>
@@ -32,7 +32,7 @@
         SELECT tag_id
         FROM problem_tag_rel
         WHERE problem_id = #{problemId}
-          AND tag_id IN
+        AND tag_id IN
         <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
             #{tagId}
         </foreach>

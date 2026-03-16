@@ -1,6 +1,7 @@
 package com.seuoj.seuojbackend.dto.submission;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -11,6 +12,10 @@ public class SubmitDTO {
     private String pid;
 
     @NotBlank(message = "编程语言不能为空")
+    @Pattern(
+            regexp = "^(C|Cpp|Cpp11|Cpp17|Cpp20|Python3_12|Nodejs22|Go1_22|Java17)$",
+            message = "不支持的编程语言"
+    )
     private String language;
 
     @NotBlank(message = "代码不能为空")

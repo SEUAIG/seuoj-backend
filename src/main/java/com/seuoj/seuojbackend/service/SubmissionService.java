@@ -53,14 +53,18 @@ public class SubmissionService {
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
     private final UserInfoMapper userInfoMapper;
+    private final UserRoleService userRoleService;
     private final TransactionTemplate transactionTemplate;
 
-    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient, CodeStorage codeStorage, UserInfoMapper userInfoMapper, TransactionTemplate transactionTemplate) {
+    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient,
+                             CodeStorage codeStorage, UserInfoMapper userInfoMapper,
+                             UserRoleService userRoleService, TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
         this.userInfoMapper = userInfoMapper;
+        this.userRoleService = userRoleService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -206,7 +210,7 @@ public class SubmissionService {
             throw new NotFoundException("查询提交: 问题不存在: " + submission.getProblemId());
         }
         // 校验记录是否属于自己
-        if (!Objects.equals(submission.getUserId(), userId)) {
+        if (!Objects.equals(submission.getUserId(), userId) && !isAdmin(userId)) {
             throw new BadRequestException("不可查询不属于自己的测评记录信息");
         }
 
@@ -234,7 +238,12 @@ public class SubmissionService {
         Long userId = userContext.getUserId();
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
-        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectUserSubmissionPage(page, userId);
+        IPage<SubmissionListItemVO> pageResult;
+        if (isAdmin(userId)) {
+            pageResult = submissionMapper.selectAllSubmissionPage(page);
+        } else {
+            pageResult = submissionMapper.selectUserSubmissionPage(page, userId);
+        }
         List<SubmissionListItemVO> records = pageResult.getRecords();
 
         SubmissionPageVO result = new SubmissionPageVO();
@@ -278,7 +287,9 @@ public class SubmissionService {
         vo.setStatus(submission.getStatus());
         vo.setVerdict(submission.getVerdict());
         vo.setResultDetail(submission.getResultDetail());
+        vo.setSubtasks(submission.getSubtasks());
         vo.setErrorDetail(submission.getErrorDetail());
+        vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
 
@@ -289,6 +300,10 @@ public class SubmissionService {
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
         return vo;
+    }
+
+    private boolean isAdmin(Long userId) {
+        return userRoleService != null && userRoleService.isAdmin(userId);
     }
 
 }

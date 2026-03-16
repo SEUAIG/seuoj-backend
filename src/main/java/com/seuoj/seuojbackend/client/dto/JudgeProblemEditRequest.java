@@ -15,8 +15,6 @@ public class JudgeProblemEditRequest {
     private String description;
     private String input;
     private String output;
-    private ProblemCommon.EditInfo info;
     private List<ProblemCommon.Example> example;
-    private ProblemCommon.Interactor interactor;
-    private ProblemCommon.Checker checker;
+    private String hint;
 }

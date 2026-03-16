@@ -1,12 +1,11 @@
 package com.seuoj.seuojbackend.dto.judge;
 
+import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
 import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
-
 import lombok.Data;
 
 @Data
@@ -27,6 +26,11 @@ public class JudgeResultDTO {
      * 如果status是CompileError或JudgendError，错误信息在这
      */
     private String errorDetail;
+
+    @Valid
+    private List<ProblemConfigDTO.Subtask> subtasks;
+
+    private Integer score;
 
     // TODO:需要密钥验证来源
 }

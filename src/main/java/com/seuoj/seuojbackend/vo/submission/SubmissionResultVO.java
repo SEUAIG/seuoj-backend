@@ -3,6 +3,7 @@ package com.seuoj.seuojbackend.vo.submission;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
 import lombok.Data;
 
@@ -39,6 +40,11 @@ public class SubmissionResultVO {
     private List<JudgeResultDetailItem> resultDetail;
 
     /**
+     * 子任务列表
+     */
+    private List<ProblemConfigDTO.Subtask> subtasks;
+
+    /**
      * 编译/题目错误详情
      */
     private String errorDetail;
@@ -52,6 +58,11 @@ public class SubmissionResultVO {
      * 评测完成时间
      */
     private LocalDateTime finishTime;
+
+    /**
+     * 分数
+     */
+    private Integer score;
 
     /**
      * 用户代码

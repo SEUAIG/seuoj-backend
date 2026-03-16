@@ -14,7 +14,9 @@ public enum SubmissionVerdict {
     TIME_LIMIT_EXCEEDED("TimeLimitExceeded"),
     MEMORY_LIMIT_EXCEEDED("MemoryLimitExceeded"),
     RUNTIME_ERROR("RuntimeError"),
-    SYSTEM_ERROR("SystemError");
+    SYSTEM_ERROR("SystemError"),
+    PARTIALLY_ACCEPTED("PartiallyAccepted"),
+    SKIPPED("Skipped");
 
     private final String verdict;
 
