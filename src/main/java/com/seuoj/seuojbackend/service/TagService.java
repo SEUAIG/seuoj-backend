@@ -142,7 +142,7 @@ public class TagService {
         List<TagGroup> groupsByName = tagGroupMapper.selectList(new LambdaQueryWrapper<TagGroup>()
                 .eq(TagGroup::getName, normalized));
         if (groupsByName.size() == 1) {
-            return groupsByName.get(0);
+            return groupsByName.getFirst();
         }
         if (groupsByName.size() > 1) {
             throw new ConflictException("分类名称存在重复，无法确定唯一分组");

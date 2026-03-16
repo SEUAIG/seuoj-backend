@@ -92,8 +92,4 @@ public class JudgeService {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
     }
-
-    private void calculateScore() {
-
-    }
 }
