@@ -9,6 +9,7 @@ import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.client.dto.ProblemContentDTO;
 import com.seuoj.seuojbackend.common.ProblemCommon;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
+import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
@@ -19,6 +20,8 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
+import com.seuoj.seuojbackend.interceptor.UserContext;
+import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemListItemVO;
@@ -49,14 +52,19 @@ public class ProblemService {
     private final TagMapper tagMapper;
     private final ProblemTagRelMapper problemTagRelMapper;
     private final ProblemPidGenerator problemPidGenerator;
+    private final ProblemAccessService problemAccessService;
+    private final UserRoleService userRoleService;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
-                          ProblemTagRelMapper problemTagRelMapper, ProblemPidGenerator problemPidGenerator) {
+                          ProblemTagRelMapper problemTagRelMapper, ProblemPidGenerator problemPidGenerator,
+                          ProblemAccessService problemAccessService, UserRoleService userRoleService) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
         this.problemTagRelMapper = problemTagRelMapper;
         this.problemPidGenerator = problemPidGenerator;
+        this.problemAccessService = problemAccessService;
+        this.userRoleService = userRoleService;
     }
 
     /**
@@ -83,6 +91,7 @@ public class ProblemService {
                 searchSpec.singleTokens,
                 searchSpec.useLikeSingle,
                 searchSpec.useLikeRaw,
+                canCurrentUserViewPrivateProblems(),
                 tagIds,
                 tagIdsSize
         );
@@ -118,6 +127,14 @@ public class ProblemService {
         vo.setRecords(records != null ? records : Collections.emptyList());
 
         return vo;
+    }
+
+    private boolean canCurrentUserViewPrivateProblems() {
+        UserContext ctx = UserContextHolder.get();
+        if (ctx == null || ctx.isGuest()) {
+            return false;
+        }
+        return userRoleService.isAdmin(ctx.getUserId());
     }
 
     private static String buildFulltextQuery(List<String> tokens) {
@@ -230,28 +247,36 @@ public class ProblemService {
     /**
      * 根据 pid 获取题目详情
      */
-    public ProblemDetailVO getProblemDetail(String pid) {
-        // 从数据库获取题目元信息
-        ProblemDetailVO problemDetail = problemMapper.getProblemDetail(pid);
-        if (problemDetail == null) {
-            log.warn("获取题目详情时题目不存在, pid={}", pid);
+    public ProblemDetailVO getProblemDetail(ProblemDetailQuery query) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, query.pid()));
+        if (problem == null) {
+            log.warn("获取题目详情时题目不存在, pid={}", query.pid());
             throw new NotFoundException("题目不存在");
         }
 
-        List<String> tags = problemMapper.getProblemTags(pid);
+        problemAccessService.assertCanViewProblem(problem, query.sourceType(), query.ownerPublicId());
+        // 从数据库获取题目元信息
+        ProblemDetailVO problemDetail = problemMapper.getProblemDetail(query.pid());
+        if (problemDetail == null) {
+            log.warn("获取题目详情时题目详情不存在, pid={}", query.pid());
+            throw new NotFoundException("题目不存在");
+        }
+
+        List<String> tags = problemMapper.getProblemTags(query.pid());
         problemDetail.setTags(tags != null ? tags : Collections.emptyList());
 
         // 从评测段获取题目详情
-        ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(pid);
+        ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(query.pid());
         if (problemContentDTO == null) {
-            log.warn("题目 {} 的内容在评测服务中缺失", pid);
+            log.warn("题目 {} 的内容在评测服务中缺失", query.pid());
             throw new NotFoundException("题目不存在");
         }
 
         problemDetail.setContent(problemContentDTO);
 
         // 从评测端获取题目配置数据
-        ProblemConfigDTO problemConfigDTO = judgeClient.fetchProblemConfig(pid);
+        ProblemConfigDTO problemConfigDTO = judgeClient.fetchProblemConfig(query.pid());
         fillProblemContentByProblemConfig(problemContentDTO, problemConfigDTO);
         return problemDetail;
     }
@@ -260,7 +285,7 @@ public class ProblemService {
     public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
         Problem problem = new Problem();
         problem.setTitle(dto.getTitle().trim());
-        problem.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()) ? 1 : 0);
+        problem.setIsPublic(dto.getIsPublic());
         problem.setTotalSubmit(0);
         problem.setTotalAccept(0);
         problem.setPid(buildCreatingPid());
@@ -383,7 +408,7 @@ public class ProblemService {
             problem.setTitle(title.trim());
         }
         if (isPublic != null) {
-            problem.setIsPublic(isPublic ? 1 : 0);
+            problem.setIsPublic(isPublic);
         }
         problemMapper.updateById(problem);
     }

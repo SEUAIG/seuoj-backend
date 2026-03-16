@@ -49,6 +49,7 @@ public interface ProblemMapper extends BaseMapper<Problem> {
             @Param("singleTokens") List<String> singleTokens,
             @Param("useLikeSingle") boolean useLikeSingle,
             @Param("useLikeRaw") boolean useLikeRaw,
+            @Param("includeNonPublic") boolean includeNonPublic,
             @Param("tagIds") List<Long> tagIds,
             @Param("tagIdsSize") int tagIdsSize);
 

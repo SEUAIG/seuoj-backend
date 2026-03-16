@@ -123,7 +123,7 @@ VALUES (1, 1, 1, 0),
        (6, 3, 1, 0);
 
 INSERT INTO `contest` (
-    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `creator_user_id`, `is_del`
+    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
 )
 VALUES (
     1,
@@ -135,15 +135,17 @@ VALUES (
     '2026-03-01 12:00:00',
     'ACM',
     0,
-    1,
     0
 );
 
-INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `creator_user_id`, `is_del`)
+INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `teacher_user_id`, `is_del`)
 VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 0);
 
-INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `is_public`, `creator_user_id`, `is_del`)
-VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
+INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `is_public`, `is_del`)
+VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 0);
+
+INSERT INTO `user_problem_set_rel` (`id`, `user_id`, `problem_set_id`, `is_del`)
+VALUES (1, 1, 1, 0);
 
 INSERT INTO `contest_problem_rel` (`id`, `contest_id`, `problem_id`, `sort_order`, `is_del`)
 VALUES (1, 1, 1, 1, 0),
