@@ -1,24 +1,20 @@
 package com.seuoj.seuojbackend.service;
 
-import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.exception.InternalServerException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +25,10 @@ public class JudgeService {
 
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
-    private final ObjectMapper objectMapper;
 
-    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, ObjectMapper objectMapper) {
+    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
-        this.objectMapper = objectMapper;
     }
 
     /**
@@ -44,7 +38,7 @@ public class JudgeService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void handleJudgeResult(JudgeResultDTO dto, String submissionNo) {
-        // TODO:检验请求来源
+        // TODO: 校验请求来源
 
         Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()
@@ -62,7 +56,7 @@ public class JudgeService {
             if (resultDetail == null || resultDetail.isEmpty()) {
                 throw new BadRequestException("成功结果必须包含 resultDetail");
             }
-            resultDetail.sort(Comparator.comparingInt(JudgeResultDetailItem::getCnt));
+            resultDetail.sort(Comparator.comparingInt(JudgeResultDetailItem::getId));
             verdict = SubmissionVerdict.ACCEPTED.getVerdict();
             for (JudgeResultDetailItem item : resultDetail) {
                 if (!SubmissionVerdict.ACCEPTED.equals(item.getType())) {
@@ -72,25 +66,17 @@ public class JudgeService {
             }
         }
 
-        // 手动将 resultDetail 序列化为 JSON 字符串
-        // 因为 LambdaUpdateWrapper.set() 不会自动应用 @TableField 上的 typeHandler
-        String resultDetailJson = null;
-        if (dto.getResultDetail() != null) {
-            try {
-                resultDetailJson = objectMapper.writeValueAsString(dto.getResultDetail());
-            } catch (JsonProcessingException e) {
-                log.error("序列化 resultDetail 失败, submissionNo={}", submissionNo, e);
-                throw new InternalServerException("评测结果处理失败");
-            }
-        }
-
         List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
-        int updatedRows = submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
-                .set(Submission::getStatus, SubmissionStatus.FINISHED.getStatus())
-                .set(Submission::getVerdict, verdict)
-                .set(Submission::getResultDetail, resultDetailJson)
-                .set(Submission::getErrorDetail, dto.getErrorDetail())
-                .set(Submission::getFinishTime, LocalDateTime.now())
+        Submission updateEntity = new Submission()
+                .setStatus(SubmissionStatus.FINISHED.getStatus())
+                .setVerdict(verdict)
+                .setResultDetail(dto.getResultDetail())
+                .setSubtasks(dto.getSubtasks())
+                .setErrorDetail(dto.getErrorDetail())
+                .setFinishTime(LocalDateTime.now())
+                .setScore(dto.getScore());
+
+        int updatedRows = submissionMapper.update(updateEntity, new LambdaUpdateWrapper<Submission>()
                 .eq(Submission::getSubmissionNo, submissionNo)
                 .in(Submission::getStatus, modifiableStatusStrs));
 
@@ -107,4 +93,7 @@ public class JudgeService {
         }
     }
 
+    private void calculateScore() {
+
+    }
 }

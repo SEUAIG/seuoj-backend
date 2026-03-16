@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -59,14 +62,19 @@ public class ProblemConfigDTO {
 
     @Data
     public static class Subtask {
+        @NotNull
         private Integer id;
+
+        @NotEmpty
         private List<Integer> cases;
 
         @JsonProperty("pre_subtasks")
         private List<Integer> preSubtasks;
 
+        @NotNull
         private Integer score;
 
+        @NotBlank
         private String type;
     }
 

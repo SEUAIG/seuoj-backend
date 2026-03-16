@@ -278,7 +278,9 @@ public class SubmissionService {
         vo.setStatus(submission.getStatus());
         vo.setVerdict(submission.getVerdict());
         vo.setResultDetail(submission.getResultDetail());
+        vo.setSubtasks(submission.getSubtasks());
         vo.setErrorDetail(submission.getErrorDetail());
+        vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
 
