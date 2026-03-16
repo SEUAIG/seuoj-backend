@@ -242,12 +242,14 @@ CREATE TABLE `problem_set`
     `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
     `title`           varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
+    `owner_user_id`   bigint                                                        NOT NULL COMMENT '题单所属用户ID',
     `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
     `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE
+    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
+    INDEX `idx_problem_set_owner` (`owner_user_id` ASC) USING BTREE
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '题单表'
@@ -310,9 +312,12 @@ CREATE TABLE `problem_set_problem_rel`
     `problem_id`     bigint     NOT NULL COMMENT '题目ID',
     `sort_order`     int        NOT NULL COMMENT '排序序号',
     `is_del`         tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_problem_id` bigint GENERATED ALWAYS AS (if(`is_del` = 0, `problem_id`, NULL)) STORED,
+    `active_sort_order` int GENERATED ALWAYS AS (if(`is_del` = 0, `sort_order`, NULL)) STORED,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_problem_set_problem_active` (`problem_set_id` ASC, `problem_id` ASC, `is_del` ASC) USING BTREE,
-    UNIQUE INDEX `uk_problem_set_sort_active` (`problem_set_id` ASC, `sort_order` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_problem_set_problem_active` (`problem_set_id` ASC, `active_problem_id` ASC) USING BTREE,
+    UNIQUE INDEX `uk_problem_set_sort_active` (`problem_set_id` ASC, `active_sort_order` ASC) USING BTREE,
+    INDEX `idx_ps_problem_set_sort` (`problem_set_id` ASC, `sort_order` ASC) USING BTREE,
     INDEX `idx_ps_problem_set` (`problem_set_id` ASC) USING BTREE,
     INDEX `idx_ps_problem` (`problem_id` ASC) USING BTREE,
     CONSTRAINT `fk_ps_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,

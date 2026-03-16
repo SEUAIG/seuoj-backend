@@ -266,7 +266,7 @@ public class ProblemService {
         List<String> tags = problemMapper.getProblemTags(query.pid());
         problemDetail.setTags(tags != null ? tags : Collections.emptyList());
 
-        // 从评测段获取题目详情
+        // 从评测端获取题目详情
         ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(query.pid());
         if (problemContentDTO == null) {
             log.warn("题目 {} 的内容在评测服务中缺失", query.pid());
@@ -566,3 +566,5 @@ public class ProblemService {
         return memoryLimitKb * 1024L;
     }
 }
+
+

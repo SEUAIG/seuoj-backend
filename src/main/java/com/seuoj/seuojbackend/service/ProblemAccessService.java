@@ -203,7 +203,7 @@ public class ProblemAccessService {
      * <p>题单所有权来自 {@code user_problem_set_rel}，因此这里只认系统管理员或题单关联用户。
      */
     private boolean canManageProblemSet(ProblemAccessMapper.ProblemSetAccessRow problemSet, Long userId) {
-        return problemSet.isRelatedUser() || isAdmin(userId);
+        return problemSet.isOwner() || isAdmin(userId);
     }
 
     /**

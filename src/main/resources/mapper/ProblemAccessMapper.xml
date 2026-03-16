@@ -64,7 +64,7 @@
     <resultMap id="ProblemSetAccessRowMap" type="com.seuoj.seuojbackend.mapper.ProblemAccessMapper$ProblemSetAccessRow">
         <id column="problem_set_id" property="problemSetId"/>
         <result column="is_public" property="isPublic"/>
-        <result column="related_user_flag" property="relatedUser"/>
+        <result column="owner_flag" property="owner"/>
         <result column="class_member_flag" property="classMember"/>
         <result column="shared_user_flag" property="sharedUser"/>
     </resultMap>
@@ -72,13 +72,7 @@
     <select id="selectProblemSetAccess" resultMap="ProblemSetAccessRowMap">
         SELECT ps.id AS problem_set_id,
                ps.is_public,
-               CASE WHEN EXISTS (
-                   SELECT 1
-                   FROM user_problem_set_rel upsr
-                   WHERE upsr.problem_set_id = ps.id
-                     AND upsr.user_id = #{userId}
-                     AND upsr.is_del = 0
-               ) THEN TRUE ELSE FALSE END AS related_user_flag,
+               CASE WHEN ps.owner_user_id = #{userId} THEN TRUE ELSE FALSE END AS owner_flag,
                CASE WHEN EXISTS (
                    SELECT 1
                    FROM class_problem_set_rel cpsr

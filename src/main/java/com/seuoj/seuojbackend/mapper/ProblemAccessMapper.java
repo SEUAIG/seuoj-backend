@@ -38,7 +38,7 @@ public interface ProblemAccessMapper {
     class ProblemSetAccessRow {
         private Long problemSetId;
         private Boolean isPublic;
-        private boolean relatedUser;
+        private boolean owner;
         private boolean classMember;
         private boolean sharedUser;
     }
