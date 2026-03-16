@@ -129,7 +129,6 @@ public class TagService {
     private void ensureTagNotExists(String tagName, Long groupId, Long excludeTagId) {
         Tag existing = tagMapper.selectOne(new LambdaQueryWrapper<Tag>()
                 .eq(Tag::getTagName, tagName)
-                .eq(Tag::getGroupId, groupId)
                 .ne(excludeTagId != null, Tag::getId, excludeTagId));
         if (existing != null) {
             throw new ConflictException("标签已存在");

@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
@@ -257,10 +258,11 @@ public class ProblemService {
     @Transactional(rollbackFor = Exception.class)
     public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
         Problem problem = new Problem();
-        problem.setTitle(dto.getTitle());
+        problem.setTitle(dto.getTitle().trim());
         problem.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()) ? 1 : 0);
         problem.setTotalSubmit(0);
         problem.setTotalAccept(0);
+        problem.setPid(buildCreatingPid());
         problemMapper.insert(problem);
 
         String pid = problemPidGenerator.generate(problem.getId());
@@ -282,6 +284,10 @@ public class ProblemService {
         ProblemCreateVO vo = new ProblemCreateVO();
         vo.setPid(pid);
         return vo;
+    }
+
+    private String buildCreatingPid() {
+        return "_creating_" + UUID.randomUUID();
     }
 
     // TODO: 会不会有并发修改的风险？
