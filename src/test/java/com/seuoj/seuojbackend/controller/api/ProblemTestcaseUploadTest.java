@@ -2,10 +2,12 @@ package com.seuoj.seuojbackend.controller.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.seuoj.seuojbackend.client.JudgeClient;
@@ -16,6 +18,7 @@ import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,31 +85,21 @@ class ProblemTestcaseUploadTest {
     // ========== GET /api/problem/config/{pid} ==========
 
     @Test
-    void configMetaShouldReturnXAccelRedirectHeader() throws Exception {
+    void configShouldReturnXAccelRedirectHeader() throws Exception {
         mockMvc.perform(get("/api/problem/config/{pid}", "P1000")
-                        .param("type", "META")
                         .header("Authorization", "Bearer testtoken"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Accel-Redirect",
-                        "/internal/judgend/judge/problem/config/P1000?type=META"));
+                        "/internal/judgend/judge/problem/config/P1000"));
     }
 
     @Test
-    void configCaseShouldReturnXAccelRedirectHeader() throws Exception {
-        mockMvc.perform(get("/api/problem/config/{pid}", "P1000")
-                        .param("type", "CASE")
-                        .header("Authorization", "Bearer testtoken"))
-                .andExpect(status().isOk())
-                .andExpect(header().string("X-Accel-Redirect",
-                        "/internal/judgend/judge/problem/config/P1000?type=CASE"));
-    }
+    void configNonExistentProblemShouldReturn404() throws Exception {
+        when(problemMapper.selectOne(any())).thenReturn(null);
 
-    @Test
-    void configInvalidTypeShouldReturn400() throws Exception {
-        mockMvc.perform(get("/api/problem/config/{pid}", "P1000")
-                        .param("type", "INVALID")
+        mockMvc.perform(get("/api/problem/config/{pid}", "P9999")
                         .header("Authorization", "Bearer testtoken"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     // ========== PUT /api/problem/config/{pid} ==========
@@ -114,13 +107,10 @@ class ProblemTestcaseUploadTest {
     @Test
     void updateConfigShouldReturnXAccelRedirectHeader() throws Exception {
         mockMvc.perform(put("/api/problem/config/{pid}", "P1000")
-                        .param("type", "META")
-                        .contentType("text/plain")
-                        .content("[time_limit]\ndefault = 1000")
                         .header("Authorization", "Bearer testtoken"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Accel-Redirect",
-                        "/internal/judgend/judge/problem/config/P1000?type=META"));
+                        "/internal/judgend/judge/problem/config/P1000"));
     }
 
     @Test
@@ -128,32 +118,21 @@ class ProblemTestcaseUploadTest {
         when(problemMapper.selectOne(any())).thenReturn(null);
 
         mockMvc.perform(put("/api/problem/config/{pid}", "P9999")
-                        .param("type", "CASE")
-                        .contentType("text/plain")
-                        .content("some toml content")
                         .header("Authorization", "Bearer testtoken"))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void updateConfigInvalidTypeShouldReturn400() throws Exception {
-        mockMvc.perform(put("/api/problem/config/{pid}", "P1000")
-                        .param("type", "INVALID")
-                        .contentType("text/plain")
-                        .content("some content")
-                        .header("Authorization", "Bearer testtoken"))
-                .andExpect(status().isBadRequest());
     }
 
     // ========== GET /api/problem/tree/{pid} ==========
 
     @Test
-    void treeShouldReturnXAccelRedirectHeader() throws Exception {
+    void treeShouldReturnJsonData() throws Exception {
+        when(judgeClient.fetchProblemTree("P1000")).thenReturn(List.of(Map.of("name", "a.in")));
+
         mockMvc.perform(get("/api/problem/tree/{pid}", "P1000")
                         .header("Authorization", "Bearer testtoken"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("X-Accel-Redirect",
-                        "/internal/judgend/judge/problem/tree/P1000"));
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data[0].name").value("a.in"));
     }
 
     @Test
@@ -163,5 +142,15 @@ class ProblemTestcaseUploadTest {
         mockMvc.perform(get("/api/problem/tree/{pid}", "P9999")
                         .header("Authorization", "Bearer testtoken"))
                 .andExpect(status().isNotFound());
+    }
+
+    // ========== DELETE /api/problem/file/{pid} ==========
+
+    @Test
+    void deleteProblemShouldReturnSuccess() throws Exception {
+        mockMvc.perform(delete("/api/problem/file/{pid}", "P1000")
+                        .header("Authorization", "Bearer testtoken"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
     }
 }
