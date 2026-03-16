@@ -16,7 +16,6 @@ import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,15 +30,18 @@ public class AuthService {
     private final UserInfoMapper userInfoMapper;
     private final UserRoleMapper userRoleMapper;
     private final UserRoleRelMapper userRoleRelMapper;
+    private final UserRoleService userRoleService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final VerificationCodeService verificationCodeService;
 
     public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
-                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil, VerificationCodeService verificationCodeService) {
+                       UserRoleService userRoleService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+                       VerificationCodeService verificationCodeService) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleRelMapper = userRoleRelMapper;
+        this.userRoleService = userRoleService;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.verificationCodeService = verificationCodeService;
@@ -146,19 +148,10 @@ public class AuthService {
 
         String token = jwtUtil.createToken(user.getId());
 
-        // 查询用户角色，取最高权限返回
-        java.util.List<String> roleCodes = userRoleRelMapper.getRoleCodesByUserId(user.getId());
-        String role = "user";
-        if (roleCodes.contains(RoleType.SUPER_ADMIN.getCode())) {
-            role = "superadmin";
-        } else if (roleCodes.contains(RoleType.ADMIN.getCode())) {
-            role = "admin";
-        }
-
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
         loginVO.setUsername(user.getUsername());
-        loginVO.setRole(role);
+        loginVO.setRole(userRoleService.getHighestRoleLabel(user.getId()));
 
         return loginVO;
     }
