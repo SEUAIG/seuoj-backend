@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

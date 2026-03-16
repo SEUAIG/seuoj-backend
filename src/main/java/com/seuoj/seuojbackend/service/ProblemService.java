@@ -264,7 +264,9 @@ public class ProblemService {
         }
 
         updateProblemMeta(problem.getId(), dto.getTitle(), dto.getIsPublic());
-        updateProblemTags(problem.getId(), dto.getTags());
+        if (dto.getTags() != null) {
+            updateProblemTags(problem.getId(), dto.getTags());
+        }
         judgeClient.updateProblem(buildJudgeRequest(dto));
     }
 
@@ -449,9 +451,9 @@ public class ProblemService {
                     maxTimeLimitMs = Math.max(maxTimeLimitMs, testcase.getTimeLimitMs());
                 }
 
-                if (testcase.getTimeLimitMs() != null) {
-                    minMemoryLimitKb = Math.min(minMemoryLimitKb, testcase.getTimeLimitMs());
-                    maxMemoryLimitKb = Math.max(maxMemoryLimitKb, testcase.getTimeLimitMs());
+                if (testcase.getMemoryLimitKb() != null) {
+                    minMemoryLimitKb = Math.min(minMemoryLimitKb, testcase.getMemoryLimitKb());
+                    maxMemoryLimitKb = Math.max(maxMemoryLimitKb, testcase.getMemoryLimitKb());
                 }
             }
         }

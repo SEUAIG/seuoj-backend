@@ -171,7 +171,7 @@ public class ProblemController {
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletResponse response) {
         validateProblemExists(pid);
-        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid + "/" + fileName);
+        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/file/" + pid + "/" + fileName);
         response.setStatus(HttpServletResponse.SC_OK);
     }
 
