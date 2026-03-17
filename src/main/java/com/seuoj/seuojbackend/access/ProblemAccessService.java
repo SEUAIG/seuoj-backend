@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.service;
+package com.seuoj.seuojbackend.access;
 
 import com.seuoj.seuojbackend.common.ProblemSourceType;
 import com.seuoj.seuojbackend.entity.Problem;
@@ -8,6 +8,8 @@ import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.mapper.ProblemAccessMapper;
 import java.time.LocalDateTime;
+
+import com.seuoj.seuojbackend.service.UserRoleService;
 import org.springframework.stereotype.Service;
 
 /**

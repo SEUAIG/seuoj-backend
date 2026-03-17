@@ -1,7 +1,7 @@
 package com.seuoj.seuojbackend.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.seuoj.seuojbackend.common.ProblemCommon;
+import com.seuoj.seuojbackend.model.ProblemCommon;
 import java.util.List;
 import lombok.Data;
 

@@ -2,7 +2,7 @@ package com.seuoj.seuojbackend.client.dto;
 
 import java.util.List;
 
-import com.seuoj.seuojbackend.common.ProblemCommon;
+import com.seuoj.seuojbackend.model.ProblemCommon;
 import jakarta.validation.Valid;
 import lombok.Data;
 

@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.common;
+package com.seuoj.seuojbackend.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;

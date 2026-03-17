@@ -2,7 +2,7 @@ package com.seuoj.seuojbackend.dto.judge;
 
 import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
-import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
