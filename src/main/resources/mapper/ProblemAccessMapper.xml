@@ -32,7 +32,7 @@
                CASE WHEN EXISTS (
                    SELECT 1
                    FROM class_contest_rel ccr
-                   INNER JOIN class_member_rel cmbr ON ccr.class_id = cmbr.class_id
+                   INNER JOIN class_student_rel cmbr ON ccr.class_id = cmbr.class_id
                    WHERE ccr.contest_id = c.id
                      AND ccr.is_del = 0
                      AND cmbr.user_id = #{userId}
@@ -76,7 +76,7 @@
                CASE WHEN EXISTS (
                    SELECT 1
                    FROM class_problem_set_rel cpsr
-                   INNER JOIN class_member_rel cmr ON cpsr.class_id = cmr.class_id
+                   INNER JOIN class_student_rel cmr ON cpsr.class_id = cmr.class_id
                    WHERE cpsr.problem_set_id = ps.id
                      AND cpsr.is_del = 0
                      AND cmr.user_id = #{userId}

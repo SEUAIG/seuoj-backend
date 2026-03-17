@@ -8,10 +8,11 @@ import com.seuoj.seuojbackend.dto.classinfo.ClassCreateDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassUpdateDTO;
 import com.seuoj.seuojbackend.entity.ClassContestRel;
 import com.seuoj.seuojbackend.entity.ClassInfo;
-import com.seuoj.seuojbackend.entity.ClassMemberRel;
+import com.seuoj.seuojbackend.entity.ClassStudentRel;
 import com.seuoj.seuojbackend.entity.ClassProblemSetRel;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ProblemSet;
+import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
@@ -21,7 +22,7 @@ import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ClassContestRelMapper;
 import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
-import com.seuoj.seuojbackend.mapper.ClassMemberRelMapper;
+import com.seuoj.seuojbackend.mapper.ClassStudentRelMapper;
 import com.seuoj.seuojbackend.mapper.ClassProblemSetRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
@@ -44,7 +45,7 @@ import org.springframework.util.StringUtils;
 public class ClassService {
 
     private final ClassInfoMapper classInfoMapper;
-    private final ClassMemberRelMapper classMemberRelMapper;
+    private final ClassStudentRelMapper classStudentRelMapper;
     private final ClassProblemSetRelMapper classProblemSetRelMapper;
     private final ClassContestRelMapper classContestRelMapper;
     private final ProblemSetMapper problemSetMapper;
@@ -53,7 +54,7 @@ public class ClassService {
     private final UserRoleService userRoleService;
 
     public ClassService(ClassInfoMapper classInfoMapper,
-                        ClassMemberRelMapper classMemberRelMapper,
+                        ClassStudentRelMapper classStudentRelMapper,
                         ClassProblemSetRelMapper classProblemSetRelMapper,
                         ClassContestRelMapper classContestRelMapper,
                         ProblemSetMapper problemSetMapper,
@@ -61,7 +62,7 @@ public class ClassService {
                         UserInfoMapper userInfoMapper,
                         UserRoleService userRoleService) {
         this.classInfoMapper = classInfoMapper;
-        this.classMemberRelMapper = classMemberRelMapper;
+        this.classStudentRelMapper = classStudentRelMapper;
         this.classProblemSetRelMapper = classProblemSetRelMapper;
         this.classContestRelMapper = classContestRelMapper;
         this.problemSetMapper = problemSetMapper;
@@ -71,28 +72,22 @@ public class ClassService {
     }
 
     /**
-     * 创建班级并将创建者加入成员关系
+     * 创建班级
      */
     @Transactional(rollbackFor = Exception.class)
     public ClassCreateVO createClass(ClassCreateDTO dto) {
         Long userId = currentUserIdRequired();
         assertTeacherOrAdmin(userId);
 
+        boolean isTeacher = userRoleService.isTeacher(userId);
+
         ClassInfo classInfo = new ClassInfo();
         classInfo.setPublicId(UUID.randomUUID().toString());
         classInfo.setName(normalizeRequiredText(dto.getName(), "name 不能为空"));
         classInfo.setDescription(dto.getDescription());
         classInfo.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()));
-        classInfo.setTeacherUserId(userId);
+        classInfo.setTeacherUserId(isTeacher ? userId : null);
         classInfoMapper.insert(classInfo);
-
-        /**
-         * 创建者默认加入班级成员
-         */
-        ClassMemberRel rel = new ClassMemberRel();
-        rel.setClassId(classInfo.getId());
-        rel.setUserId(userId);
-        classMemberRelMapper.insert(rel);
 
         ClassCreateVO vo = new ClassCreateVO();
         vo.setClassPublicId(classInfo.getPublicId());
@@ -162,9 +157,9 @@ public class ClassService {
 
         classInfoMapper.deleteById(classInfo.getId());
 
-        classMemberRelMapper.update(null, new LambdaUpdateWrapper<ClassMemberRel>()
-                .set(ClassMemberRel::getIsDel, 1)
-                .eq(ClassMemberRel::getClassId, classInfo.getId()));
+        classStudentRelMapper.update(null, new LambdaUpdateWrapper<ClassStudentRel>()
+                .set(ClassStudentRel::getIsDel, 1)
+                .eq(ClassStudentRel::getClassId, classInfo.getId()));
 
         classProblemSetRelMapper.update(null, new LambdaUpdateWrapper<ClassProblemSetRel>()
                 .set(ClassProblemSetRel::getIsDel, 1)
@@ -176,24 +171,30 @@ public class ClassService {
     }
 
     /**
-     * 当前用户加入班级
+     * 当前用户以学生身份加入班级
      */
     @Transactional(rollbackFor = Exception.class)
     public void joinClass(String classPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
         Long userId = currentUserIdRequired();
 
-        ClassMemberRel exists = classMemberRelMapper.selectOne(new LambdaQueryWrapper<ClassMemberRel>()
-                .eq(ClassMemberRel::getClassId, classInfo.getId())
-                .eq(ClassMemberRel::getUserId, userId));
+        // TODO: 是否有必要对于管理员/教师做加入限制？但是可能有学生管理员或者学生助教
+
+        if (classInfo.getTeacherUserId() != null && classInfo.getTeacherUserId().equals(userId)) {
+            throw new ForbiddenException("班级创建者不能作为班级学生加入");
+        }
+
+        ClassStudentRel exists = classStudentRelMapper.selectOne(new LambdaQueryWrapper<ClassStudentRel>()
+                .eq(ClassStudentRel::getClassId, classInfo.getId())
+                .eq(ClassStudentRel::getUserId, userId));
         if (exists != null) {
             throw new ConflictException("已加入该班级");
         }
 
-        ClassMemberRel rel = new ClassMemberRel();
+        ClassStudentRel rel = new ClassStudentRel();
         rel.setClassId(classInfo.getId());
         rel.setUserId(userId);
-        classMemberRelMapper.insert(rel);
+        classStudentRelMapper.insert(rel);
     }
 
     /**
@@ -225,14 +226,14 @@ public class ClassService {
         assertCanManageClass(classInfo, currentUserId);
 
         Long userId = findUserIdByPublicId(userPublicId);
-        if (userId.equals(classInfo.getTeacherUserId())) {
-            throw new BadRequestException("不能移除班级创建者");
+        if (classInfo.getTeacherUserId() != null && userId.equals(classInfo.getTeacherUserId())) {
+            throw new BadRequestException("不能移除班级教师");
         }
 
-        int updated = classMemberRelMapper.update(null, new LambdaUpdateWrapper<ClassMemberRel>()
-                .set(ClassMemberRel::getIsDel, 1)
-                .eq(ClassMemberRel::getClassId, classInfo.getId())
-                .eq(ClassMemberRel::getUserId, userId));
+        int updated = classStudentRelMapper.update(null, new LambdaUpdateWrapper<ClassStudentRel>()
+                .set(ClassStudentRel::getIsDel, 1)
+                .eq(ClassStudentRel::getClassId, classInfo.getId())
+                .eq(ClassStudentRel::getUserId, userId));
         if (updated == 0) {
             throw new NotFoundException("班级成员不存在");
         }
@@ -418,9 +419,9 @@ public class ClassService {
         if (!StringUtils.hasText(userPublicId)) {
             throw new BadRequestException("user_public_id 不能为空");
         }
-        com.seuoj.seuojbackend.entity.UserInfo user = userInfoMapper.selectOne(
-                new LambdaQueryWrapper<com.seuoj.seuojbackend.entity.UserInfo>()
-                        .eq(com.seuoj.seuojbackend.entity.UserInfo::getPublicId, userPublicId));
+        UserInfo user = userInfoMapper.selectOne(
+                new LambdaQueryWrapper<UserInfo>()
+                        .eq(UserInfo::getPublicId, userPublicId));
         if (user == null) {
             throw new NotFoundException("用户不存在");
         }
@@ -436,8 +437,15 @@ public class ClassService {
         vo.setName(classInfo.getName());
         vo.setDescription(classInfo.getDescription() == null ? "" : classInfo.getDescription());
         vo.setIsPublic(Boolean.TRUE.equals(classInfo.getIsPublic()));
-        com.seuoj.seuojbackend.entity.UserInfo teacher = userInfoMapper.selectById(classInfo.getTeacherUserId());
-        vo.setCreatorPublicId(teacher == null ? "" : teacher.getPublicId());
+
+        String creatorPublicId = "";
+        if (classInfo.getTeacherUserId() != null) {
+            UserInfo teacher = userInfoMapper.selectById(classInfo.getTeacherUserId());
+            if (teacher != null) {
+                creatorPublicId = teacher.getPublicId();
+            }
+        }
+        vo.setCreatorPublicId(creatorPublicId);
         return vo;
     }
 
@@ -464,7 +472,7 @@ public class ClassService {
         if (!userRoleService.isTeacher(userId)) {
             throw new ForbiddenException("无权管理该班级");
         }
-        if (!userId.equals(classInfo.getTeacherUserId())) {
+        if (classInfo.getTeacherUserId() == null || !userId.equals(classInfo.getTeacherUserId())) {
             throw new ForbiddenException("无权管理该班级");
         }
     }
@@ -476,13 +484,13 @@ public class ClassService {
         if (userRoleService.isAdmin(userId)) {
             return;
         }
-        if (userId.equals(classInfo.getTeacherUserId())) {
+        if (classInfo.getTeacherUserId() != null && userId.equals(classInfo.getTeacherUserId())) {
             return;
         }
 
-        Long count = classMemberRelMapper.selectCount(new LambdaQueryWrapper<ClassMemberRel>()
-                .eq(ClassMemberRel::getClassId, classInfo.getId())
-                .eq(ClassMemberRel::getUserId, userId));
+        Long count = classStudentRelMapper.selectCount(new LambdaQueryWrapper<ClassStudentRel>()
+                .eq(ClassStudentRel::getClassId, classInfo.getId())
+                .eq(ClassStudentRel::getUserId, userId));
         if (count != null && count > 0) {
             return;
         }

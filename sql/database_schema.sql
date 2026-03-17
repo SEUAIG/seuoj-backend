@@ -1,4 +1,4 @@
-﻿CREATE DATABASE IF NOT EXISTS seuoj
+CREATE DATABASE IF NOT EXISTS seuoj
 -- 字符集 排序规则等等
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
@@ -39,7 +39,7 @@ CREATE TABLE `class_info`
     `name`            varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '班级名称',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级描述',
     `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `teacher_user_id` bigint                                                        NOT NULL COMMENT '教师用户ID',
+    `teacher_user_id` bigint                                                        NULL COMMENT '教师用户ID 仅教师创建班级时填写',
     `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
@@ -53,10 +53,10 @@ CREATE TABLE `class_info`
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Table structure for class_member_rel
+-- Table structure for class_student_rel
 -- ----------------------------
-DROP TABLE IF EXISTS `class_member_rel`;
-CREATE TABLE `class_member_rel`
+DROP TABLE IF EXISTS `class_student_rel`;
+CREATE TABLE `class_student_rel`
 (
     `id`        bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `class_id`  bigint     NOT NULL COMMENT '班级ID',
@@ -101,18 +101,18 @@ CREATE TABLE `class_problem_set_rel`
 DROP TABLE IF EXISTS `contest`;
 CREATE TABLE `contest`
 (
-    `id`              bigint                                                                    NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                 NOT NULL COMMENT '比赛公开ID（UUID）',
-    `title`           varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NOT NULL COMMENT '比赛标题',
-    `subtitle`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NULL     DEFAULT NULL COMMENT '比赛副标题',
-    `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
-    `start_time`      datetime                                                                  NOT NULL COMMENT '开始时间',
-    `end_time`        datetime                                                                  NOT NULL COMMENT '结束时间',
-    `rule_type`       enum ('NOI','IOI','ACM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
-    `is_public`       tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `created_at`      timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`      timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`          tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`          bigint                                                                    NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `public_id`   char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                 NOT NULL COMMENT '比赛公开ID（UUID）',
+    `title`       varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NOT NULL COMMENT '比赛标题',
+    `subtitle`    varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NULL     DEFAULT NULL COMMENT '比赛副标题',
+    `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
+    `start_time`  datetime                                                                  NOT NULL COMMENT '开始时间',
+    `end_time`    datetime                                                                  NOT NULL COMMENT '结束时间',
+    `rule_type`   enum ('NOI','IOI','ACM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
+    `is_public`   tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`      tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE
 ) ENGINE = InnoDB
@@ -239,15 +239,15 @@ CREATE TABLE `problem`
 DROP TABLE IF EXISTS `problem_set`;
 CREATE TABLE `problem_set`
 (
-    `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
-    `title`           varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
-    `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
-    `owner_user_id`   bigint                                                        NOT NULL COMMENT '题单所属用户ID',
-    `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `public_id`     char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
+    `title`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
+    `description`   text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
+    `owner_user_id` bigint                                                        NOT NULL COMMENT '题单所属用户ID',
+    `is_public`     tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`        tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
     INDEX `idx_problem_set_owner` (`owner_user_id` ASC) USING BTREE
@@ -308,11 +308,11 @@ CREATE TABLE `problem_set_invited_member_rel`
 DROP TABLE IF EXISTS `problem_set_problem_rel`;
 CREATE TABLE `problem_set_problem_rel`
 (
-    `id`             bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `problem_set_id` bigint     NOT NULL COMMENT '题单ID',
-    `problem_id`     bigint     NOT NULL COMMENT '题目ID',
-    `sort_order`     int        NOT NULL COMMENT '排序序号',
-    `is_del`         tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`                bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `problem_set_id`    bigint     NOT NULL COMMENT '题单ID',
+    `problem_id`        bigint     NOT NULL COMMENT '题目ID',
+    `sort_order`        int        NOT NULL COMMENT '排序序号',
+    `is_del`            tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     `active_problem_id` bigint GENERATED ALWAYS AS (if(`is_del` = 0, `problem_id`, NULL)) STORED,
     `active_sort_order` int GENERATED ALWAYS AS (if(`is_del` = 0, `sort_order`, NULL)) STORED,
     PRIMARY KEY (`id`) USING BTREE,

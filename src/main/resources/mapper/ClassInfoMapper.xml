@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.seuoj.seuojbackend.mapper.ClassInfoMapper">
 
@@ -14,10 +14,10 @@
         SELECT ci.public_id AS class_public_id,
                ci.name,
                COALESCE(ci.description, '') AS description,
-               ui.public_id AS creator_public_id,
+               COALESCE(ui.public_id, '') AS creator_public_id,
                ci.is_public
         FROM class_info ci
-        INNER JOIN user_info ui ON ui.id = ci.teacher_user_id AND ui.is_del = 0
+        LEFT JOIN user_info ui ON ui.id = ci.teacher_user_id AND ui.is_del = 0
         WHERE ci.is_del = 0
           AND (
             <choose>
@@ -30,7 +30,7 @@
                         OR ci.teacher_user_id = #{userId}
                         OR EXISTS (
                             SELECT 1
-                            FROM class_member_rel cmr
+                            FROM class_student_rel cmr
                             WHERE cmr.class_id = ci.id
                               AND cmr.user_id = #{userId}
                               AND cmr.is_del = 0
@@ -52,7 +52,7 @@
         SELECT ui.public_id AS user_public_id,
                ui.username,
                cmr.joined_at
-        FROM class_member_rel cmr
+        FROM class_student_rel cmr
         INNER JOIN user_info ui ON ui.id = cmr.user_id
         WHERE cmr.class_id = #{classId}
           AND cmr.is_del = 0

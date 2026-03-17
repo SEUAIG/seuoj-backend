@@ -1,4 +1,4 @@
-﻿SET FOREIGN_KEY_CHECKS = 0;
+SET FOREIGN_KEY_CHECKS = 0;
 
 INSERT INTO `problem` (id, pid, title, total_submit, total_accept, is_public)
 VALUES (1, 'p01', 'a+b', 0, 0, 1),
@@ -141,7 +141,7 @@ VALUES (
 );
 
 INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
-VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 1, 0);
+VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 3, 0);
 
 INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
 VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
@@ -159,9 +159,6 @@ VALUES (1, 1, 1, NOW(), 0);
 INSERT INTO `problem_set_problem_rel` (`id`, `problem_set_id`, `problem_id`, `sort_order`, `is_del`)
 VALUES (1, 1, 1, 1, 0),
        (2, 1, 2, 2, 0);
-
-INSERT INTO `class_member_rel` (`id`, `class_id`, `user_id`, `joined_at`, `is_del`)
-VALUES (1, 1, 1, NOW(), 0);
 
 INSERT INTO `class_problem_set_rel` (`id`, `class_id`, `problem_set_id`, `is_del`)
 VALUES (1, 1, 1, 0);
