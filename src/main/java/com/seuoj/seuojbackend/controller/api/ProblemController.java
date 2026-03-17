@@ -154,7 +154,7 @@ public class ProblemController {
      * @param fileName 文件名（可含子目录）
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @GetMapping("/file/{pid}/{*file_name}")
+    @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
                                HttpServletResponse response) {
@@ -189,7 +189,7 @@ public class ProblemController {
      * 删除题目文件
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @DeleteMapping("/file/{pid}/{*file_name}")
+    @DeleteMapping("/file/{pid}/{file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletResponse response) {
         validateProblemExists(pid);
