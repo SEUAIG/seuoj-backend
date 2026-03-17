@@ -37,6 +37,7 @@ import com.seuoj.seuojbackend.vo.classinfo.LinkPageVO;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -184,17 +185,19 @@ public class ClassService {
             throw new ForbiddenException("班级创建者不能作为班级学生加入");
         }
 
-        ClassStudentRel exists = classStudentRelMapper.selectOne(new LambdaQueryWrapper<ClassStudentRel>()
-                .eq(ClassStudentRel::getClassId, classInfo.getId())
-                .eq(ClassStudentRel::getUserId, userId));
-        if (exists != null) {
-            throw new ConflictException("已加入该班级");
+        int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
+        if (restored > 0) {
+            return;
         }
 
         ClassStudentRel rel = new ClassStudentRel();
         rel.setClassId(classInfo.getId());
         rel.setUserId(userId);
-        classStudentRelMapper.insert(rel);
+        try {
+            classStudentRelMapper.insert(rel);
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("已加入该班级");
+        }
     }
 
     /**
@@ -264,17 +267,19 @@ public class ClassService {
 
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
 
-        ClassProblemSetRel exists = classProblemSetRelMapper.selectOne(new LambdaQueryWrapper<ClassProblemSetRel>()
-                .eq(ClassProblemSetRel::getClassId, classInfo.getId())
-                .eq(ClassProblemSetRel::getProblemSetId, problemSet.getId()));
-        if (exists != null) {
-            throw new ConflictException("班级与题单已关联");
+        int restored = classProblemSetRelMapper.restoreDeletedProblemSetLink(classInfo.getId(), problemSet.getId());
+        if (restored > 0) {
+            return;
         }
 
         ClassProblemSetRel rel = new ClassProblemSetRel();
         rel.setClassId(classInfo.getId());
         rel.setProblemSetId(problemSet.getId());
-        classProblemSetRelMapper.insert(rel);
+        try {
+            classProblemSetRelMapper.insert(rel);
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("班级与题单已关联");
+        }
     }
 
     /**
@@ -322,17 +327,19 @@ public class ClassService {
 
         Contest contest = getContestByPublicId(contestPublicId);
 
-        ClassContestRel exists = classContestRelMapper.selectOne(new LambdaQueryWrapper<ClassContestRel>()
-                .eq(ClassContestRel::getClassId, classInfo.getId())
-                .eq(ClassContestRel::getContestId, contest.getId()));
-        if (exists != null) {
-            throw new ConflictException("班级与比赛已关联");
+        int restored = classContestRelMapper.restoreDeletedContestLink(classInfo.getId(), contest.getId());
+        if (restored > 0) {
+            return;
         }
 
         ClassContestRel rel = new ClassContestRel();
         rel.setClassId(classInfo.getId());
         rel.setContestId(contest.getId());
-        classContestRelMapper.insert(rel);
+        try {
+            classContestRelMapper.insert(rel);
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("班级与比赛已关联");
+        }
     }
 
     /**

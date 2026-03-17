@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.ClassContestRelMapper">
+
+    <update id="restoreDeletedContestLink">
+        UPDATE class_contest_rel
+        SET is_del = 0
+        WHERE id = (
+            SELECT t.id
+            FROM (
+                SELECT id
+                FROM class_contest_rel
+                WHERE class_id = #{classId}
+                  AND contest_id = #{contestId}
+                  AND is_del = 1
+                ORDER BY id DESC
+                LIMIT 1
+            ) t
+        )
+    </update>
+
+</mapper>

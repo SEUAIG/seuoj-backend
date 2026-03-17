@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.ClassStudentRelMapper">
+
+    <update id="restoreDeletedStudent">
+        UPDATE class_student_rel
+        SET is_del = 0,
+            joined_at = NOW()
+        WHERE id = (
+            SELECT t.id
+            FROM (
+                SELECT id
+                FROM class_student_rel
+                WHERE class_id = #{classId}
+                  AND user_id = #{userId}
+                  AND is_del = 1
+                ORDER BY id DESC
+                LIMIT 1
+            ) t
+        )
+    </update>
+
+</mapper>
