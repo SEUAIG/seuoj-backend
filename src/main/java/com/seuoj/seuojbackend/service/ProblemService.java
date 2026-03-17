@@ -552,18 +552,11 @@ public class ProblemService {
         }
         info.setMinCpuTimeMs(minTimeLimitMs);
         info.setMaxCpuTimeMs(maxTimeLimitMs);
-        info.setMinMemoryByte(convertMemoryKbToByte(minMemoryLimitKb));
-        info.setMaxMemoryByte(convertMemoryKbToByte(maxMemoryLimitKb));
+        info.setMinMemoryKb(minMemoryLimitKb);
+        info.setMaxMemoryKb(maxMemoryLimitKb);
 
         info.setProblemType(problemType);
         info.setCheckerType(checkerType);
-    }
-
-    private long convertMemoryKbToByte(long memoryLimitKb) {
-        if (memoryLimitKb < 0) {
-            return memoryLimitKb;
-        }
-        return memoryLimitKb * 1024L;
     }
 }
 
