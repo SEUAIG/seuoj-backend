@@ -33,6 +33,12 @@ public class ClassInfo implements Serializable {
     @TableField("description")
     private String description;
 
+    /**
+     * 班级公开标记
+     */
+    @TableField("is_public")
+    private Boolean isPublic;
+
     @TableField("teacher_user_id")
     private Long teacherUserId;
 
@@ -46,4 +52,3 @@ public class ClassInfo implements Serializable {
     @TableLogic
     private Integer isDel;
 }
-

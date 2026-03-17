@@ -111,7 +111,8 @@ VALUES (1, '123', '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05D
 INSERT INTO `user_role` (id, role_code, role_name, is_del)
 VALUES (1, 'USER', 'USER', 0),
        (2, 'ADMIN', 'ADMIN', 0),
-       (3, 'SUPER_ADMIN', 'SUPER_ADMIN', 0);
+       (3, 'SUPER_ADMIN', 'SUPER_ADMIN', 0),
+       (4, 'TEACHER', 'TEACHER', 0);
 
 -- 用户角色关联：user_id=1(123) → SUPER_ADMIN, user_id=2(test) → ADMIN, user_id=3(testu) → USER
 INSERT INTO `user_role_rel` (id, user_id, role_id, is_del)
@@ -120,7 +121,8 @@ VALUES (1, 1, 1, 0),
        (3, 1, 3, 0),
        (4, 2, 1, 0),
        (5, 2, 2, 0),
-       (6, 3, 1, 0);
+       (6, 3, 1, 0),
+       (7, 3, 4, 0);
 
 INSERT INTO `contest` (
     `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
@@ -138,8 +140,8 @@ VALUES (
     0
 );
 
-INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `teacher_user_id`, `is_del`)
-VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 0);
+INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
+VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 1, 0);
 
 INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
 VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 1, 0);

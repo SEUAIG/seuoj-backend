@@ -7,7 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * 用户角色服务，封装角色查询与常用角色判断逻辑。
+ * 用户角色服务 封装角色查询与常用角色判断逻辑
  */
 @Service
 public class UserRoleService {
@@ -19,7 +19,7 @@ public class UserRoleService {
     }
 
     /**
-     * 根据用户 ID 查询角色编码列表。
+     * 根据用户 ID 查询角色编码列表
      *
      * @param userId 用户 ID
      * @return 角色编码列表；当用户不存在角色或 userId 为空时返回空列表
@@ -33,7 +33,7 @@ public class UserRoleService {
     }
 
     /**
-     * 判断用户是否拥有管理员权限。
+     * 判断用户是否拥有管理员权限
      *
      * @param userId 用户 ID
      * @return true 表示拥有 ADMIN 或 SUPER_ADMIN 角色
@@ -43,7 +43,21 @@ public class UserRoleService {
     }
 
     /**
-     * 获取用户的最高权限角色标签，用于登录态返回。
+     * 判断用户是否包含教师角色
+     */
+    public boolean isTeacher(Long userId) {
+        return RoleType.hasTeacherRole(getRoleCodesByUserId(userId));
+    }
+
+    /**
+     * 判断用户是否包含教师或管理员角色
+     */
+    public boolean isTeacherOrAdmin(Long userId) {
+        return RoleType.hasTeacherOrAdminRole(getRoleCodesByUserId(userId));
+    }
+
+    /**
+     * 获取用户的最高权限角色标签 用于登录态返回
      *
      * @param userId 用户 ID
      * @return superadmin / admin / user

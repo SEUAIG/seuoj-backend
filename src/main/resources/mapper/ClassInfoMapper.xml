@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.ClassInfoMapper">
+
+    <resultMap id="ClassItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassItemVO">
+        <result column="class_public_id" property="classPublicId"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="creator_public_id" property="creatorPublicId"/>
+        <result column="is_public" property="isPublic"/>
+    </resultMap>
+
+    <select id="selectClassPage" resultMap="ClassItemMap">
+        SELECT ci.public_id AS class_public_id,
+               ci.name,
+               COALESCE(ci.description, '') AS description,
+               ui.public_id AS creator_public_id,
+               ci.is_public
+        FROM class_info ci
+        INNER JOIN user_info ui ON ui.id = ci.teacher_user_id AND ui.is_del = 0
+        WHERE ci.is_del = 0
+          AND (
+            <choose>
+                <when test="isAdmin">
+                    1 = 1
+                </when>
+                <otherwise>
+                    ci.is_public = 1
+                    <if test="userId != null">
+                        OR ci.teacher_user_id = #{userId}
+                        OR EXISTS (
+                            SELECT 1
+                            FROM class_member_rel cmr
+                            WHERE cmr.class_id = ci.id
+                              AND cmr.user_id = #{userId}
+                              AND cmr.is_del = 0
+                        )
+                    </if>
+                </otherwise>
+            </choose>
+          )
+        ORDER BY ci.id DESC
+    </select>
+
+    <resultMap id="ClassMemberItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassMemberItemVO">
+        <result column="user_public_id" property="userPublicId"/>
+        <result column="username" property="username"/>
+        <result column="joined_at" property="joinedAt"/>
+    </resultMap>
+
+    <select id="selectClassMemberPage" resultMap="ClassMemberItemMap">
+        SELECT ui.public_id AS user_public_id,
+               ui.username,
+               cmr.joined_at
+        FROM class_member_rel cmr
+        INNER JOIN user_info ui ON ui.id = cmr.user_id
+        WHERE cmr.class_id = #{classId}
+          AND cmr.is_del = 0
+          AND ui.is_del = 0
+        ORDER BY cmr.joined_at DESC, cmr.id DESC
+    </select>
+
+    <resultMap id="LinkPageItemMap" type="com.seuoj.seuojbackend.vo.classinfo.LinkPageItemVO">
+        <result column="id" property="id"/>
+        <result column="title" property="title"/>
+    </resultMap>
+
+    <select id="selectClassProblemSetPage" resultMap="LinkPageItemMap">
+        SELECT ps.public_id AS id,
+               ps.title AS title
+        FROM class_problem_set_rel cpsr
+        INNER JOIN problem_set ps ON ps.id = cpsr.problem_set_id
+        WHERE cpsr.class_id = #{classId}
+          AND cpsr.is_del = 0
+          AND ps.is_del = 0
+        ORDER BY cpsr.id DESC
+    </select>
+
+    <select id="selectClassContestPage" resultMap="LinkPageItemMap">
+        SELECT c.public_id AS id,
+               c.title AS title
+        FROM class_contest_rel ccr
+        INNER JOIN contest c ON c.id = ccr.contest_id
+        WHERE ccr.class_id = #{classId}
+          AND ccr.is_del = 0
+          AND c.is_del = 0
+        ORDER BY ccr.id DESC
+    </select>
+
+</mapper>
