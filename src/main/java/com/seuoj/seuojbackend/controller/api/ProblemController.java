@@ -96,7 +96,7 @@ public class ProblemController {
      * 后端仅负责鉴权，通过 nginx 重定向到评测端
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PostMapping("/testcases/{pid}")
+    @PostMapping("/data/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
                                        HttpServletResponse response) {
         problemTestcaseService.redirectTestcaseUpload(pid, response);

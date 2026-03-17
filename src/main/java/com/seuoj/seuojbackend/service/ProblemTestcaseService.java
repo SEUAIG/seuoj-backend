@@ -55,7 +55,7 @@ public class ProblemTestcaseService {
         }
 
         response.setHeader("X-Accel-Redirect",
-                "/internal/judgend/judge/problem/testcases/" + pid);
+                "/internal/judgend/judge/problem/data/" + pid);
         response.setStatus(HttpServletResponse.SC_OK);
         log.info("已设置 X-Accel-Redirect 头, pid={}", pid);
     }
