@@ -67,8 +67,8 @@ CREATE TABLE `class_student_rel`
     UNIQUE INDEX `uk_class_user_active` (`class_id` ASC, `user_id` ASC, `is_del` ASC) USING BTREE,
     INDEX `idx_class_member_class` (`class_id` ASC) USING BTREE,
     INDEX `idx_class_member_user` (`user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_class_member_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_class_member_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `fk_class_student_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_class_student_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '班级成员关联表'
