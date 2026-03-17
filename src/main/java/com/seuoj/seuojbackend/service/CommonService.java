@@ -3,11 +3,9 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.common.RoleType;
-import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
-import com.seuoj.seuojbackend.interceptor.UserContext;
-import com.seuoj.seuojbackend.interceptor.UserContextHolder;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.vo.common.UserPageItemVO;
@@ -41,7 +39,7 @@ public class CommonService {
     }
 
     public UserPageVO getUserPage(Integer current, Integer size, String username, String email, List<String> roles) {
-        Long currentUserId = currentUserIdRequired();
+        Long currentUserId = AuthContexts.userIdOrNull();
         boolean isAdmin = userRoleService.isAdmin(currentUserId);
 
         List<String> roleFilterCodes = resolveAccessibleRoleCodes(roles, isAdmin);
@@ -138,13 +136,5 @@ public class CommonService {
         }
 
         return normalized.isEmpty() ? Collections.emptyList() : new ArrayList<>(normalized);
-    }
-
-    private Long currentUserIdRequired() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            throw new AuthorizationException("用户未登录");
-        }
-        return ctx.getUserId();
     }
 }

@@ -13,13 +13,11 @@ import com.seuoj.seuojbackend.entity.ClassProblemSetRel;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ProblemSet;
 import com.seuoj.seuojbackend.entity.UserInfo;
-import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
-import com.seuoj.seuojbackend.interceptor.UserContext;
-import com.seuoj.seuojbackend.interceptor.UserContextHolder;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ClassContestRelMapper;
 import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
 import com.seuoj.seuojbackend.mapper.ClassStudentRelMapper;
@@ -77,7 +75,7 @@ public class ClassService {
      */
     @Transactional(rollbackFor = Exception.class)
     public ClassCreateVO createClass(ClassCreateDTO dto) {
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertTeacherOrAdmin(userId);
 
         boolean isTeacher = userRoleService.isTeacher(userId);
@@ -101,7 +99,7 @@ public class ClassService {
     public ClassPageVO getClassPage(Integer current, Integer size) {
         validatePageParam(current, size);
 
-        Long userId = currentUserIdOrNull();
+        Long userId = AuthContexts.userIdOrNull();
         boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
 
         IPage<ClassItemVO> pageResult = classInfoMapper.selectClassPage(new Page<>(current, size), userId, isAdmin);
@@ -119,7 +117,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public ClassItemVO updateClass(String classPublicId, ClassUpdateDTO dto) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         ClassInfo update = new ClassInfo();
@@ -153,7 +151,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteClass(String classPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         classInfoMapper.deleteById(classInfo.getId());
@@ -177,7 +175,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void joinClass(String classPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
 
         // TODO: 是否有必要对于管理员/教师做加入限制？但是可能有学生管理员或者学生助教
 
@@ -207,7 +205,7 @@ public class ClassService {
         validatePageParam(current, size);
 
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
         IPage<ClassMemberItemVO> pageResult = classInfoMapper.selectClassMemberPage(new Page<>(current, size), classInfo.getId());
@@ -225,7 +223,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void removeMember(String classPublicId, String userPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long currentUserId = currentUserIdRequired();
+        Long currentUserId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, currentUserId);
 
         Long userId = findUserIdByPublicId(userPublicId);
@@ -249,7 +247,7 @@ public class ClassService {
         validatePageParam(current, size);
 
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
         IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassProblemSetPage(new Page<>(current, size), classInfo.getId());
@@ -262,7 +260,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void linkProblemSet(String classPublicId, String problemSetPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
@@ -288,7 +286,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void unlinkProblemSet(String classPublicId, String problemSetPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
@@ -309,7 +307,7 @@ public class ClassService {
         validatePageParam(current, size);
 
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
         IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassContestPage(new Page<>(current, size), classInfo.getId());
@@ -322,7 +320,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void linkContest(String classPublicId, String contestPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         Contest contest = getContestByPublicId(contestPublicId);
@@ -348,7 +346,7 @@ public class ClassService {
     @Transactional(rollbackFor = Exception.class)
     public void unlinkContest(String classPublicId, String contestPublicId) {
         ClassInfo classInfo = getClassByPublicId(classPublicId);
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.userIdOrNull();
         assertCanManageClass(classInfo, userId);
 
         Contest contest = getContestByPublicId(contestPublicId);
@@ -526,27 +524,5 @@ public class ClassService {
             throw new BadRequestException(message);
         }
         return trimmed;
-    }
-
-    /**
-     * 获取当前用户主键
-     */
-    private Long currentUserIdRequired() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            throw new AuthorizationException("用户未登录");
-        }
-        return ctx.getUserId();
-    }
-
-    /**
-     * 获取当前用户主键 允许匿名时返回 null
-     */
-    private Long currentUserIdOrNull() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            return null;
-        }
-        return ctx.getUserId();
     }
 }

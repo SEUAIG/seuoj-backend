@@ -16,8 +16,7 @@ import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
-import com.seuoj.seuojbackend.interceptor.UserContext;
-import com.seuoj.seuojbackend.interceptor.UserContextHolder;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ClassProblemSetRelMapper;
 import com.seuoj.seuojbackend.mapper.ProblemAccessMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
@@ -79,7 +78,7 @@ public class ProblemSetService {
      */
     @Transactional(rollbackFor = Exception.class)
     public ProblemSetCreateVO createProblemSet(ProblemSetCreateDTO dto) {
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.requiredUserId();
         String title = normalizeRequiredText(dto.getTitle(), "title 不能为空");
 
         ProblemSet problemSet = new ProblemSet();
@@ -106,7 +105,7 @@ public class ProblemSetService {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
 
-        Long userId = currentUserIdOrNull();
+        Long userId = AuthContexts.userIdOrNull();
         boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
 
         Page<ProblemSetItemVO> page = new Page<>(current, size);
@@ -392,7 +391,7 @@ public class ProblemSetService {
             return;
         }
 
-        Long userId = currentUserIdOrNull();
+        Long userId = AuthContexts.userIdOrNull();
         if (userId == null) {
             throw new AuthorizationException("用户未登录");
         }
@@ -415,7 +414,7 @@ public class ProblemSetService {
      * 校验题单管理权限
      */
     private void assertCanManageProblemSet(ProblemSet problemSet) {
-        Long userId = currentUserIdRequired();
+        Long userId = AuthContexts.requiredUserId();
         if (userRoleService.isAdmin(userId)) {
             return;
         }
@@ -430,28 +429,6 @@ public class ProblemSetService {
         }
 
         throw new ForbiddenException("无权管理该题单");
-    }
-
-    /**
-     * 获取当前登录用户 ID
-     */
-    private Long currentUserIdRequired() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            throw new AuthorizationException("用户未登录");
-        }
-        return ctx.getUserId();
-    }
-
-    /**
-     * 获取当前用户 ID，未登录返回 null
-     */
-    private Long currentUserIdOrNull() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            return null;
-        }
-        return ctx.getUserId();
     }
 
     /**

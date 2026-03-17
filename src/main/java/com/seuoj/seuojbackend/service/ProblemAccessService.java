@@ -2,11 +2,10 @@ package com.seuoj.seuojbackend.service;
 
 import com.seuoj.seuojbackend.common.ProblemSourceType;
 import com.seuoj.seuojbackend.entity.Problem;
-import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.interceptor.UserContext;
-import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemAccessMapper;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
@@ -47,7 +46,6 @@ public class ProblemAccessService {
      *                      当 sourceType 为 CONTEST / PROBLEM_SET 时，
      *                      分别表示比赛或题单的 public_id
      * @throws NotFoundException 当资源不应暴露存在性时抛出
-     * @throws AuthorizationException 当当前场景要求登录，但用户未登录时抛出
      * @throws ForbiddenException 当用户已登录，但不具备访问权限时抛出
      */
     public void assertCanViewProblem(Problem problem, ProblemSourceType sourceType, String ownerPublicId) {
@@ -72,7 +70,7 @@ public class ProblemAccessService {
      * 以避免暴露私有题目的存在性。
      */
     private void assertCanViewDirect(Problem problem) {
-        Long userId = currentUserIdOrNull(UserContextHolder.get());
+        Long userId = AuthContexts.userIdOrNull();
         if (!isPublic(problem.getIsPublic()) && !isAdmin(userId)) {
             throw new NotFoundException("题目不存在");
         }
@@ -101,7 +99,7 @@ public class ProblemAccessService {
             throw new NotFoundException("比赛题目不存在");
         }
 
-        UserContext ctx = requiredUserContext();
+        UserContext ctx = AuthContexts.requiredUserContext("请先登录");
         Long userId = ctx.getUserId();
         ProblemAccessMapper.ContestAccessRow contest = problemAccessMapper.selectContestAccess(contestPublicId, userId);
         if (contest == null) {
@@ -151,7 +149,7 @@ public class ProblemAccessService {
             throw new NotFoundException("题单题目不存在");
         }
 
-        UserContext ctx = requiredUserContext();
+        UserContext ctx = AuthContexts.requiredUserContext("请先登录");
         Long userId = ctx.getUserId();
         ProblemAccessMapper.ProblemSetAccessRow problemSet =
                 problemAccessMapper.selectProblemSetAccess(problemSetPublicId, userId);
@@ -166,22 +164,6 @@ public class ProblemAccessService {
             return;
         }
         throw new ForbiddenException("无权访问该题单");
-    }
-
-    /**
-     * 获取当前已登录用户上下文。
-     *
-     * <p>比赛题和题单题都强制要求登录，因此统一在这里做登录态校验。
-     *
-     * @return 当前线程中的用户上下文
-     * @throws AuthorizationException 当前用户未登录时抛出
-     */
-    private UserContext requiredUserContext() {
-        UserContext ctx = UserContextHolder.get();
-        if (ctx == null || ctx.isGuest()) {
-            throw new AuthorizationException("请先登录");
-        }
-        return ctx;
     }
 
     /**
@@ -220,15 +202,4 @@ public class ProblemAccessService {
         return Boolean.TRUE.equals(isPublic);
     }
 
-    /**
-     * 在不强制登录的场景下尝试读取当前用户 id。
-     *
-     * <p>若当前上下文为空或当前用户是游客，则返回 null。
-     */
-    private Long currentUserIdOrNull(UserContext ctx) {
-        if (ctx == null || ctx.isGuest()) {
-            return null;
-        }
-        return ctx.getUserId();
-    }
 }
