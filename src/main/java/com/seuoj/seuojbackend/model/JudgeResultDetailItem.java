@@ -25,13 +25,11 @@ public class JudgeResultDetailItem {
     /**
      * 用户输出文本（有截断）
      */
-    @NotBlank(message = "用户输出文本不能为空")
     private String out;
 
     /**
      * 答案文本（有截断）
      */
-    @NotBlank(message = "答案文本不能为空")
     private String ans;
 
     /**
