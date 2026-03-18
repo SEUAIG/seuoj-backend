@@ -1,4 +1,4 @@
-﻿CREATE DATABASE IF NOT EXISTS seuoj
+CREATE DATABASE IF NOT EXISTS seuoj
 -- 字符集 排序规则等等
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
@@ -13,12 +13,16 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `class_contest_rel`;
 CREATE TABLE `class_contest_rel`
 (
-    `id`         bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `class_id`   bigint     NOT NULL COMMENT '班级ID',
-    `contest_id` bigint     NOT NULL COMMENT '比赛ID',
-    `is_del`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `class_id`   bigint                                                                                                         NOT NULL COMMENT '班级ID',
+    `contest_id` bigint                                                                                                         NOT NULL COMMENT '比赛ID',
+    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                         when (`is_del` = 0)
+                                                                                                             then concat(`class_id`, _utf8mb4'#', `contest_id`)
+                                                                                                         else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_class_contest_active` (`class_id` ASC, `contest_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_class_contest_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_class_contest_class` (`class_id` ASC) USING BTREE,
     INDEX `idx_class_contest_contest` (`contest_id` ASC) USING BTREE,
     CONSTRAINT `fk_class_contest_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -38,36 +42,41 @@ CREATE TABLE `class_info`
     `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '班级公开ID（UUID）',
     `name`            varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '班级名称',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级描述',
-    `creator_user_id` bigint                                                        NOT NULL COMMENT '创建人用户ID',
+    `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `teacher_user_id` bigint                                                        NULL COMMENT '教师用户ID 仅教师创建班级时填写',
     `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
-    INDEX `idx_class_creator` (`creator_user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_class_creator` FOREIGN KEY (`creator_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    INDEX `idx_class_teacher` (`teacher_user_id` ASC) USING BTREE,
+    CONSTRAINT `fk_class_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '班级表'
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Table structure for class_member_rel
+-- Table structure for class_student_rel
 -- ----------------------------
-DROP TABLE IF EXISTS `class_member_rel`;
-CREATE TABLE `class_member_rel`
+DROP TABLE IF EXISTS `class_student_rel`;
+CREATE TABLE `class_student_rel`
 (
-    `id`        bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `class_id`  bigint     NOT NULL COMMENT '班级ID',
-    `user_id`   bigint     NOT NULL COMMENT '用户ID',
-    `joined_at` datetime   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
-    `is_del`    tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `class_id`   bigint                                                                                                         NOT NULL COMMENT '班级ID',
+    `user_id`    bigint                                                                                                         NOT NULL COMMENT '用户ID',
+    `joined_at`  datetime                                                                                                       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                         when (`is_del` = 0)
+                                                                                                             then concat(`class_id`, _utf8mb4'#', `user_id`)
+                                                                                                         else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_class_user_active` (`class_id` ASC, `user_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_class_user_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_class_member_class` (`class_id` ASC) USING BTREE,
     INDEX `idx_class_member_user` (`user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_class_member_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_class_member_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `fk_class_student_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_class_student_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '班级成员关联表'
@@ -79,12 +88,16 @@ CREATE TABLE `class_member_rel`
 DROP TABLE IF EXISTS `class_problem_set_rel`;
 CREATE TABLE `class_problem_set_rel`
 (
-    `id`             bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `class_id`       bigint     NOT NULL COMMENT '班级ID',
-    `problem_set_id` bigint     NOT NULL COMMENT '题单ID',
-    `is_del`         tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`             bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `class_id`       bigint                                                                                                         NOT NULL COMMENT '班级ID',
+    `problem_set_id` bigint                                                                                                         NOT NULL COMMENT '题单ID',
+    `is_del`         tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                             when (`is_del` = 0)
+                                                                                                                 then concat(`class_id`, _utf8mb4'#', `problem_set_id`)
+                                                                                                             else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_class_ps_active` (`class_id` ASC, `problem_set_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_class_ps_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_class_ps_class` (`class_id` ASC) USING BTREE,
     INDEX `idx_class_ps_ps` (`problem_set_id` ASC) USING BTREE,
     CONSTRAINT `fk_class_ps_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -100,23 +113,20 @@ CREATE TABLE `class_problem_set_rel`
 DROP TABLE IF EXISTS `contest`;
 CREATE TABLE `contest`
 (
-    `id`              bigint                                                                    NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                 NOT NULL COMMENT '比赛公开ID（UUID）',
-    `title`           varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NOT NULL COMMENT '比赛标题',
-    `subtitle`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NULL     DEFAULT NULL COMMENT '比赛副标题',
-    `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
-    `start_time`      datetime                                                                  NOT NULL COMMENT '开始时间',
-    `end_time`        datetime                                                                  NOT NULL COMMENT '结束时间',
-    `rule_type`       enum ('NOI','IOI','ACM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
-    `is_public`       tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `creator_user_id` bigint                                                                    NOT NULL COMMENT '创建人用户ID',
-    `created_at`      timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`      timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`          tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`          bigint                                                                    NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `public_id`   char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                 NOT NULL COMMENT '比赛公开ID（UUID）',
+    `title`       varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NOT NULL COMMENT '比赛标题',
+    `subtitle`    varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NULL     DEFAULT NULL COMMENT '比赛副标题',
+    `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
+    `start_time`  datetime                                                                  NOT NULL COMMENT '开始时间',
+    `end_time`    datetime                                                                  NOT NULL COMMENT '结束时间',
+    `rule_type`   enum ('NOI','IOI','ACM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
+    `is_public`   tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`      tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
-    INDEX `idx_contest_creator` (`creator_user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_contest_creator` FOREIGN KEY (`creator_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '比赛表'
@@ -128,13 +138,17 @@ CREATE TABLE `contest`
 DROP TABLE IF EXISTS `contest_manager_rel`;
 CREATE TABLE `contest_manager_rel`
 (
-    `id`         bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `contest_id` bigint     NOT NULL COMMENT '比赛ID',
-    `user_id`    bigint     NOT NULL COMMENT '用户ID',
-    `is_owner`   tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否拥有者：0-否，1-是',
-    `is_del`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `contest_id` bigint                                                                                                         NOT NULL COMMENT '比赛ID',
+    `user_id`    bigint                                                                                                         NOT NULL COMMENT '用户ID',
+    `is_owner`   tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否拥有者：0-否，1-是',
+    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                         when (`is_del` = 0)
+                                                                                                             then concat(`contest_id`, _utf8mb4'#', `user_id`)
+                                                                                                         else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_contest_manager_active` (`contest_id` ASC, `user_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_contest_manager_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_contest_manager_contest` (`contest_id` ASC) USING BTREE,
     INDEX `idx_contest_manager_user` (`user_id` ASC) USING BTREE,
     CONSTRAINT `fk_contest_manager_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -150,14 +164,22 @@ CREATE TABLE `contest_manager_rel`
 DROP TABLE IF EXISTS `contest_problem_rel`;
 CREATE TABLE `contest_problem_rel`
 (
-    `id`         bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `contest_id` bigint     NOT NULL COMMENT '比赛ID',
-    `problem_id` bigint     NOT NULL COMMENT '题目ID',
-    `sort_order` int        NOT NULL COMMENT '排序序号',
-    `is_del`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`                 bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `contest_id`         bigint                                                                                                         NOT NULL COMMENT '比赛ID',
+    `problem_id`         bigint                                                                                                         NOT NULL COMMENT '题目ID',
+    `sort_order`         int                                                                                                            NOT NULL COMMENT '排序序号',
+    `is_del`             tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_problem_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                                 when (`is_del` = 0)
+                                                                                                                     then concat(`contest_id`, _utf8mb4'#', `problem_id`)
+                                                                                                                 else NULL end)) STORED NULL,
+    `active_sort_key`    varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                                 when (`is_del` = 0)
+                                                                                                                     then concat(`contest_id`, _utf8mb4'#', `sort_order`)
+                                                                                                                 else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_contest_problem_active` (`contest_id` ASC, `problem_id` ASC, `is_del` ASC) USING BTREE,
-    UNIQUE INDEX `uk_contest_sort_active` (`contest_id` ASC, `sort_order` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_contest_problem_active` (`active_problem_key` ASC) USING BTREE,
+    UNIQUE INDEX `uk_contest_sort_active` (`active_sort_key` ASC) USING BTREE,
     INDEX `idx_contest_problem_contest` (`contest_id` ASC) USING BTREE,
     INDEX `idx_contest_problem_problem` (`problem_id` ASC) USING BTREE,
     CONSTRAINT `fk_contest_problem_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -173,13 +195,17 @@ CREATE TABLE `contest_problem_rel`
 DROP TABLE IF EXISTS `contest_register_rel`;
 CREATE TABLE `contest_register_rel`
 (
-    `id`         bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `contest_id` bigint     NOT NULL COMMENT '比赛ID',
-    `user_id`    bigint     NOT NULL COMMENT '用户ID',
-    `joined_at`  datetime   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间',
-    `is_del`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `contest_id` bigint                                                                                                         NOT NULL COMMENT '比赛ID',
+    `user_id`    bigint                                                                                                         NOT NULL COMMENT '用户ID',
+    `joined_at`  datetime                                                                                                       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间',
+    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                         when (`is_del` = 0)
+                                                                                                             then concat(`contest_id`, _utf8mb4'#', `user_id`)
+                                                                                                         else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_contest_user_active` (`contest_id` ASC, `user_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_contest_user_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_contest_register_contest` (`contest_id` ASC) USING BTREE,
     INDEX `idx_contest_register_user` (`user_id` ASC) USING BTREE,
     CONSTRAINT `fk_contest_register_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -195,13 +221,17 @@ CREATE TABLE `contest_register_rel`
 DROP TABLE IF EXISTS `contest_submission`;
 CREATE TABLE `contest_submission`
 (
-    `id`            bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `contest_id`    bigint     NOT NULL COMMENT '比赛ID',
-    `submission_id` bigint     NOT NULL COMMENT '提交ID',
-    `created_at`    timestamp  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `is_del`        tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`            bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `contest_id`    bigint                                                                                                         NOT NULL COMMENT '比赛ID',
+    `submission_id` bigint                                                                                                         NOT NULL COMMENT '提交ID',
+    `created_at`    timestamp                                                                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_del`        tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`    varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                            when (`is_del` = 0)
+                                                                                                                then concat(`contest_id`, _utf8mb4'#', `submission_id`)
+                                                                                                            else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_contest_submission_active` (`contest_id` ASC, `submission_id` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_contest_submission_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_contest_submission_contest` (`contest_id` ASC) USING BTREE,
     INDEX `idx_contest_submission_submission` (`submission_id` ASC) USING BTREE,
     CONSTRAINT `fk_contest_submission_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -241,22 +271,75 @@ CREATE TABLE `problem`
 DROP TABLE IF EXISTS `problem_set`;
 CREATE TABLE `problem_set`
 (
-    `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
-    `title`           varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
-    `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
-    `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `creator_user_id` bigint                                                        NOT NULL COMMENT '创建人用户ID',
-    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `public_id`     char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
+    `title`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
+    `description`   text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
+    `owner_user_id` bigint                                                        NOT NULL COMMENT '题单所属用户ID',
+    `is_public`     tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`        tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
-    INDEX `idx_problem_set_creator` (`creator_user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_problem_set_creator` FOREIGN KEY (`creator_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    INDEX `idx_problem_set_owner` (`owner_user_id` ASC) USING BTREE
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '题单表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for user_problem_set_rel
+-- ----------------------------
+DROP TABLE IF EXISTS `user_problem_set_rel`;
+CREATE TABLE `user_problem_set_rel`
+(
+    `id`             bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id`        bigint                                                                                                         NOT NULL COMMENT '用户ID',
+    `problem_set_id` bigint                                                                                                         NOT NULL COMMENT '题单ID',
+    `is_del`         tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                             when (`is_del` = 0)
+                                                                                                                 then concat(`user_id`, _utf8mb4'#', `problem_set_id`)
+                                                                                                             else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_user_problem_set_active` (`active_key` ASC) USING BTREE,
+    INDEX `idx_user_problem_set_user` (`user_id` ASC) USING BTREE,
+    INDEX `idx_user_problem_set_problem_set` (`problem_set_id` ASC) USING BTREE,
+    CONSTRAINT `fk_user_problem_set_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_user_problem_set_problem_set` FOREIGN KEY (`problem_set_id`) REFERENCES `problem_set` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '用户题单关联表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for problem_set_invited_member_rel
+-- ----------------------------
+DROP TABLE IF EXISTS `problem_set_invited_member_rel`;
+CREATE TABLE `problem_set_invited_member_rel`
+(
+    `id`                 bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `problem_set_id`     bigint                                                                                                         NOT NULL COMMENT '题单ID',
+    `user_id`            bigint                                                                                                         NOT NULL COMMENT '受邀用户ID',
+    `invited_by_user_id` bigint                                                                                                         NOT NULL COMMENT '邀请人用户ID',
+    `invited_at`         datetime                                                                                                       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '邀请时间',
+    `is_del`             tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`         varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                                 when (`is_del` = 0)
+                                                                                                                     then concat(`problem_set_id`, _utf8mb4'#', `user_id`)
+                                                                                                                 else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_problem_set_invited_user_active` (`active_key` ASC) USING BTREE,
+    INDEX `idx_ps_invited_member_problem_set` (`problem_set_id` ASC) USING BTREE,
+    INDEX `idx_ps_invited_member_user` (`user_id` ASC) USING BTREE,
+    INDEX `idx_ps_invited_member_inviter` (`invited_by_user_id` ASC) USING BTREE,
+    CONSTRAINT `fk_ps_invited_member_problem_set` FOREIGN KEY (`problem_set_id`) REFERENCES `problem_set` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_ps_invited_member_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_ps_invited_member_inviter` FOREIGN KEY (`invited_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '题单受邀成员关联表'
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
@@ -265,14 +348,23 @@ CREATE TABLE `problem_set`
 DROP TABLE IF EXISTS `problem_set_problem_rel`;
 CREATE TABLE `problem_set_problem_rel`
 (
-    `id`             bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `problem_set_id` bigint     NOT NULL COMMENT '题单ID',
-    `problem_id`     bigint     NOT NULL COMMENT '题目ID',
-    `sort_order`     int        NOT NULL COMMENT '排序序号',
-    `is_del`         tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `id`                 bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `problem_set_id`     bigint                                                                                                         NOT NULL COMMENT '题单ID',
+    `problem_id`         bigint                                                                                                         NOT NULL COMMENT '题目ID',
+    `sort_order`         int                                                                                                            NOT NULL COMMENT '排序序号',
+    `is_del`             tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_problem_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                                 when (`is_del` = 0)
+                                                                                                                     then concat(`problem_set_id`, _utf8mb4'#', `problem_id`)
+                                                                                                                 else NULL end)) STORED NULL,
+    `active_sort_key`    varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                                 when (`is_del` = 0)
+                                                                                                                     then concat(`problem_set_id`, _utf8mb4'#', `sort_order`)
+                                                                                                                 else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_problem_set_problem_active` (`problem_set_id` ASC, `problem_id` ASC, `is_del` ASC) USING BTREE,
-    UNIQUE INDEX `uk_problem_set_sort_active` (`problem_set_id` ASC, `sort_order` ASC, `is_del` ASC) USING BTREE,
+    UNIQUE INDEX `uk_problem_set_problem_active` (`active_problem_key` ASC) USING BTREE,
+    UNIQUE INDEX `uk_problem_set_sort_active` (`active_sort_key` ASC) USING BTREE,
+    INDEX `idx_ps_problem_set_sort` (`problem_set_id` ASC, `sort_order` ASC) USING BTREE,
     INDEX `idx_ps_problem_set` (`problem_set_id` ASC) USING BTREE,
     INDEX `idx_ps_problem` (`problem_id` ASC) USING BTREE,
     CONSTRAINT `fk_ps_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -288,12 +380,16 @@ CREATE TABLE `problem_set_problem_rel`
 DROP TABLE IF EXISTS `problem_tag_rel`;
 CREATE TABLE `problem_tag_rel`
 (
-    `id`         bigint     NOT NULL AUTO_INCREMENT,
-    `problem_id` bigint     NOT NULL,
-    `tag_id`     bigint     NOT NULL,
-    `is_del`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT,
+    `problem_id` bigint                                                                                                         NOT NULL,
+    `tag_id`     bigint                                                                                                         NOT NULL,
+    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                         when (`is_del` = 0)
+                                                                                                             then concat(`problem_id`, _utf8mb4'#', `tag_id`)
+                                                                                                         else NULL end)) STORED NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_problem_tag_rel` (`problem_id` ASC, `tag_id` ASC) USING BTREE,
+    UNIQUE INDEX `uk_problem_tag_rel` (`active_key` ASC) USING BTREE,
     INDEX `idx_problem_tag_rel_problem_id` (`problem_id` ASC) USING BTREE,
     INDEX `idx_problem_tag_rel_tag_id` (`tag_id` ASC) USING BTREE,
     CONSTRAINT `fk_problem_tag_rel_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,

@@ -7,6 +7,7 @@ import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
+import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.NotFoundException;
@@ -63,8 +64,12 @@ public class ProblemController {
      */
     @AllowAnonymous
     @GetMapping("/{pid}")
-    public Result<ProblemDetailVO> getProblemDetail(@PathVariable String pid) {
-        return Result.success(problemService.getProblemDetail(pid));
+    public Result<ProblemDetailVO> getProblemDetail(@PathVariable String pid,
+                                                    @RequestParam(value = "contest_public_id", required = false) String contestPublicId,
+                                                    @RequestParam(value = "problem_set_public_id", required = false) String problemSetPublicId) {
+        return Result.success(problemService.getProblemDetail(
+                ProblemDetailQuery.fromRequest(pid, contestPublicId, problemSetPublicId)
+        ));
     }
 
     /**
@@ -91,7 +96,7 @@ public class ProblemController {
      * 后端仅负责鉴权，通过 nginx 重定向到评测端
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PostMapping("/testcases/{pid}")
+    @PostMapping("/data/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
                                        HttpServletResponse response) {
         problemTestcaseService.redirectTestcaseUpload(pid, response);
@@ -149,7 +154,7 @@ public class ProblemController {
      * @param fileName 文件名（可含子目录）
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @GetMapping("/file/{pid}/{*file_name}")
+    @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
                                HttpServletResponse response) {
@@ -184,7 +189,7 @@ public class ProblemController {
      * 删除题目文件
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @DeleteMapping("/file/{pid}/{*file_name}")
+    @DeleteMapping("/file/{pid}/{file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletResponse response) {
         validateProblemExists(pid);

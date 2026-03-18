@@ -1,7 +1,7 @@
 package com.seuoj.seuojbackend.dto.problem;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.seuoj.seuojbackend.common.ProblemCommon;
+import com.seuoj.seuojbackend.model.ProblemCommon;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

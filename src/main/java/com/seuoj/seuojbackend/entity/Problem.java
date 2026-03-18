@@ -52,7 +52,7 @@ public class Problem implements Serializable {
     private Integer totalAccept;
 
     @TableField("is_public")
-    private Integer isPublic;
+    private Boolean isPublic;
 
     /**
      * 创建时间

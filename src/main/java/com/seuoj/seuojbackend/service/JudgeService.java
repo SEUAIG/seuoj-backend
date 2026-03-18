@@ -11,7 +11,7 @@ import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
-import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;

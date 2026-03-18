@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
-import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import lombok.Data;
 
 @Data

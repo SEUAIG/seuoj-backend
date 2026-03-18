@@ -1,0 +1,43 @@
+package com.seuoj.seuojbackend.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
+
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Accessors(chain = true)
+@TableName("problem_set_invited_member_rel")
+public class ProblemSetInvitedMemberRel implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    @TableField("problem_set_id")
+    private Long problemSetId;
+
+    @TableField("user_id")
+    private Long userId;
+
+    @TableField("invited_by_user_id")
+    private Long invitedByUserId;
+
+    @TableField("invited_at")
+    private LocalDateTime invitedAt;
+
+    @TableField("is_del")
+    @TableLogic
+    private Integer isDel;
+}
+

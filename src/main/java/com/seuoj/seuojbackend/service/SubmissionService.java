@@ -83,7 +83,7 @@ public class SubmissionService {
 
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, dto.getPid())
-                .eq(Problem::getIsPublic, 1));
+                .eq(Problem::getIsPublic, true));
         if (problem == null) {
             throw new NotFoundException("提交流程中发现题目不存在:" + dto.getPid());
         }

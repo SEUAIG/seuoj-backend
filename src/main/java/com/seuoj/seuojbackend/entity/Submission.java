@@ -3,7 +3,7 @@ package com.seuoj.seuojbackend.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
-import com.seuoj.seuojbackend.model.vo.JudgeResultDetailItem;
+import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;

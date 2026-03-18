@@ -1,4 +1,4 @@
-package com.seuoj.seuojbackend.common;
+package com.seuoj.seuojbackend.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
@@ -39,11 +39,11 @@ public final class ProblemCommon {
         @JsonProperty("min_cpu_time_ms")
         private Long minCpuTimeMs;
 
-        @JsonProperty("max_memory_byte")
-        private Long maxMemoryByte;
+        @JsonProperty("max_memory_kb")
+        private Long maxMemoryKb;
 
-        @JsonProperty("min_memory_byte")
-        private Long minMemoryByte;
+        @JsonProperty("min_memory_kb")
+        private Long minMemoryKb;
 
         @JsonProperty("problem_type")
         @Pattern(regexp = "^(Standard|Interactive)$", message = "题目类型必须是 Standard 或 Interactive")

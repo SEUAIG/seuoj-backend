@@ -1,9 +1,7 @@
-package com.seuoj.seuojbackend.model.vo;
+package com.seuoj.seuojbackend.model;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
