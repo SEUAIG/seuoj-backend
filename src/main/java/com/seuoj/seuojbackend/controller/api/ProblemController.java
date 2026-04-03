@@ -82,6 +82,15 @@ public class ProblemController {
     }
 
     /**
+     * 获取下一个可用的 PID（自动递增建议值）
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/next-pid")
+    public Result<String> getNextPid() {
+        return Result.success(problemService.getNextPid());
+    }
+
+    /**
      * 编辑题目信息
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})

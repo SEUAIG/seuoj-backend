@@ -284,17 +284,21 @@ public class ProblemService {
 
     @Transactional(rollbackFor = Exception.class)
     public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
+        String pid = dto.getPid();
+
+        Problem existing = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (existing != null) {
+            throw new ConflictException("PID 已被使用，请更换或重新获取");
+        }
+
         Problem problem = new Problem();
+        problem.setPid(pid);
         problem.setTitle(dto.getTitle().trim());
         problem.setIsPublic(dto.getIsPublic());
         problem.setTotalSubmit(0);
         problem.setTotalAccept(0);
-        problem.setPid(buildCreatingPid());
         problemMapper.insert(problem);
-
-        String pid = problemPidGenerator.generate(problem.getId());
-        problem.setPid(pid);
-        problemMapper.updateById(problem);
 
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
@@ -313,8 +317,11 @@ public class ProblemService {
         return vo;
     }
 
-    private String buildCreatingPid() {
-        return "_creating_" + UUID.randomUUID();
+    public String getNextPid() {
+        Problem latest = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .orderByDesc(Problem::getId).last("limit 1"));
+        long nextId = latest != null ? latest.getId() + 1 : 1;
+        return problemPidGenerator.generate(nextId);
     }
 
     // TODO: 会不会有并发修改的风险？

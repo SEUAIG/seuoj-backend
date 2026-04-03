@@ -5,11 +5,16 @@ import com.seuoj.seuojbackend.model.ProblemCommon;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import lombok.Data;
 
 @Data
 public class ProblemCreateDTO {
+    @NotBlank(message = "pid 不能为空")
+    @Pattern(regexp = "^[a-zA-Z0-9_\\-]{1,50}$", message = "PID 只能包含字母、数字、下划线和短横线，长度 1-50")
+    private String pid;
+
     @NotBlank(message = "title 不能为空")
     private String title;
 
