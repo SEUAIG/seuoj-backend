@@ -28,6 +28,30 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     private SubmissionMapper submissionMapper;
 
     @Test
+    void submitShouldReturn401WhenNoToken() throws Exception {
+        String body = """
+                {
+                  "pid": "p-public",
+                  "language": "Java17",
+                  "code": "class Main{}"
+                }
+                """;
+
+        mockMvc.perform(post("/api/submission")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(40100));
+    }
+
+    @Test
+    void getResultShouldReturn401WhenNoToken() throws Exception {
+        mockMvc.perform(get("/api/submission/{submissionNo}", "any-submission-no"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(40100));
+    }
+
+    @Test
     void submitShouldRejectWhenLanguageInvalid() throws Exception {
         String body = """
                 {
@@ -36,6 +60,24 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                   "code": "class Main{}"
                 }
                 """;
+
+        mockMvc.perform(post("/api/submission")
+                        .header("Authorization", bearerToken(10002L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40000));
+    }
+
+    @Test
+    void submitShouldRejectWhenCodeTooLong() throws Exception {
+        String body = """
+                {
+                  "pid": "p-public",
+                  "language": "Java17",
+                  "code": "%s"
+                }
+                """.formatted("a".repeat(65536));
 
         mockMvc.perform(post("/api/submission")
                         .header("Authorization", bearerToken(10002L))
@@ -96,6 +138,16 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/submission/page")
                         .queryParam("current", "1")
                         .queryParam("size", "101")
+                        .header("Authorization", bearerToken(10002L)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40000));
+    }
+
+    @Test
+    void listSubmissionsShouldRejectWhenCurrentTypeInvalid() throws Exception {
+        mockMvc.perform(get("/api/submission/page")
+                        .queryParam("current", "invalid")
+                        .queryParam("size", "10")
                         .header("Authorization", bearerToken(10002L)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40000));

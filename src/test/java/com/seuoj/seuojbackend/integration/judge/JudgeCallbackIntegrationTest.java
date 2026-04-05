@@ -1,11 +1,20 @@
 package com.seuoj.seuojbackend.integration.judge;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.common.SubmissionStatus;
+import com.seuoj.seuojbackend.entity.Problem;
+import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.support.BaseIntegrationTest;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -16,6 +25,12 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
     private JudgeClient judgeClient;
+
+    @Autowired
+    private ProblemMapper problemMapper;
+
+    @Autowired
+    private SubmissionMapper submissionMapper;
 
     @Test
     void callbackShouldRejectWhenSecretMissing() throws Exception {
@@ -151,6 +166,92 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("Finished"))
                 .andExpect(jsonPath("$.data.verdict").value("CompileError"))
                 .andExpect(jsonPath("$.data.errorDetail").value("syntax error"));
+    }
+
+    @Test
+    void callbackShouldBeIdempotentWhenRepeatedSuccess() throws Exception {
+        String submissionNo = createSubmission();
+        Problem before = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        assertThat(before).isNotNull();
+        int beforeAccept = before.getTotalAccept();
+        String body = """
+                {
+                  "status": "Success",
+                  "score": 100,
+                  "resultDetail": [
+                    {
+                      "id": 1,
+                      "in": "1 2",
+                      "out": "3",
+                      "ans": "3",
+                      "sys": "ok",
+                      "time": 5,
+                      "mem": 1024,
+                      "type": "Accepted",
+                      "score": 100
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(put("/judge/submission/{submissionNo}", submissionNo)
+                        .header("X-Judge-Secret", "test-judge-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        mockMvc.perform(put("/judge/submission/{submissionNo}", submissionNo)
+                        .header("X-Judge-Secret", "test-judge-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        assertThat(problem).isNotNull();
+        assertThat(problem.getTotalAccept()).isEqualTo(beforeAccept + 1);
+    }
+
+    @Test
+    void callbackShouldUpdateWhenSubmissionWasFailed() throws Exception {
+        String submissionNo = createSubmission();
+        submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
+                .set(Submission::getStatus, SubmissionStatus.FAILED.getStatus())
+                .eq(Submission::getSubmissionNo, submissionNo));
+        String body = """
+                {
+                  "status": "Success",
+                  "score": 100,
+                  "resultDetail": [
+                    {
+                      "id": 1,
+                      "in": "1 2",
+                      "out": "3",
+                      "ans": "3",
+                      "sys": "ok",
+                      "time": 5,
+                      "mem": 1024,
+                      "type": "Accepted",
+                      "score": 100
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(put("/judge/submission/{submissionNo}", submissionNo)
+                        .header("X-Judge-Secret", "test-judge-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/api/submission/{submissionNo}", submissionNo)
+                        .header("Authorization", bearerToken(10002L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.status").value("Finished"))
+                .andExpect(jsonPath("$.data.verdict").value("Accepted"))
+                .andExpect(jsonPath("$.data.score").value(100));
     }
 
     private String createSubmission() throws Exception {
