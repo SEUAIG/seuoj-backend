@@ -36,8 +36,11 @@
 | INT-JUDGE-007 | `JudgeCallbackIntegrationTest#callbackCompileErrorShouldBeVisibleInResultQuery` | CompileError 后查询结果 | 200 | 0 | `verdict=CompileError` 且错误详情可见 |
 | INT-JUDGE-008 | `JudgeCallbackIntegrationTest#callbackShouldBeIdempotentWhenRepeatedSuccess` | judge 重复回调 Success | 200 | 0 | AC 统计不重复累计 |
 | INT-JUDGE-009 | `JudgeCallbackIntegrationTest#callbackShouldUpdateWhenSubmissionWasFailed` | 提交为 `Failed` 后收到成功回调 | 200 | 0 | 状态更新为 `Finished/Accepted` |
-| REG-AUTH-GH001-001 | `GH001_RegisterRaceRegressionTest#registerConcurrentSameEmailShouldOnlySucceedOnce` | 并发注册同邮箱 | - | - | 仅一次成功，另一条冲突 |
-| REG-AUTH-GH001-002 | `GH001_RegisterRaceRegressionTest#registerShouldFailAfterTooManyWrongCodes` | 验证码错误次数上限 | - | 42901 | 返回 `CODE_TOO_MANY_TRIES` |
+| REG-PROBLEM-GH030-001 | `GH030_ProblemVisibilityRegressionTest#normalUserShouldNotSeePrivateProblemsInProblemPage` | 普通用户查看题库列表 | 200 | 0 | 返回结果不包含私有题 `p-private` |
+| REG-PROBLEM-GH030-002 | `GH030_ProblemVisibilityRegressionTest#adminShouldSeeAllProblemsInProblemPage` | 管理员查看题库列表 | 200 | 0 | 返回结果包含公开题与私有题 |
+| REG-PROBLEM-GH030-003 | `GH030_ProblemVisibilityRegressionTest#normalUserShouldReceive404WhenReadingPrivateProblemDirectly` | 普通用户按 pid 查看私有题 | 404 | 40400 | 返回资源不存在，避免泄露 |
+| REG-PROBLEM-GH030-004 | `GH030_ProblemVisibilityRegressionTest#adminShouldReadPrivateProblemDetailDirectly` | 管理员按 pid 查看私有题 | 200 | 0 | 返回 `pid=p-private` 且 `is_public=false` |
+| REG-PROBLEMSET-GH029-001 | `GH029_ProblemSetApiRegressionTest#createProblemSetShouldReturnPublicIdAndDetailShouldContainAllProblems` | 创建题单并配置题目后查看详情 | 200 | 0 | 创建返回 `problem_set_public_id`，详情返回完整 `problem_list` |
 
 ## 说明
 - 用例 ID 命名规范统一参考 `docs/testing/README.md`，本文件只维护“用例清单”本身，避免重复定义。

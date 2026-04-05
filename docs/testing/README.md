@@ -13,9 +13,26 @@
 ./mvnw test "-Dspring.profiles.active=test"
 ```
 
+## 测试数据基线（速查）
+> 本节用于快速查阅固定测试账号与数据身份，最终以 `src/test/resources/sql/test-reset.sql` 为唯一真源。
+
+### 固定测试用户
+| user_id | username | email | 角色 | 密码说明 | 主要用途 |
+|---|---|---|---|---|---|
+| 10001 | `admin_user` | `admin@test.local` | 管理员 | 以测试库初始化数据为准 | 题目管理、管理权限场景 |
+| 10002 | `normal_user` | `user@test.local` | 普通用户 | 以测试库初始化数据为准 | 普通提交、普通查询场景 |
+| 10003 | `teacher_user` | `teacher@test.local` | 教师 | 以测试库初始化数据为准 | 教师权限相关场景 |
+| 10004 | `second_user` | `second@test.local` | 普通用户 | 以测试库初始化数据为准 | 越权查询、非 owner 场景 |
+
+### 使用约束
+- 测试代码优先使用 `bearerToken(userId)` 构造身份，不依赖登录接口拿 token。
+- 若需新增/调整测试账号，必须同时更新 `test-reset.sql` 与本节速查表。
+- 禁止在测试中使用任何真实账号或生产环境凭据。
+
 ## 目录说明
 - 统一用例目录（命名+场景+预期）：`docs/testing/test-case-catalog.md`
 - 回归索引：`docs/testing/regression-index.md`
+- 回归需求源（真实 issue 清单）：`data/tempdata/回归issue.md`
 
 ## 用例命名规范
 - 命名格式：`<层级>-<模块>-<编号>`
@@ -27,7 +44,7 @@
 - 示例：
   - `INT-AUTH-001`
   - `INT-SUBMISSION-003`
-  - `REG-AUTH-GH001-001`
+  - `REG-PROBLEM-GH030-001`
 
 ## 断言规范
 - 异常场景至少断言两层：
