@@ -19,6 +19,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 提交、回调、查结果主链路集成测试。
+ */
 class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
@@ -30,6 +33,9 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private ProblemMapper problemMapper;
 
+    /**
+     * 完整链路：提交成功 -> 收到评测回调 -> 查询结果与题目统计正确。
+     */
     @Test
     void shouldFinishSubmissionAndQueryResult() throws Exception {
         String submitBody = """
@@ -99,6 +105,9 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
         assertThat(problem.getTotalAccept()).isEqualTo(1);
     }
 
+    /**
+     * 提交私有题目应被拒绝，返回资源不存在。
+     */
     @Test
     void shouldRejectSubmissionWhenProblemNotPublic() throws Exception {
         String submitBody = """
@@ -117,6 +126,9 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40400));
     }
 
+    /**
+     * 非所有者且非管理员查询提交结果时应返回无权限。
+     */
     @Test
     void shouldRejectResultQueryWhenNotOwnerOrAdmin() throws Exception {
         String submitBody = """

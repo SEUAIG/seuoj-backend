@@ -21,6 +21,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 评测回调链路集成测试。
+ */
 class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
@@ -32,6 +35,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private SubmissionMapper submissionMapper;
 
+    /**
+     * 缺少评测端密钥头时应拒绝回调。
+     */
     @Test
     void callbackShouldRejectWhenSecretMissing() throws Exception {
         String body = """
@@ -48,6 +54,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40301));
     }
 
+    /**
+     * 评测端密钥非法时应拒绝回调。
+     */
     @Test
     void callbackShouldRejectWhenSecretInvalid() throws Exception {
         String body = """
@@ -65,6 +74,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40301));
     }
 
+    /**
+     * 回调状态字段非法时应返回参数错误。
+     */
     @Test
     void callbackShouldRejectWhenStatusUnknown() throws Exception {
         String body = """
@@ -81,6 +93,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 回调提交号不存在时应返回资源不存在。
+     */
     @Test
     void callbackShouldReturn404WhenSubmissionNotFound() throws Exception {
         String body = """
@@ -98,6 +113,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40400));
     }
 
+    /**
+     * Success 状态缺少 resultDetail 时应被拒绝。
+     */
     @Test
     void callbackShouldRejectWhenSuccessWithoutResultDetail() throws Exception {
         String submissionNo = createSubmission();
@@ -115,6 +133,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * resultDetail 子项字段不完整时应触发参数校验失败。
+     */
     @Test
     void callbackShouldRejectWhenResultDetailItemInvalid() throws Exception {
         String submissionNo = createSubmission();
@@ -141,6 +162,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * CompileError 回调后，用户查询结果应能看到错误详情。
+     */
     @Test
     void callbackCompileErrorShouldBeVisibleInResultQuery() throws Exception {
         String submissionNo = createSubmission();
@@ -168,6 +192,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.errorDetail").value("syntax error"));
     }
 
+    /**
+     * 重复 Success 回调应具备幂等效果，不重复累计 AC 统计。
+     */
     @Test
     void callbackShouldBeIdempotentWhenRepeatedSuccess() throws Exception {
         String submissionNo = createSubmission();
@@ -212,6 +239,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
         assertThat(problem.getTotalAccept()).isEqualTo(beforeAccept + 1);
     }
 
+    /**
+     * 提交已标记 Failed 后，仍可被后续有效回调更新为最终结果。
+     */
     @Test
     void callbackShouldUpdateWhenSubmissionWasFailed() throws Exception {
         String submissionNo = createSubmission();
@@ -254,6 +284,9 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.score").value(100));
     }
 
+    /**
+     * 创建一条可用于回调测试的提交记录，并返回提交号。
+     */
     private String createSubmission() throws Exception {
         String submitBody = """
                 {

@@ -19,6 +19,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 提交与结果查询异常分支集成测试。
+ */
 class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
@@ -27,6 +30,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private SubmissionMapper submissionMapper;
 
+    /**
+     * 未登录提交代码应返回未登录。
+     */
     @Test
     void submitShouldReturn401WhenNoToken() throws Exception {
         String body = """
@@ -44,6 +50,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40100));
     }
 
+    /**
+     * 未登录查询提交结果应返回未登录。
+     */
     @Test
     void getResultShouldReturn401WhenNoToken() throws Exception {
         mockMvc.perform(get("/api/submission/{submissionNo}", "any-submission-no"))
@@ -51,6 +60,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40100));
     }
 
+    /**
+     * 不支持的语言参数应被校验拒绝。
+     */
     @Test
     void submitShouldRejectWhenLanguageInvalid() throws Exception {
         String body = """
@@ -69,6 +81,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 代码超过长度上限应返回参数错误。
+     */
     @Test
     void submitShouldRejectWhenCodeTooLong() throws Exception {
         String body = """
@@ -87,6 +102,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 代码为空白字符串应返回参数错误。
+     */
     @Test
     void submitShouldRejectWhenCodeBlank() throws Exception {
         String body = """
@@ -105,6 +123,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * pid 为空白字符串应返回参数错误。
+     */
     @Test
     void submitShouldRejectWhenPidBlank() throws Exception {
         String body = """
@@ -123,6 +144,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 分页参数 current 小于 1 时应被拒绝。
+     */
     @Test
     void listSubmissionsShouldRejectWhenCurrentLessThanOne() throws Exception {
         mockMvc.perform(get("/api/submission/page")
@@ -133,6 +157,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 分页参数 size 超出上限时应被拒绝。
+     */
     @Test
     void listSubmissionsShouldRejectWhenSizeTooLarge() throws Exception {
         mockMvc.perform(get("/api/submission/page")
@@ -143,6 +170,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 分页参数类型不合法时应统一返回参数错误。
+     */
     @Test
     void listSubmissionsShouldRejectWhenCurrentTypeInvalid() throws Exception {
         mockMvc.perform(get("/api/submission/page")
@@ -153,6 +183,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 查询不存在的提交号应返回资源不存在。
+     */
     @Test
     void getResultShouldReturn404WhenSubmissionNotExists() throws Exception {
         mockMvc.perform(get("/api/submission/{submissionNo}", "not-exists")
@@ -161,6 +194,9 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40400));
     }
 
+    /**
+     * 提交后评测端调用异常时，记录状态应标记为 Failed。
+     */
     @Test
     void submitShouldMarkFailedWhenJudgeClientThrows() throws Exception {
         doThrow(new JudgeRemoteException("judge down")).when(judgeClient).submit(any());

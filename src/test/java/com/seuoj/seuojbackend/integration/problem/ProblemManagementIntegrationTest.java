@@ -17,6 +17,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 题目管理主流程集成测试。
+ */
 class ProblemManagementIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
@@ -25,6 +28,9 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private ProblemMapper problemMapper;
 
+    /**
+     * 管理员创建题目成功，并写入数据库。
+     */
     @Test
     void adminShouldCreateProblem() throws Exception {
         String requestBody = """
@@ -56,6 +62,9 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
         assertThat(created.getTitle()).isEqualTo("Integration Created Problem");
     }
 
+    /**
+     * 管理员编辑题目成功，修改内容可持久化。
+     */
     @Test
     void adminShouldEditProblem() throws Exception {
         String requestBody = """
@@ -78,6 +87,9 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
         assertThat(edited.getTitle()).isEqualTo("Edited Problem Title");
     }
 
+    /**
+     * 删除仍被关联的题目，应返回冲突。
+     */
     @Test
     void deleteShouldFailWhenProblemHasActiveRelations() throws Exception {
         mockMvc.perform(delete("/api/problem/p-public")
@@ -86,6 +98,9 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40900));
     }
 
+    /**
+     * 删除无关联题目应成功，且数据库中不可再查到。
+     */
     @Test
     void deleteShouldSucceedWhenProblemHasNoRelations() throws Exception {
         Problem unlinked = new Problem()

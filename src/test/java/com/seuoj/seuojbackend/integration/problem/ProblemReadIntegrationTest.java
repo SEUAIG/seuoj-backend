@@ -17,17 +17,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 题目查看链路集成测试。
+ */
 class ProblemReadIntegrationTest extends BaseIntegrationTest {
 
     @MockBean
     private JudgeClient judgeClient;
 
+    /**
+     * 每个用例前默认 mock 评测端题面与配置返回，避免外部依赖波动。
+     */
     @BeforeEach
     void setUpJudgeMock() {
         when(judgeClient.fetchProblemContent(anyString())).thenReturn(mockContent());
         when(judgeClient.fetchProblemConfig(anyString())).thenReturn(mockConfig());
     }
 
+    /**
+     * 匿名用户可读取公开题目详情。
+     */
     @Test
     void guestShouldReadPublicProblemDetail() throws Exception {
         mockMvc.perform(get("/api/problem/p-public"))
@@ -36,6 +45,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.pid").value("p-public"));
     }
 
+    /**
+     * 匿名用户读取私有题目时应返回不存在，避免信息泄露。
+     */
     @Test
     void guestShouldNotReadPrivateProblemDetail() throws Exception {
         mockMvc.perform(get("/api/problem/p-private"))
@@ -43,6 +55,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40400));
     }
 
+    /**
+     * 管理员可读取私有题目详情。
+     */
     @Test
     void adminShouldReadPrivateProblemDetail() throws Exception {
         mockMvc.perform(get("/api/problem/p-private")
@@ -52,6 +67,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.pid").value("p-private"));
     }
 
+    /**
+     * 同时传入竞赛与题单上下文参数应被拒绝。
+     */
     @Test
     void shouldRejectWhenContestAndProblemSetContextBothProvided() throws Exception {
         mockMvc.perform(get("/api/problem/p-public")
@@ -61,6 +79,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(40000));
     }
 
+    /**
+     * 评测端拉取题面失败时，应映射为网关错误。
+     */
     @Test
     void shouldReturn502WhenJudgeClientFetchContentFailed() throws Exception {
         when(judgeClient.fetchProblemContent(anyString())).thenThrow(new JudgeRemoteException("judge unavailable"));
@@ -70,6 +91,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(50001));
     }
 
+    /**
+     * 生成测试所需的题面 mock 数据。
+     */
     private ProblemContentDTO mockContent() {
         ProblemContentDTO content = new ProblemContentDTO();
         content.setPid("p-public");
@@ -84,6 +108,9 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
         return content;
     }
 
+    /**
+     * 生成测试所需的题目配置 mock 数据。
+     */
     private ProblemConfigDTO mockConfig() {
         ProblemConfigDTO config = new ProblemConfigDTO();
         ProblemConfigDTO.ProblemInfo info = new ProblemConfigDTO.ProblemInfo();

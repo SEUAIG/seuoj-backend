@@ -9,6 +9,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * 集成测试基类，统一提供 MockMvc、ObjectMapper 与 token 构造能力。
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -25,6 +28,9 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected JwtUtil jwtUtil;
 
+    /**
+     * 根据用户 ID 生成带 Bearer 前缀的认证头值。
+     */
     protected String bearerToken(Long userId) {
         return "Bearer " + jwtUtil.createToken(userId);
     }

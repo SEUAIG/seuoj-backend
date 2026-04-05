@@ -25,6 +25,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.util.ReflectionTestUtils;
 
+/**
+ * GH001 注册并发与验证码重试上限回归测试。
+ */
 class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
 
     @Autowired
@@ -36,6 +39,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
     @Autowired
     private UserRoleMapper userRoleMapper;
 
+    /**
+     * 同一邮箱并发注册时，应只有一次成功，另一次触发冲突。
+     */
     @Test
     void registerConcurrentSameEmailShouldOnlySucceedOnce() throws Exception {
         ensureUserRoleExists();
@@ -67,6 +73,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
         Assertions.assertTrue(others.isEmpty(), "unexpected error: " + others);
     }
 
+    /**
+     * 验证码连续输错达到上限后，应返回固定错误码。
+     */
     @Test
     void registerShouldFailAfterTooManyWrongCodes() {
         ensureUserRoleExists();
@@ -96,6 +105,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
         Assertions.assertEquals(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), last.getCode());
     }
 
+    /**
+     * 构造注册请求对象。
+     */
     private RegisterDTO buildRegister(String username, String email, String code) {
         RegisterDTO dto = new RegisterDTO();
         dto.setUsername(username);
@@ -106,6 +118,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
         return dto;
     }
 
+    /**
+     * 并发执行单次注册，统计成功、冲突与其他异常。
+     */
     private void runRegister(RegisterDTO dto, CountDownLatch start, CountDownLatch done,
                              AtomicInteger success, AtomicInteger conflict, List<Throwable> others) {
         try {
@@ -123,6 +138,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
         }
     }
 
+    /**
+     * 直接向验证码缓存写入测试数据，避免依赖邮件发送流程。
+     */
     private void putTestCode(String verificationId, String email, String code) {
         @SuppressWarnings("unchecked")
         Cache<String, String> codeStore =
@@ -137,6 +155,9 @@ class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
         verificationIdToEmail.put(verificationId, email);
     }
 
+    /**
+     * 确保 USER 角色在测试库中存在，避免初始化数据缺失影响回归用例。
+     */
     private void ensureUserRoleExists() {
         UserRole role = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
                 .eq(UserRole::getRoleCode, RoleType.USER.getCode())
