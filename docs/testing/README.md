@@ -15,8 +15,6 @@
 
 ## 目录说明
 - 统一用例目录（命名+场景+预期）：`docs/testing/test-case-catalog.md`
-- 核心链路规范：`docs/testing/specs/core-flows.md`
-- 鉴权与题目管理规范：`docs/testing/specs/auth-and-problem-management.md`
 - 回归索引：`docs/testing/regression-index.md`
 
 ## 用例命名规范
@@ -46,3 +44,48 @@
 - 测试数据通过 SQL 重置脚本 + Mapper/Bean 组合维护。
 - 测试脚本内禁止拼接原生 SQL 字符串。
 - 涉及数据库状态变化的用例，必须增加持久化结果断言。
+
+## 新增测试开发指南
+本节用于约束“如何新增测试”，确保新增用例可维护、可复现、可用于回归判定。
+
+### 1. 新增测试的准入条件
+- 必须先补充用例规格，再写测试代码。至少包含：用例命名、场景、输入、预期 HTTP、预期业务码、关键断言。
+- 用例必须登记到 `docs/testing/test-case-catalog.md`，并能追溯到对应规范文档。
+- 若来源于线上或已报告问题，必须新增回归用例并登记 `docs/testing/regression-index.md`。
+- 禁止“无断言价值”的测试：仅调用接口但不校验业务结果，视为无效测试。
+
+### 2. 用例设计优先级（与当前工程保持一致）
+- 优先集成测试，覆盖核心链路：看题 -> 提交 -> 评测回调 -> 查看结果。
+- 每条核心链路至少包含：成功路径、鉴权失败、参数非法、资源不存在、业务冲突、依赖异常（如 Judge 端异常）。
+- 新增功能时优先补齐“主链路可用 + 关键异常分支”，避免只测 happy path。
+
+### 3. 代码组织与命名风格
+- 测试类放在 `src/test/java/com/seuoj/seuojbackend/integration` 或 `regression` 下，按业务域命名分组。
+- 测试类命名：`<Domain><Type>IntegrationTest` 或 `GHxxx_xxxRegressionTest`，保持现有风格。
+- 测试方法命名采用 `shouldXxxWhenYyy`（或回归场景语义化命名），方法名要直接表达“场景 + 预期”。
+- 每个测试类、测试方法都应有中文注释，注释聚焦业务意图与验证点，不描述显而易见的语法动作。
+
+### 4. 编写方式与代码风格（最佳实践）
+- 统一继承 `BaseIntegrationTest`，复用 `MockMvc`、`ObjectMapper`、`bearerToken` 等基础能力。
+- 遵循 AAA（Arrange-Act-Assert）结构：准备数据、执行动作、断言结果三段清晰分离。
+- 一个测试方法只验证一个明确业务规则；关联断言可以多条，但不要在同一方法混测多个无关规则。
+- 使用具备业务语义的测试数据，避免魔法值；必要时抽取私有构造方法提升可读性。
+- 禁止在测试代码里拼接 SQL；需要数据准备时使用重置脚本、Mapper、Bean 或服务层能力。
+
+### 5. 断言规范（最低标准）
+- HTTP 状态码与业务 `code` 必须同时断言。
+- 成功场景除响应断言外，必须断言关键持久化结果（数据库状态、统计字段、关联关系）。
+- 异常场景必须断言错误语义（如 message、字段级错误、状态流转未发生）。
+- 对主链路状态流转（如 `Pending -> Judging -> Finished/Failed`）必须断言最终状态与关键中间影响。
+
+### 6. 可复现与隔离要求
+- 所有测试必须在 `test` profile 下运行，且依赖 `src/test/resources/sql/test-reset.sql` 在用例前后重置。
+- 测试之间禁止隐式依赖执行顺序，不允许依赖前一个测试遗留数据。
+- 引入外部依赖行为时优先 Mock 明确边界，保证测试在本地与 CI 结果一致可复现。
+
+### 7. 新增测试的落地步骤（建议流程）
+1. 在 `test-case-catalog.md` 先补充场景与预期，再编写测试代码。
+2. 增加用例记录并分配用例 ID。
+3. 编写/补充集成测试代码与中文注释。
+4. 如为缺陷修复，登记回归索引并关联 Issue/缺陷编号。
+5. 本地执行 `./mvnw test "-Dspring.profiles.active=test"`，确保稳定通过后再提交。

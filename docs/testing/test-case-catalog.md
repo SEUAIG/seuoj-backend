@@ -39,7 +39,5 @@
 | REG-AUTH-GH001-001 | `GH001_RegisterRaceRegressionTest#registerConcurrentSameEmailShouldOnlySucceedOnce` | 并发注册同邮箱 | - | - | 仅一次成功，另一条冲突 |
 | REG-AUTH-GH001-002 | `GH001_RegisterRaceRegressionTest#registerShouldFailAfterTooManyWrongCodes` | 验证码错误次数上限 | - | 42901 | 返回 `CODE_TOO_MANY_TRIES` |
 
-## 命名规范
-- 集成测试：`INT-模块-序号`
-- 回归测试：`REG-模块-Issue-序号`
-- 模块缩写示例：`AUTH`、`PROBLEM`、`SUBMISSION`、`JUDGE`
+## 说明
+- 用例 ID 命名规范统一参考 `docs/testing/README.md`，本文件只维护“用例清单”本身，避免重复定义。
