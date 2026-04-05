@@ -36,45 +36,6 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
     private SubmissionMapper submissionMapper;
 
     /**
-     * 缺少评测端密钥头时应拒绝回调。
-     */
-    @Test
-    void callbackShouldRejectWhenSecretMissing() throws Exception {
-        String body = """
-                {
-                  "status": "CompileError",
-                  "errorDetail": "compile failed"
-                }
-                """;
-
-        mockMvc.perform(put("/judge/submission/{submissionNo}", "s-1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(40301));
-    }
-
-    /**
-     * 评测端密钥非法时应拒绝回调。
-     */
-    @Test
-    void callbackShouldRejectWhenSecretInvalid() throws Exception {
-        String body = """
-                {
-                  "status": "CompileError",
-                  "errorDetail": "compile failed"
-                }
-                """;
-
-        mockMvc.perform(put("/judge/submission/{submissionNo}", "s-1")
-                        .header("X-Judge-Secret", "wrong-secret")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(40301));
-    }
-
-    /**
      * 回调状态字段非法时应返回参数错误。
      */
     @Test

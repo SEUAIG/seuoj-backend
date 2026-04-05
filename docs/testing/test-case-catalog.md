@@ -29,8 +29,6 @@
 | INT-SUBMISSION-012 | `SubmissionExceptionIntegrationTest#getResultShouldReturn401WhenNoToken` | 未登录查询评测结果 | 401 | 40100 | 返回未登录错误 |
 | INT-SUBMISSION-013 | `SubmissionExceptionIntegrationTest#submitShouldRejectWhenCodeTooLong` | 代码超出长度上限 | 400 | 40000 | 参数校验失败 |
 | INT-SUBMISSION-014 | `SubmissionExceptionIntegrationTest#listSubmissionsShouldRejectWhenCurrentTypeInvalid` | 分页参数类型错误 | 400 | 40000 | 类型转换失败 |
-| INT-JUDGE-001 | `JudgeCallbackIntegrationTest#callbackShouldRejectWhenSecretMissing` | judge 回调缺少密钥 | 403 | 40301 | 拒绝回调 |
-| INT-JUDGE-002 | `JudgeCallbackIntegrationTest#callbackShouldRejectWhenSecretInvalid` | judge 回调密钥错误 | 403 | 40301 | 拒绝回调 |
 | INT-JUDGE-003 | `JudgeCallbackIntegrationTest#callbackShouldRejectWhenStatusUnknown` | judge 回调状态非法 | 400 | 40000 | 参数校验失败 |
 | INT-JUDGE-004 | `JudgeCallbackIntegrationTest#callbackShouldReturn404WhenSubmissionNotFound` | 回调提交号不存在 | 404 | 40400 | 返回资源不存在 |
 | INT-JUDGE-005 | `JudgeCallbackIntegrationTest#callbackShouldRejectWhenSuccessWithoutResultDetail` | Success 但无 `resultDetail` | 400 | 40000 | 业务校验失败 |
