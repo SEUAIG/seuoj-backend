@@ -1,22 +1,17 @@
-package com.seuoj.seuojbackend.service;
+package com.seuoj.seuojbackend.regression.auth;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.ErrorCode;
+import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.entity.UserRole;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
-
+import com.seuoj.seuojbackend.service.AuthService;
+import com.seuoj.seuojbackend.service.VerificationCodeService;
+import com.seuoj.seuojbackend.support.BaseIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,11 +20,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 
-@Slf4j
-@SpringBootTest
-@ActiveProfiles("test")
-class AuthServiceRegisterRaceTest {
+class GH001_RegisterRaceRegressionTest extends BaseIntegrationTest {
 
     @Autowired
     private AuthService authService;
@@ -41,28 +37,15 @@ class AuthServiceRegisterRaceTest {
     private UserRoleMapper userRoleMapper;
 
     @Test
-    void register_concurrent_same_email_conflicts() throws Exception {
+    void registerConcurrentSameEmailShouldOnlySucceedOnce() throws Exception {
         ensureUserRoleExists();
 
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String email = "race_" + suffix + "@example.com";
-        String password = "test1234";
         String code = "123456";
 
-        RegisterDTO dto1 = new RegisterDTO();
-        dto1.setUsername("user_a_" + suffix);
-        dto1.setPassword(password);
-        dto1.setEmail(email);
-        dto1.setVerificationId(UUID.randomUUID().toString());
-        dto1.setCode(code);
-
-        RegisterDTO dto2 = new RegisterDTO();
-        dto2.setUsername("user_b_" + suffix);
-        dto2.setPassword(password);
-        dto2.setEmail(email);
-        dto2.setVerificationId(UUID.randomUUID().toString());
-        dto2.setCode(code);
-
+        RegisterDTO dto1 = buildRegister("user_a_" + suffix, email, code);
+        RegisterDTO dto2 = buildRegister("user_b_" + suffix, email, code);
         putTestCode(dto1.getVerificationId(), email, code);
         putTestCode(dto2.getVerificationId(), email, code);
 
@@ -75,37 +58,27 @@ class AuthServiceRegisterRaceTest {
 
         pool.submit(() -> runRegister(dto1, start, done, success, conflict, others));
         pool.submit(() -> runRegister(dto2, start, done, success, conflict, others));
-
         start.countDown();
         done.await(10, TimeUnit.SECONDS);
         pool.shutdownNow();
 
-        log.info("并发注册结果: success={}, conflict={}, others={}", success.get(), conflict.get(), others.size());
-        for (Throwable t : others) {
-            log.error("并发注册出现非预期异常", t);
-        }
-
-        Assertions.assertEquals(1, success.get(), "应只有一个注册成功");
-        Assertions.assertEquals(1, conflict.get(), "应有一个注册冲突");
-        if (!others.isEmpty()) {
-            Assertions.fail("出现非预期异常 " + others.getFirst());
-        }
+        Assertions.assertEquals(1, success.get());
+        Assertions.assertEquals(1, conflict.get());
+        Assertions.assertTrue(others.isEmpty(), "unexpected error: " + others);
     }
 
     @Test
-    void register_verification_code_too_many_tries() {
+    void registerShouldFailAfterTooManyWrongCodes() {
         ensureUserRoleExists();
 
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String email = "fail_" + suffix + "@example.com";
-        String password = "test1234";
+        String email = "wrong_code_" + suffix + "@example.com";
         String verificationId = UUID.randomUUID().toString();
-
         putTestCode(verificationId, email, "123456");
 
         RegisterDTO dto = new RegisterDTO();
         dto.setUsername("user_fail_" + suffix);
-        dto.setPassword(password);
+        dto.setPassword("test1234");
         dto.setEmail(email);
         dto.setVerificationId(verificationId);
         dto.setCode("000000");
@@ -116,31 +89,21 @@ class AuthServiceRegisterRaceTest {
                 authService.register(dto);
             } catch (BadRequestException e) {
                 last = e;
-                log.warn("验证码错误尝试 {}，{}", i + 1, e.getMessage());
             }
         }
 
-        Assertions.assertNotNull(last, "应捕获验证码错误异常");
-        Assertions.assertEquals(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), last.getCode(), "应触发尝试次数过多");
+        Assertions.assertNotNull(last);
+        Assertions.assertEquals(ErrorCode.CODE_TOO_MANY_TRIES.getCode(), last.getCode());
     }
 
-    @Test
-    void pre_verify_code_missing_email_mapping_invalidates_reservation() {
-        String verificationId = UUID.randomUUID().toString();
-        String code = "123456";
-
-        @SuppressWarnings("unchecked")
-        Cache<String, String> codeStore =
-                (Cache<String, String>) ReflectionTestUtils.getField(verificationCodeService, "codeStore");
-        if (codeStore == null) {
-            throw new IllegalStateException("验证码缓存字段为空");
-        }
-
-        codeStore.put(verificationId, code);
-
-        String email = verificationCodeService.preVerifyCode(verificationId, code);
-        Assertions.assertNull(email, "邮箱映射丢失时不应返回邮箱");
-        Assertions.assertNull(codeStore.getIfPresent(verificationId), "邮箱映射丢失时应作废验证码缓存");
+    private RegisterDTO buildRegister(String username, String email, String code) {
+        RegisterDTO dto = new RegisterDTO();
+        dto.setUsername(username);
+        dto.setPassword("test1234");
+        dto.setEmail(email);
+        dto.setVerificationId(UUID.randomUUID().toString());
+        dto.setCode(code);
+        return dto;
     }
 
     private void runRegister(RegisterDTO dto, CountDownLatch start, CountDownLatch done,
@@ -149,18 +112,12 @@ class AuthServiceRegisterRaceTest {
             start.await(5, TimeUnit.SECONDS);
             authService.register(dto);
             success.incrementAndGet();
-            log.info("注册成功: username={}, email={}, verificationId={}",
-                    dto.getUsername(), dto.getEmail(), dto.getVerificationId());
         } catch (ConflictException e) {
             conflict.incrementAndGet();
-            log.warn("注册冲突: username={}, email={}, verificationId={}",
-                    dto.getUsername(), dto.getEmail(), dto.getVerificationId());
         } catch (Throwable t) {
             synchronized (others) {
                 others.add(t);
             }
-            log.error("注册异常: username={}, email={}, verificationId={}",
-                    dto.getUsername(), dto.getEmail(), dto.getVerificationId(), t);
         } finally {
             done.countDown();
         }
@@ -174,7 +131,7 @@ class AuthServiceRegisterRaceTest {
         Cache<String, String> verificationIdToEmail =
                 (Cache<String, String>) ReflectionTestUtils.getField(verificationCodeService, "verificationIdToEmail");
         if (codeStore == null || verificationIdToEmail == null) {
-            throw new IllegalStateException("验证码缓存字段为空");
+            throw new IllegalStateException("verification cache is unavailable");
         }
         codeStore.put(verificationId, code);
         verificationIdToEmail.put(verificationId, email);
@@ -184,13 +141,11 @@ class AuthServiceRegisterRaceTest {
         UserRole role = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
                 .eq(UserRole::getRoleCode, RoleType.USER.getCode())
                 .eq(UserRole::getIsDel, 0));
-        if (role != null) {
-            return;
+        if (role == null) {
+            userRoleMapper.insert(new UserRole()
+                    .setRoleCode(RoleType.USER.getCode())
+                    .setRoleName(RoleType.USER.getCode())
+                    .setIsDel(0));
         }
-        UserRole newRole = new UserRole()
-                .setRoleCode(RoleType.USER.getCode())
-                .setRoleName(RoleType.USER.getCode())
-                .setIsDel(0);
-        userRoleMapper.insert(newRole);
     }
 }

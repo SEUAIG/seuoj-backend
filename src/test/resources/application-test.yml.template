@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/seuoj?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
+  mail:
+    host: localhost
+    port: 25
+    username: test@example.com
+    password: test
+
+jwt:
+  secret: test-jwt-secret-test-jwt-secret-test-jwt-secret-test
+  expiration: 86400
+
+judge:
+  server-url: http://127.0.0.1:19090
+  secret: test-judge-secret
+
+storage:
+  user-code-storage-path: ./data/user-code-test
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
