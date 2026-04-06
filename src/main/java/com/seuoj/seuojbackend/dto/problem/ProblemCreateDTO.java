@@ -10,6 +10,13 @@ import lombok.Data;
 
 @Data
 public class ProblemCreateDTO {
+    @NotBlank(message = "pid 不能为空")
+    private String pid;
+
+    public void setPid(String pid) {
+        this.pid = pid == null ? null : pid.trim();
+    }
+
     @NotBlank(message = "title 不能为空")
     private String title;
 

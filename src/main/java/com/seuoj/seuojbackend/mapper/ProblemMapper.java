@@ -59,6 +59,11 @@ public interface ProblemMapper extends BaseMapper<Problem> {
     List<ProblemTagResult> getProblemTagsBatch(@Param("pids") List<String> pids);
 
     /**
+     * 获取最小可用的题目数字ID（基于 p{number} 规则）
+     */
+    Integer selectNextAvailableNumericPid();
+
+    /**
      * 题目标签关联结果
      */
     @Setter

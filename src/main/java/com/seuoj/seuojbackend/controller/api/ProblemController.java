@@ -16,6 +16,7 @@ import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.NextProblemIdVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -79,6 +80,15 @@ public class ProblemController {
     @PostMapping
     public Result<ProblemCreateVO> createProblem(@Valid @RequestBody ProblemCreateDTO dto) {
         return Result.success(problemService.createProblem(dto));
+    }
+
+    /**
+     * 获取下一个最小可用题目id（待完善）
+     */
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/next_id")
+    public Result<NextProblemIdVO> getNextProblemId() {
+        return Result.success(problemService.getNextProblemId());
     }
 
     /**
