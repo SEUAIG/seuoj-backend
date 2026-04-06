@@ -23,10 +23,7 @@ import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
-import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
-import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
-import com.seuoj.seuojbackend.vo.problem.ProblemListItemVO;
-import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
+import com.seuoj.seuojbackend.vo.problem.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,6 +37,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -52,18 +50,16 @@ public class ProblemService {
     private final JudgeClient judgeClient;
     private final TagMapper tagMapper;
     private final ProblemTagRelMapper problemTagRelMapper;
-    private final ProblemPidGenerator problemPidGenerator;
     private final ProblemAccessService problemAccessService;
     private final UserRoleService userRoleService;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
-                          ProblemTagRelMapper problemTagRelMapper, ProblemPidGenerator problemPidGenerator,
+                          ProblemTagRelMapper problemTagRelMapper,
                           ProblemAccessService problemAccessService, UserRoleService userRoleService) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
         this.problemTagRelMapper = problemTagRelMapper;
-        this.problemPidGenerator = problemPidGenerator;
         this.problemAccessService = problemAccessService;
         this.userRoleService = userRoleService;
     }
@@ -417,15 +413,22 @@ public class ProblemService {
      * @param isPublic  是否公开
      */
     private void updateProblemMeta(Long problemId, String title, Boolean isPublic) {
+        boolean needUpdate = false;
+
         Problem problem = new Problem();
         problem.setId(problemId);
+
         if (StringUtils.hasText(title)) {
             problem.setTitle(title.trim());
+            needUpdate = true;
         }
         if (isPublic != null) {
             problem.setIsPublic(isPublic);
+            needUpdate = true;
         }
-        problemMapper.updateById(problem);
+        if (needUpdate) {
+            problemMapper.updateById(problem);
+        }
     }
 
     /**
