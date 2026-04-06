@@ -68,6 +68,12 @@ public class SubmissionService {
         this.transactionTemplate = transactionTemplate;
     }
 
+    /**
+     * 提交代码进行评测
+     *
+     * @param dto 提交信息
+     * @return 提交结果（包含 submissionNo）
+     */
     public SubmitVO submit(SubmitDTO dto) {
         var userContext = UserContextHolder.get();
         if (userContext == null || userContext.getUserId() == null) {
@@ -90,11 +96,13 @@ public class SubmissionService {
             throw new BadRequestException("提交代码过长，请修改后重试");
         }
 
+        // 数据库操作（事务完成）
         Submission submission = submitInTransaction(dto, userId, problem.getId());
         if (submission == null) {
             throw new InternalServerException("提交失败");
         }
 
+        // 发送评测请求放到事务外完成
         sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
 
         SubmitVO submitVO = new SubmitVO();
@@ -102,8 +110,12 @@ public class SubmissionService {
         return submitVO;
     }
 
+    /**
+     * 事务内完成校验、记录创建、代码保存、计数累加，并注册 afterCommit/rollback 处理
+     */
     private Submission submitInTransaction(SubmitDTO dto, Long userId, Long problemId) {
         return transactionTemplate.execute(status -> {
+            // 创建提交记录
             Submission submission = new Submission();
             submission.setSubmissionNo(UUID.randomUUID().toString());
             submission.setUserId(userId);
@@ -113,7 +125,9 @@ public class SubmissionService {
             submission.setSubmitTime(LocalDateTime.now());
             submissionMapper.insert(submission);
 
+            // 保存用户代码
             codeStorage.save(dto.getCode(), submission.getSubmissionNo());
+            // 若后续回滚，补偿删除已写入的代码文件，避免孤儿文件
             String submissionNo = submission.getSubmissionNo();
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -130,11 +144,15 @@ public class SubmissionService {
                 });
             }
 
+            // 累加题目提交总数
             problemMapper.atomicallyIncreaseTotalSubmissionCount(problemId);
             return submission;
         });
     }
 
+    /**
+     * 向评测机发送评测请求（带异常处理）
+     */
     private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
         JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
         try {
@@ -144,7 +162,7 @@ public class SubmissionService {
                     .eq(Submission::getSubmissionNo, submissionNo)
                     .eq(Submission::getStatus, SubmissionStatus.PENDING.getStatus()));
         } catch (JudgeRemoteException e) {
-            log.error("judge submit failed, submissionNo={}", submissionNo, e);
+            log.error("评测端提交失败, submissionNo={}", submissionNo, e);
             submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()
                     .set(Submission::getStatus, SubmissionStatus.FAILED.getStatus())
                     .eq(Submission::getSubmissionNo, submissionNo)
@@ -152,7 +170,14 @@ public class SubmissionService {
         }
     }
 
+    /**
+     * 根据提交编号查询评测结果
+     *
+     * @param submissionNo 提交记录业务编号
+     * @return 评测结果
+     */
     public SubmissionResultVO getResult(String submissionNo) {
+        // 检验查询
         var userContext = UserContextHolder.get();
         if (userContext == null || userContext.getUserId() == null) {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
@@ -165,11 +190,13 @@ public class SubmissionService {
             throw new NotFoundException("提交记录不存在: " + submissionNo);
         }
 
+        // 查询问题
         Problem problem = problemMapper.selectById(submission.getProblemId());
         if (problem == null) {
             throw new NotFoundException("题目不存在: " + submission.getProblemId());
         }
 
+        // 校验记录是否属于自己
         if (!Objects.equals(submission.getUserId(), userId) && !isAdmin(userId)) {
             throw new ForbiddenException("无权查看他人提交记录");
         }
@@ -177,6 +204,13 @@ public class SubmissionService {
         return convertToResultVO(submission, problem);
     }
 
+    /**
+     * 分页查询当前用户的提交记录
+     *
+     * @param current 当前页（从 1 开始）
+     * @param size 每页条数
+     * @return 提交记录分页
+     */
     public SubmissionPageVO listSubmissions(Integer current, Integer size) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
@@ -242,8 +276,10 @@ public class SubmissionService {
         vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
+        // 查询用户代码
         vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
 
+        // 查询用户名
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
         return vo;
