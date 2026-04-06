@@ -1,10 +1,8 @@
 package com.seuoj.seuojbackend.interceptor;
 
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 
-/**
- * 用户上下文获取校验类
- */
 public class AuthContexts {
 
     private static final String DEFAULT_LOGIN_REQUIRED_MESSAGE = "用户未登录";
@@ -27,7 +25,7 @@ public class AuthContexts {
     public static UserContext requiredUserContext(String message) {
         UserContext ctx = UserContextHolder.get();
         if (ctx == null || ctx.isGuest()) {
-            throw new AuthorizationException(message);
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), message);
         }
         return ctx;
     }

@@ -12,6 +12,7 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemSet;
 import com.seuoj.seuojbackend.entity.ProblemSetInvitedMemberRel;
 import com.seuoj.seuojbackend.entity.ProblemSetProblemRel;
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
@@ -393,7 +394,7 @@ public class ProblemSetService {
 
         Long userId = AuthContexts.userIdOrNull();
         if (userId == null) {
-            throw new AuthorizationException("用户未登录");
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
         }
         if (userRoleService.isAdmin(userId)) {
             return;
@@ -485,8 +486,6 @@ public class ProblemSetService {
     private record ProblemPlanItem(String pid, Integer sortOrder) {
     }
 }
-
-
 
 
 
