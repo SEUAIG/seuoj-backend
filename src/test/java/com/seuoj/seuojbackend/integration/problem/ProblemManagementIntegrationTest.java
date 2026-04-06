@@ -33,8 +33,10 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void adminShouldCreateProblem() throws Exception {
+        String expectedPid = "p-integration-create";
         String requestBody = """
                 {
+                  "pid": "p-integration-create",
                   "title": "Integration Created Problem",
                   "is_public": true,
                   "example": [{"in":"1 2","ans":"3"}],
@@ -51,7 +53,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
                         .content(requestBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.pid").isString())
+                .andExpect(jsonPath("$.data.pid").value(expectedPid))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
