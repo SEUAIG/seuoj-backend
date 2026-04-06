@@ -282,25 +282,30 @@ public class ProblemService {
         return problemDetail;
     }
 
+    /**
+     * 新建题面
+     */
     @Transactional(rollbackFor = Exception.class)
     public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
         Problem problem = new Problem();
+        problem.setPid(dto.getPid());
         problem.setTitle(dto.getTitle().trim());
         problem.setIsPublic(dto.getIsPublic());
         problem.setTotalSubmit(0);
         problem.setTotalAccept(0);
-        problem.setPid(buildCreatingPid());
-        problemMapper.insert(problem);
 
-        String pid = problemPidGenerator.generate(problem.getId());
-        problem.setPid(pid);
-        problemMapper.updateById(problem);
+        try {
+            problemMapper.insert(problem);
+        } catch (DuplicateKeyException e) {
+            log.warn("创建题目时 pid 冲突, pid={}", dto.getPid());
+            throw new BadRequestException("pid 已存在");
+        }
 
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
         }
         judgeClient.updateProblem(buildJudgeRequest(
-                pid,
+                dto.getPid(),
                 dto.getDescription(),
                 dto.getInput(),
                 dto.getOutput(),
@@ -309,12 +314,21 @@ public class ProblemService {
         ));
 
         ProblemCreateVO vo = new ProblemCreateVO();
-        vo.setPid(pid);
+        vo.setPid(dto.getPid());
         return vo;
     }
 
-    private String buildCreatingPid() {
-        return "_creating_" + UUID.randomUUID();
+    /**
+     * 获取下一个最小可用pid
+     * 目前仅统计p{number}格式的pid
+     */
+    public NextProblemIdVO getNextProblemId() {
+        Integer nextProblemId = problemMapper.selectNextAvailableNumericPid();
+        int availableId = nextProblemId != null ? nextProblemId : 1;
+
+        NextProblemIdVO vo = new NextProblemIdVO();
+        vo.setNextPid("p" + availableId);
+        return vo;
     }
 
     // TODO: 会不会有并发修改的风险？
