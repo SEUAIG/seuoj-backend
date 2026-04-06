@@ -175,15 +175,13 @@
             FROM (
                 SELECT CAST(SUBSTRING(p.pid, 2) AS UNSIGNED) AS num
                 FROM problem p
-                WHERE p.is_del = 0
-                  AND p.pid REGEXP '^p[0-9]+$'
+                WHERE p.pid REGEXP '^p[0-9]+$'
             ) n
         ) candidates
         LEFT JOIN (
             SELECT CAST(SUBSTRING(p.pid, 2) AS UNSIGNED) AS num
             FROM problem p
-            WHERE p.is_del = 0
-              AND p.pid REGEXP '^p[0-9]+$'
+            WHERE p.pid REGEXP '^p[0-9]+$'
         ) existing ON existing.num = candidates.candidate
         WHERE existing.num IS NULL
           AND candidates.candidate &gt; 0
