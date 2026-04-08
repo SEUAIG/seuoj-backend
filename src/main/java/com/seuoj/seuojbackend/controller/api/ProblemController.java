@@ -1,6 +1,5 @@
 package com.seuoj.seuojbackend.controller.api;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
@@ -9,15 +8,13 @@ import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
-import com.seuoj.seuojbackend.entity.Problem;
-import com.seuoj.seuojbackend.exception.NotFoundException;
-import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.NextProblemIdVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -35,13 +32,10 @@ import org.springframework.web.bind.annotation.*;
 public class ProblemController {
     private final ProblemService problemService;
     private final ProblemTestcaseService problemTestcaseService;
-    private final ProblemMapper problemMapper;
 
-    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService,
-                             ProblemMapper problemMapper) {
+    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService) {
         this.problemService = problemService;
         this.problemTestcaseService = problemTestcaseService;
-        this.problemMapper = problemMapper;
     }
 
     /**
@@ -103,28 +97,28 @@ public class ProblemController {
 
     /**
      * 上传题目测试数据
-     * 后端仅负责鉴权，通过 nginx 重定向到评测端
+     * 后端鉴权后直接代理到评测端
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/data/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
+                                       HttpServletRequest request,
                                        HttpServletResponse response) {
-        problemTestcaseService.redirectTestcaseUpload(pid, response);
+        problemTestcaseService.proxyJudgeProblemApi(pid, null, request, response);
     }
 
     /**
      * 获取题目数据配置
-     * 后端仅负责鉴权，通过 nginx 重定向到评测端获取配置
+     * 后端鉴权后直接代理到评测端获取配置
      *
      * @param pid 题目编号
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/config/{pid}")
     public void getProblemConfig(@PathVariable String pid,
+                                 HttpServletRequest request,
                                  HttpServletResponse response) {
-        validateProblemExists(pid);
-        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid);
-        response.setStatus(HttpServletResponse.SC_OK);
+        problemTestcaseService.proxyJudgeProblemApi(pid, null, request, response);
     }
 
     /**
@@ -136,10 +130,9 @@ public class ProblemController {
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/config/{pid}")
     public void updateProblemConfig(@PathVariable String pid,
+                                    HttpServletRequest request,
                                     HttpServletResponse response) {
-        validateProblemExists(pid);
-        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/config/" + pid);
-        response.setStatus(HttpServletResponse.SC_OK);
+        problemTestcaseService.proxyJudgeProblemApi(pid, null, request, response);
     }
 
     /**
@@ -154,10 +147,6 @@ public class ProblemController {
 
     /**
      * 获取题目文件（代理到评测端）
-     * <p>
-     * 开发环境：后端直接代理请求到评测端，通过 RestTemplate 获取字节流后写入响应。
-     * 生产环境：可改用 Nginx X-Accel-Redirect 由 Nginx 内部转发，减轻后端 IO 负担。
-     * <p>
      * file_name 支持子目录路径（如 subtask1/1.in），但不允许向外遍历
      *
      * @param pid      题目编号
@@ -167,8 +156,9 @@ public class ProblemController {
     @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
+                               HttpServletRequest request,
                                HttpServletResponse response) {
-        problemTestcaseService.proxyProblemFile(pid, fileName, response);
+        problemTestcaseService.proxyJudgeProblemApi(pid, fileName, request, response);
     }
 
     /**
@@ -197,21 +187,13 @@ public class ProblemController {
 
     /**
      * 删除题目文件
+     * 后端鉴权后直接代理到评测端
      */
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/file/{pid}/{file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
+                                  HttpServletRequest request,
                                   HttpServletResponse response) {
-        validateProblemExists(pid);
-        response.setHeader("X-Accel-Redirect", "/internal/judgend/judge/problem/file/" + pid + "/" + fileName);
-        response.setStatus(HttpServletResponse.SC_OK);
-    }
-
-    private void validateProblemExists(String pid) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, pid));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在");
-        }
+        problemTestcaseService.proxyJudgeProblemApi(pid, fileName, request, response);
     }
 }
