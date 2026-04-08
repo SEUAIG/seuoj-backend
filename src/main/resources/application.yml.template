@@ -43,6 +43,8 @@ verification:
   send-interval-seconds: 60
   cache-max-size: 10000
   max-verify-fails: 5
+  dev-fixed-code-enabled: false
+  dev-fixed-code: 123456
 
 storage:
   user-code-storage-path: ./data/user-code

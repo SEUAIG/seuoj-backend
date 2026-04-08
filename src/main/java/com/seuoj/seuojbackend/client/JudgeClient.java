@@ -45,7 +45,7 @@ public interface JudgeClient {
     void deleteProblem(String pid);
 
     /**
-     *获取题目测试点元数据（已废弃）
+     * 获取题目测试点元数据（已废弃）
      */
     @Deprecated
     JudgeProblemDataResponse fetchProblemDataMeta(String pid);
