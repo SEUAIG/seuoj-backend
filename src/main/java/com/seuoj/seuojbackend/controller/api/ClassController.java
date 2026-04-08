@@ -113,6 +113,17 @@ public class ClassController {
     }
 
     /**
+     * 添加班级成员
+     */
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @PostMapping("/{class_public_id}/member/{user_public_id}")
+    public Result<Void> addMember(@PathVariable("class_public_id") String classPublicId,
+                                  @PathVariable("user_public_id") String userPublicId) {
+        classService.addMember(classPublicId, userPublicId);
+        return Result.success();
+    }
+
+    /**
      * 分页查询班级关联题单
      */
     @RequireRole({RoleType.USER, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})

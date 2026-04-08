@@ -241,6 +241,35 @@ public class ClassService {
     }
 
     /**
+     * 添加班级成员
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void addMember(String classPublicId, String userPublicId) {
+        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        Long currentUserId = AuthContexts.userIdOrNull();
+        assertCanManageClass(classInfo, currentUserId);
+
+        Long userId = findUserIdByPublicId(userPublicId);
+        if (classInfo.getTeacherUserId() != null && userId.equals(classInfo.getTeacherUserId())) {
+            throw new BadRequestException("班级教师无需添加");
+        }
+
+        int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
+        if (restored > 0) {
+            return;
+        }
+
+        ClassStudentRel rel = new ClassStudentRel();
+        rel.setClassId(classInfo.getId());
+        rel.setUserId(userId);
+        try {
+            classStudentRelMapper.insert(rel);
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("已加入该班级");
+        }
+    }
+
+    /**
      * 分页查询班级关联题单
      */
     public LinkPageVO getClassProblemSetPage(String classPublicId, Integer current, Integer size) {
