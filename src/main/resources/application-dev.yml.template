@@ -24,6 +24,8 @@ verification:
   send-interval-seconds: 60
   cache-max-size: 10000
   max-verify-fails: 5
+  dev-fixed-code-enabled: true
+  dev-fixed-code: 123456
 
 mybatis-plus:
   configuration:

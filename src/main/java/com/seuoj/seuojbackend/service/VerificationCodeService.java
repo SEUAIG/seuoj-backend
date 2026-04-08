@@ -54,6 +54,15 @@ public class VerificationCodeService {
     private int maxVerifyFails;
 
     /**
+     * 开发临时模式：固定验证码并跳过邮件发送
+     */
+    @Value("${verification.dev-fixed-code-enabled:false}")
+    private boolean devFixedCodeEnabled;
+
+    @Value("${verification.dev-fixed-code:123456}")
+    private String devFixedCode;
+
+    /**
      * 存储验证码：verificationId -> code
      * 写入后 CODE_EXPIRE_SECONDS 秒自动过期
      */
@@ -137,14 +146,18 @@ public class VerificationCodeService {
             }
         }
 
-        // 生成6位验证码
-        String code = generateCode();
+        // 生成验证码（开发临时模式下使用固定值）
+        String code = resolveCode();
 
         // 生成验证码会话ID
         String verificationId = UUID.randomUUID().toString();
 
-        // 先发送邮件，成功后再写入缓存
-        sendEmail(email, code);
+        // 生产模式发送邮件，开发临时模式仅写缓存不发邮件
+        if (devFixedCodeEnabled) {
+            log.info("开发临时验证码模式已启用，跳过邮件发送: {}, verificationId: {}", email, verificationId);
+        } else {
+            sendEmail(email, code);
+        }
 
         codeStore.put(verificationId, code);
         verificationIdToEmail.put(verificationId, email);
@@ -285,6 +298,13 @@ public class VerificationCodeService {
         SecureRandom random = new SecureRandom();
         int code = 100000 + random.nextInt(900000);
         return String.valueOf(code);
+    }
+
+    private String resolveCode() {
+        if (!devFixedCodeEnabled) {
+            return generateCode();
+        }
+        return (devFixedCode == null || devFixedCode.trim().isEmpty()) ? "123456" : devFixedCode.trim();
     }
 
     /**
