@@ -5,6 +5,9 @@ import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
+import com.seuoj.seuojbackend.dto.auth.ResetPasswordDTO;
+import com.seuoj.seuojbackend.dto.auth.ChangePasswordDTO;
+import com.seuoj.seuojbackend.dto.admin.BatchImportUserDTO;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.UserRole;
 import com.seuoj.seuojbackend.entity.UserRoleRel;
@@ -15,15 +18,23 @@ import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
+import com.seuoj.seuojbackend.vo.admin.BatchImportResultVO;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
+import java.security.SecureRandom;
+import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -34,10 +45,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final VerificationCodeService verificationCodeService;
+    private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username:}")
+    private String fromEmail;
 
     public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
                        UserRoleService userRoleService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                       VerificationCodeService verificationCodeService) {
+                       VerificationCodeService verificationCodeService, JavaMailSender mailSender) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleRelMapper = userRoleRelMapper;
@@ -45,6 +60,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.verificationCodeService = verificationCodeService;
+        this.mailSender = mailSender;
     }
 
     /**
@@ -161,5 +177,180 @@ public class AuthService {
             return null;
         }
         return email.trim().toLowerCase();
+    }
+
+    /**
+     * 批量导入用户（管理员操作，跳过邮箱验证）
+     */
+    public BatchImportResultVO batchImportUsers(BatchImportUserDTO dto) {
+        List<BatchImportUserDTO.UserRow> users = dto.getUsers();
+        boolean isRandomMode = "random".equals(dto.getPasswordMode());
+        boolean shouldSendEmail = dto.isSendEmail();
+
+        BatchImportResultVO result = new BatchImportResultVO();
+        result.setTotalCount(users.size());
+
+        // 查找默认 USER 角色
+        UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                .eq(UserRole::getIsDel, 0));
+        if (defaultRole == null) {
+            throw new BadRequestException("默认角色 USER 不存在");
+        }
+
+        // 前置校验密码模式一致性
+        for (int i = 0; i < users.size(); i++) {
+            BatchImportUserDTO.UserRow row = users.get(i);
+            String pwd = row.getPassword();
+            boolean hasPwd = pwd != null && !pwd.trim().isEmpty();
+            if (!isRandomMode && !hasPwd) {
+                result.getFailures().add(new BatchImportResultVO.FailDetail(
+                        i + 1, row.getUsername(), row.getEmail(), "指定密码模式下密码不能为空"));
+            }
+            if (isRandomMode && hasPwd) {
+                result.getFailures().add(new BatchImportResultVO.FailDetail(
+                        i + 1, row.getUsername(), row.getEmail(), "随机密码模式下不应提供密码"));
+            }
+        }
+        if (!result.getFailures().isEmpty()) {
+            result.setSuccessCount(0);
+            result.setFailCount(result.getFailures().size());
+            return result;
+        }
+
+        int successCount = 0;
+        for (int i = 0; i < users.size(); i++) {
+            BatchImportUserDTO.UserRow row = users.get(i);
+            try {
+                String normalizedEmail = normalizeEmail(row.getEmail());
+                String username = row.getUsername().trim();
+
+                // 检查邮箱格式
+                if (!normalizedEmail.matches("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
+                    result.getFailures().add(new BatchImportResultVO.FailDetail(
+                            i + 1, username, normalizedEmail, "邮箱格式无效"));
+                    continue;
+                }
+
+                // 检查邮箱是否已存在
+                if (userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                        .eq(UserInfo::getEmail, normalizedEmail)) != null) {
+                    result.getFailures().add(new BatchImportResultVO.FailDetail(
+                            i + 1, username, normalizedEmail, "邮箱已被注册"));
+                    continue;
+                }
+
+                // 确定密码
+                String rawPassword = isRandomMode ? generateRandomPassword() : row.getPassword().trim();
+
+                UserInfo newUser = new UserInfo();
+                newUser.setUsername(username);
+                newUser.setEmail(normalizedEmail);
+                newUser.setPublicId(UUID.randomUUID().toString());
+                newUser.setPassword(passwordEncoder.encode(rawPassword));
+
+                try {
+                    userInfoMapper.insert(newUser);
+                } catch (DuplicateKeyException e) {
+                    result.getFailures().add(new BatchImportResultVO.FailDetail(
+                            i + 1, username, normalizedEmail, "邮箱或用户名已存在"));
+                    continue;
+                }
+
+                UserRoleRel rel = new UserRoleRel();
+                rel.setUserId(newUser.getId());
+                rel.setRoleId(defaultRole.getId());
+                userRoleRelMapper.insert(rel);
+
+                // 发送通知邮件（异步忽略失败，不影响导入结果）
+                if (shouldSendEmail) {
+                    try {
+                        sendAccountNotificationEmail(normalizedEmail, username, rawPassword);
+                    } catch (Exception e) {
+                        log.warn("账号通知邮件发送失败: {}, {}", normalizedEmail, e.getMessage());
+                    }
+                }
+
+                successCount++;
+            } catch (Exception e) {
+                result.getFailures().add(new BatchImportResultVO.FailDetail(
+                        i + 1, row.getUsername(), row.getEmail(), "系统异常: " + e.getMessage()));
+            }
+        }
+
+        result.setSuccessCount(successCount);
+        result.setFailCount(result.getTotalCount() - successCount);
+        return result;
+    }
+
+    /**
+     * 修改密码（已登录用户，验证旧密码）
+     */
+    public void changePassword(Long userId, ChangePasswordDTO dto) {
+        UserInfo user = userInfoMapper.selectById(userId);
+        if (user == null) {
+            throw new BadRequestException("用户不存在");
+        }
+        if (!passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
+            throw new BadRequestException("旧密码错误");
+        }
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userInfoMapper.updateById(user);
+    }
+
+    /**
+     * 重置密码（通过邮箱验证码）
+     */
+    public void resetPassword(ResetPasswordDTO dto) {
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+
+        // 验证验证码
+        String verifiedEmail = verificationCodeService.verifyCode(dto.getVerificationId(), dto.getCode());
+        if (verifiedEmail == null) {
+            throw new BadRequestException(ErrorCode.CODE_INVALID_OR_EXPIRED.getCode(), "验证码无效或已过期");
+        }
+
+        if (!verifiedEmail.equals(normalizedEmail)) {
+            throw new BadRequestException("邮箱与验证码不匹配");
+        }
+
+        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                .eq(UserInfo::getEmail, normalizedEmail));
+        if (user == null) {
+            throw new BadRequestException("该邮箱未注册");
+        }
+
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userInfoMapper.updateById(user);
+    }
+
+    /**
+     * 生成8位随机密码（包含大小写字母和数字）
+     */
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 发送账号通知邮件
+     */
+    private void sendAccountNotificationEmail(String to, String username, String rawPassword) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject("【SEUOJ】您的账号已创建");
+        message.setText("您好，\n\n管理员已为您创建 SEUOJ 账号，请使用以下信息登录：\n\n"
+                + "邮箱：" + to + "\n"
+                + "用户名：" + username + "\n"
+                + "初始密码：" + rawPassword + "\n\n"
+                + "请登录后尽快修改密码。\n\n"
+                + "—— SEUOJ 团队");
+        mailSender.send(message);
     }
 }
