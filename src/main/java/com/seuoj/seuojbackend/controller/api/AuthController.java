@@ -2,19 +2,22 @@ package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.common.Result;
+import com.seuoj.seuojbackend.dto.auth.ChangePasswordDTO;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.dto.auth.ResetPasswordDTO;
-import com.seuoj.seuojbackend.dto.auth.ChangePasswordDTO;
 import com.seuoj.seuojbackend.dto.auth.SendCodeDTO;
+import com.seuoj.seuojbackend.exception.AuthorizationException;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.service.AuthService;
 import com.seuoj.seuojbackend.service.VerificationCodeService;
-import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
 import com.seuoj.seuojbackend.vo.auth.SendCodeVO;
+import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +42,16 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));
+    }
+
+    /**
+     * 令牌交换（长换短、短换长）
+     */
+    @AllowAnonymous
+    @PostMapping("/token/exchange")
+    public Result<TokenExchangeVO> exchangeToken(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return Result.success(authService.exchangeToken(extractBearerToken(authorization)));
     }
 
     /**
@@ -89,4 +102,20 @@ public class AuthController {
         return Result.success();
     }
 
+    private String extractBearerToken(String authorization) {
+        if (authorization == null) {
+            throw new AuthorizationException("缺少 Authorization 请求头");
+        }
+
+        String value = authorization.trim();
+        if (!value.startsWith("Bearer ")) {
+            throw new AuthorizationException("Authorization 请求头必须使用 Bearer 令牌");
+        }
+
+        String token = value.substring("Bearer ".length()).trim();
+        if (token.isEmpty()) {
+            throw new AuthorizationException("Bearer 令牌不能为空");
+        }
+        return token;
+    }
 }

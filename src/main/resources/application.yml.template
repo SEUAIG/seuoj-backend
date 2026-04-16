@@ -35,8 +35,10 @@ mybatis-plus:
   mapper-locations: classpath:/mapper/**/*.xml
 
 jwt:
-  secret: <jwt_secret>
-  expiration: 86400
+  private-key: <jwt_private_key_base64>
+  public-key: <jwt_public_key_base64>
+  access-expiration: 86400
+  temp-expiration: 300
 
 verification:
   code-expire-seconds: 300

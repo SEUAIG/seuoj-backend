@@ -11,8 +11,10 @@ spring:
     password: test
 
 jwt:
-  secret: test-jwt-secret-test-jwt-secret-test-jwt-secret-test
-  expiration: 86400
+  private-key:
+  public-key:
+  access-expiration: 86400
+  temp-expiration: 300
 
 judge:
   server-url: http://127.0.0.1:19090

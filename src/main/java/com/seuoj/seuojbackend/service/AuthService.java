@@ -17,9 +17,12 @@ import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
+import com.seuoj.seuojbackend.util.JwtTokenType;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import com.seuoj.seuojbackend.vo.admin.BatchImportResultVO;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
+import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
+import com.seuoj.seuojbackend.vo.user.UserMeVO;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
@@ -162,7 +165,7 @@ public class AuthService {
             throw new AuthorizationException("密码或邮箱错误");
         }
 
-        String token = jwtUtil.createToken(user.getId());
+        String token = jwtUtil.createAccessToken(user.getPublicId());
 
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
@@ -172,11 +175,54 @@ public class AuthService {
         return loginVO;
     }
 
+    public TokenExchangeVO exchangeToken(String token) {
+        JwtUtil.ParsedToken parsedToken = jwtUtil.parseToken(token);
+        if (parsedToken == null) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
+        }
+
+        UserInfo user = getUserByPublicId(parsedToken.subject());
+        if (user == null) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "用户不存在");
+        }
+
+        TokenExchangeVO response = new TokenExchangeVO();
+        if (parsedToken.tokenType() == JwtTokenType.TEMP) {
+            response.setAccessToken(jwtUtil.createAccessToken(user.getPublicId()));
+            return response;
+        }
+
+        if (parsedToken.tokenType() == JwtTokenType.ACCESS) {
+            response.setTempToken(jwtUtil.createTempToken(user.getPublicId()));
+            return response;
+        }
+
+        throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "不支持的令牌类型");
+    }
+
+    public UserMeVO getCurrentUserProfile(Long userId) {
+        UserInfo user = userInfoMapper.selectById(userId);
+        if (user == null) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "用户不存在");
+        }
+
+        UserMeVO profile = new UserMeVO();
+        profile.setUuid(user.getPublicId());
+        profile.setUsername(user.getUsername());
+        profile.setEmail(user.getEmail());
+        return profile;
+    }
+
     private String normalizeEmail(String email) {
         if (email == null) {
             return null;
         }
         return email.trim().toLowerCase();
+    }
+
+    private UserInfo getUserByPublicId(String publicId) {
+        return userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                .eq(UserInfo::getPublicId, publicId));
     }
 
     /**
