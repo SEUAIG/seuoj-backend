@@ -21,9 +21,9 @@ public interface SubmissionMapper extends BaseMapper<Submission> {
     /**
      * 分页查询当前用户提交记录（联表避免 N+1）
      */
-    IPage<SubmissionListItemVO> selectUserSubmissionPage(Page<?> page, @Param("userId") Long userId);
-
-    IPage<SubmissionListItemVO> selectAllSubmissionPage(Page<?> page);
+    IPage<SubmissionListItemVO> selectSubmissionPage(Page<?> page,
+                                                     @Param("userPublicId") String userPublicId,
+                                                     @Param("verdict") String verdict);
 
     List<HeatmapDayVO> selectUserHeatmapDays(@Param("userId") Long userId, @Param("year") Integer year);
 }

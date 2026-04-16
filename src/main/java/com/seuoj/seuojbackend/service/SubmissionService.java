@@ -31,11 +31,13 @@ import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
+
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -211,7 +213,7 @@ public class SubmissionService {
      * @param size 每页条数
      * @return 提交记录分页
      */
-    public SubmissionPageVO listSubmissions(Integer current, Integer size) {
+    public SubmissionPageVO listSubmissions(Integer current, Integer size, String userPublicId, String verdict) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
         }
@@ -219,16 +221,10 @@ public class SubmissionService {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
 
-        var userContext = UserContextHolder.get();
-        if (userContext == null || userContext.getUserId() == null) {
-            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
-        }
-        Long userId = userContext.getUserId();
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
-        IPage<SubmissionListItemVO> pageResult = isAdmin(userId)
-                ? submissionMapper.selectAllSubmissionPage(page)
-                : submissionMapper.selectUserSubmissionPage(page, userId);
+        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
+                page, userPublicId, verdict);
 
         SubmissionPageVO result = new SubmissionPageVO();
         result.setCurrent(pageResult.getCurrent());

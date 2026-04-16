@@ -19,6 +19,8 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -148,6 +150,7 @@ public class JwtUtil {
         payload.put("iat", now);
         payload.put("exp", now + expirationSeconds);
         payload.put("token_type", tokenType.getClaimValue());
+        payload.put("jti", UUID.randomUUID().toString());
 
         try {
             String encodedHeader = encodeJson(header);

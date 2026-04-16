@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.controller.api;
 
+import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.Result;
@@ -32,17 +33,19 @@ public class SubmissionController {
         return Result.success(submissionService.submit(dto));
     }
 
-    @RequireRole({RoleType.USER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @AllowAnonymous
     @GetMapping("/submission/{submissionNo}")
     public Result<SubmissionResultVO> getResult(@PathVariable String submissionNo) {
         return Result.success(submissionService.getResult(submissionNo));
     }
 
-    @RequireRole({RoleType.USER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @AllowAnonymous
     @GetMapping("/submission/page")
     public Result<SubmissionPageVO> listSubmissions(
             @RequestParam(defaultValue = "1") Integer current,
-            @RequestParam(defaultValue = "10") Integer size) {
-        return Result.success(submissionService.listSubmissions(current, size));
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(value = "user_public_id", required = false) String userPublicId,
+            @RequestParam(value = "verdict", required = false) String verdict) {
+        return Result.success(submissionService.listSubmissions(current, size, userPublicId, verdict));
     }
 }
