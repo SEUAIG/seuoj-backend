@@ -1,7 +1,10 @@
 package com.seuoj.seuojbackend.interceptor;
 
-
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.AuthStatus;
+import com.seuoj.seuojbackend.entity.UserInfo;
+import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.util.JwtTokenType;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,9 +21,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class JwtAuthInterceptor implements HandlerInterceptor {
     private final JwtUtil jwtUtil;
+    private final UserInfoMapper userInfoMapper;
 
-    public JwtAuthInterceptor(JwtUtil jwtUtil) {
+    public JwtAuthInterceptor(JwtUtil jwtUtil, UserInfoMapper userInfoMapper) {
         this.jwtUtil = jwtUtil;
+        this.userInfoMapper = userInfoMapper;
     }
 
     @Override
@@ -50,20 +55,28 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 有 token：解析校验，构建上下文
-        log.debug("开始解析 JWT token");
-        Long userId = jwtUtil.parseUserId(token);
-
-        if (userId == null) {
-            log.warn("JWT token 解析失败或无效 - URI: {} {}, Controller: {}.{}",
+        // 有令牌则进行解析与校验
+        log.debug("开始解析 JWT 令牌");
+        JwtUtil.ParsedToken parsedToken = jwtUtil.parseToken(token);
+        if (parsedToken == null || parsedToken.tokenType() != JwtTokenType.ACCESS) {
+            log.warn("JWT 令牌无效或不是访问令牌 - URI: {} {}, Controller: {}.{}",
                     method, requestUri, controllerName, methodName);
             UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
-        } else {
-            log.info("JWT token 解析成功 - userId: {}, URI: {} {}, Controller: {}.{}",
-                    userId, method, requestUri, controllerName, methodName);
-            UserContextHolder.set(UserContext.of(userId, AuthStatus.AUTHENTICATED));
+            return true;
         }
 
+        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                .eq(UserInfo::getPublicId, parsedToken.subject()));
+        if (user == null) {
+            log.warn("JWT 令牌中的用户标识不存在 - publicId: {}, URI: {} {}, Controller: {}.{}",
+                    parsedToken.subject(), method, requestUri, controllerName, methodName);
+            UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
+            return true;
+        }
+
+        log.info("JWT 鉴权成功 - userId: {}, URI: {} {}, Controller: {}.{}",
+                user.getId(), method, requestUri, controllerName, methodName);
+        UserContextHolder.set(UserContext.of(user.getId(), AuthStatus.AUTHENTICATED));
         return true;
     }
 
