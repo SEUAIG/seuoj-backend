@@ -3,88 +3,84 @@
 <mapper namespace="com.seuoj.seuojbackend.mapper.ClassInfoMapper">
 
     <resultMap id="ClassItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassItemVO">
-        <result column="class_public_id" property="classPublicId"/>
-        <result column="name" property="name"/>
-        <result column="description" property="description"/>
-        <result column="creator_public_id" property="creatorPublicId"/>
-        <result column="is_public" property="isPublic"/>
+        <result column="class_public_id" property="classPublicId" />
+        <result column="name" property="name" />
+        <result column="description" property="description" />
+        <result column="creator_public_id" property="creatorPublicId" />
+        <result column="is_public" property="isPublic" />
     </resultMap>
 
-    <select id="selectClassPage" resultMap="ClassItemMap">
-        SELECT ci.public_id AS class_public_id,
-               ci.name,
-               COALESCE(ci.description, '') AS description,
-               COALESCE(ui.public_id, '') AS creator_public_id,
-               ci.is_public
-        FROM class_info ci
-        LEFT JOIN user_info ui ON ui.id = ci.teacher_user_id AND ui.is_del = 0
-        WHERE ci.is_del = 0
-          AND (
-            <choose>
-                <when test="isAdmin">
-                    1 = 1
-                </when>
-                <otherwise>
-                    ci.is_public = 1
-                    <if test="userId != null">
-                        OR ci.teacher_user_id = #{userId}
-                        OR EXISTS (
-                            SELECT 1
-                            FROM class_student_rel cmr
-                            WHERE cmr.class_id = ci.id
-                              AND cmr.user_id = #{userId}
-                              AND cmr.is_del = 0
-                        )
-                    </if>
-                </otherwise>
-            </choose>
-          )
-        ORDER BY ci.id DESC
-    </select>
+    <select id="selectClassPage" resultMap="ClassItemMap"> SELECT ci.public_id AS class_public_id,
+        ci.name, COALESCE(ci.description, '') AS description, COALESCE(ui.public_id, '') AS
+        creator_public_id, ci.is_public FROM class_info ci LEFT JOIN user_info ui ON ui.id =
+        ci.teacher_user_id AND ui.is_del = 0 WHERE ci.is_del = 0 AND ( <choose>
+            <when test="isAdmin"> 1 = 1 </when>
+            <otherwise> ci.is_public = 1 <if test="userId != null"> OR ci.teacher_user_id =
+        #{userId} OR EXISTS ( SELECT 1 FROM class_student_rel cmr WHERE cmr.class_id = ci.id AND
+        cmr.user_id = #{userId} AND cmr.is_del = 0 ) </if>
+            </otherwise>
+        </choose>
+        ) ORDER BY ci.id DESC </select>
 
     <resultMap id="ClassMemberItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassMemberItemVO">
-        <result column="user_public_id" property="userPublicId"/>
-        <result column="username" property="username"/>
-        <result column="joined_at" property="joinedAt"/>
+        <result column="user_public_id" property="userPublicId" />
+        <result column="username" property="username" />
+        <result column="joined_at" property="joinedAt" />
     </resultMap>
 
-    <select id="selectClassMemberPage" resultMap="ClassMemberItemMap">
-        SELECT ui.public_id AS user_public_id,
-               ui.username,
-               cmr.joined_at
-        FROM class_student_rel cmr
-        INNER JOIN user_info ui ON ui.id = cmr.user_id
-        WHERE cmr.class_id = #{classId}
-          AND cmr.is_del = 0
-          AND ui.is_del = 0
-        ORDER BY cmr.joined_at DESC, cmr.id DESC
-    </select>
+    <select id="selectClassMemberPage" resultMap="ClassMemberItemMap"> SELECT ui.public_id AS
+        user_public_id, ui.username, cmr.joined_at FROM class_student_rel cmr INNER JOIN user_info
+        ui ON ui.id = cmr.user_id WHERE cmr.class_id = #{classId} AND cmr.is_del = 0 AND ui.is_del =
+        0 ORDER BY cmr.joined_at DESC, cmr.id DESC </select>
 
     <resultMap id="LinkPageItemMap" type="com.seuoj.seuojbackend.vo.classinfo.LinkPageItemVO">
-        <result column="id" property="id"/>
-        <result column="title" property="title"/>
+        <result column="id" property="id" />
+        <result column="title" property="title" />
     </resultMap>
 
-    <select id="selectClassProblemSetPage" resultMap="LinkPageItemMap">
-        SELECT ps.public_id AS id,
-               ps.title AS title
-        FROM class_problem_set_rel cpsr
-        INNER JOIN problem_set ps ON ps.id = cpsr.problem_set_id
-        WHERE cpsr.class_id = #{classId}
-          AND cpsr.is_del = 0
-          AND ps.is_del = 0
-        ORDER BY cpsr.id DESC
-    </select>
+    <select id="selectClassProblemSetPage" resultMap="LinkPageItemMap"> SELECT ps.public_id AS id,
+        ps.title AS title FROM class_problem_set_rel cpsr INNER JOIN problem_set ps ON ps.id =
+        cpsr.problem_set_id WHERE cpsr.class_id = #{classId} AND cpsr.is_del = 0 AND ps.is_del = 0
+        ORDER BY cpsr.id DESC </select>
 
-    <select id="selectClassContestPage" resultMap="LinkPageItemMap">
-        SELECT c.public_id AS id,
-               c.title AS title
-        FROM class_contest_rel ccr
-        INNER JOIN contest c ON c.id = ccr.contest_id
-        WHERE ccr.class_id = #{classId}
-          AND ccr.is_del = 0
-          AND c.is_del = 0
-        ORDER BY ccr.id DESC
-    </select>
+    <select id="selectClassContestPage" resultMap="LinkPageItemMap"> SELECT c.public_id AS id,
+        c.title AS title FROM class_contest_rel ccr INNER JOIN contest c ON c.id = ccr.contest_id
+        WHERE ccr.class_id = #{classId} AND ccr.is_del = 0 AND c.is_del = 0 ORDER BY ccr.id DESC </select>
+
+    <!-- 班级学情概览：每个题单的题目数 + 班级学生人均 AC 率 -->
+    <select id="selectClassOverviewStats" resultType="java.util.HashMap"> SELECT ps.public_id AS
+        problem_set_public_id, ps.title AS title, COUNT(DISTINCT pspr.problem_id) AS problem_count,
+        COALESCE(SUM(ac_sub.ac_flag), 0) AS total_student_ac_count FROM class_problem_set_rel cpsr
+        INNER JOIN problem_set ps ON ps.id = cpsr.problem_set_id AND ps.is_del = 0 LEFT JOIN
+        problem_set_problem_rel pspr ON pspr.problem_set_id = ps.id AND pspr.is_del = 0 LEFT JOIN (
+        SELECT s.user_id, s.problem_id, 1 AS ac_flag FROM submission s INNER JOIN class_student_rel
+        csr2 ON csr2.user_id = s.user_id AND csr2.class_id = #{classId} AND csr2.is_del = 0 WHERE
+        s.verdict = 'Accepted' AND s.is_del = 0 GROUP BY s.user_id, s.problem_id ) ac_sub ON
+        ac_sub.problem_id = pspr.problem_id WHERE cpsr.class_id = #{classId} AND cpsr.is_del = 0
+        GROUP BY ps.id, ps.public_id, ps.title ORDER BY MIN(cpsr.id) ASC </select>
+
+    <!-- 班级每位学生在所有关联题单中的 AC 题数（去重） -->
+    <select id="selectClassStudentAcStats" resultType="java.util.HashMap"> SELECT ui.public_id AS
+        user_public_id, ui.username AS username, COUNT(DISTINCT s.problem_id) AS ac_count FROM
+        class_student_rel csr INNER JOIN user_info ui ON ui.id = csr.user_id AND ui.is_del = 0 LEFT
+        JOIN ( SELECT DISTINCT pspr2.problem_id FROM class_problem_set_rel cpsr2 INNER JOIN
+        problem_set_problem_rel pspr2 ON pspr2.problem_set_id = cpsr2.problem_set_id AND
+        pspr2.is_del = 0 WHERE cpsr2.class_id = #{classId} AND cpsr2.is_del = 0 ) all_problems ON 1
+        = 1 LEFT JOIN submission s ON s.user_id = csr.user_id AND s.problem_id =
+        all_problems.problem_id AND s.verdict = 'Accepted' AND s.is_del = 0 WHERE csr.class_id =
+        #{classId} AND csr.is_del = 0 GROUP BY ui.public_id, ui.username ORDER BY ac_count DESC,
+        ui.username ASC </select>
+
+    <!-- 班级题单矩阵：学生 × 题目 的最优 verdict -->
+    <select id="selectClassProblemSetMatrixRaw" resultType="java.util.HashMap"> SELECT ui.public_id
+        AS user_public_id, ui.username AS username, p.pid AS pid, p.title AS problem_title,
+        pspr.sort_order AS sort_order, MAX(CASE WHEN s.verdict = 'Accepted' THEN 2 WHEN s.id IS NOT
+        NULL THEN 1 ELSE 0 END) AS best_status FROM class_student_rel csr INNER JOIN user_info ui ON
+        ui.id = csr.user_id AND ui.is_del = 0 CROSS JOIN problem_set_problem_rel pspr ON
+        pspr.problem_set_id = #{problemSetId} AND pspr.is_del = 0 INNER JOIN problem p ON p.id =
+        pspr.problem_id AND p.is_del = 0 LEFT JOIN submission s ON s.user_id = csr.user_id AND
+        s.problem_id = pspr.problem_id AND s.is_del = 0 WHERE csr.class_id = #{classId} AND
+        csr.is_del = 0 GROUP BY ui.public_id, ui.username, p.pid, p.title, pspr.sort_order ORDER BY
+        ui.username ASC, pspr.sort_order ASC </select>
 
 </mapper>

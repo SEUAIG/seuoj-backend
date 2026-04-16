@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.dto.classinfo.ClassBatchImportDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassCreateDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassUpdateDTO;
 import com.seuoj.seuojbackend.entity.ClassContestRel;
@@ -13,6 +15,8 @@ import com.seuoj.seuojbackend.entity.ClassProblemSetRel;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ProblemSet;
 import com.seuoj.seuojbackend.entity.UserInfo;
+import com.seuoj.seuojbackend.entity.UserRole;
+import com.seuoj.seuojbackend.entity.UserRoleRel;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
@@ -25,21 +29,36 @@ import com.seuoj.seuojbackend.mapper.ClassProblemSetRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleMapper;
+import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
+import com.seuoj.seuojbackend.vo.classinfo.ClassBatchImportResultVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassCreateVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberPageVO;
+import com.seuoj.seuojbackend.vo.classinfo.ClassOverviewVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassPageVO;
+import com.seuoj.seuojbackend.vo.classinfo.ClassProblemSetMatrixVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageVO;
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+@Slf4j
 @Service
 public class ClassService {
 
@@ -51,15 +70,26 @@ public class ClassService {
     private final ContestMapper contestMapper;
     private final UserInfoMapper userInfoMapper;
     private final UserRoleService userRoleService;
+    private final UserRoleMapper userRoleMapper;
+    private final UserRoleRelMapper userRoleRelMapper;
+    private final PasswordEncoder passwordEncoder;
+    private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username:}")
+    private String fromEmail;
 
     public ClassService(ClassInfoMapper classInfoMapper,
-                        ClassStudentRelMapper classStudentRelMapper,
-                        ClassProblemSetRelMapper classProblemSetRelMapper,
-                        ClassContestRelMapper classContestRelMapper,
-                        ProblemSetMapper problemSetMapper,
-                        ContestMapper contestMapper,
-                        UserInfoMapper userInfoMapper,
-                        UserRoleService userRoleService) {
+            ClassStudentRelMapper classStudentRelMapper,
+            ClassProblemSetRelMapper classProblemSetRelMapper,
+            ClassContestRelMapper classContestRelMapper,
+            ProblemSetMapper problemSetMapper,
+            ContestMapper contestMapper,
+            UserInfoMapper userInfoMapper,
+            UserRoleService userRoleService,
+            UserRoleMapper userRoleMapper,
+            UserRoleRelMapper userRoleRelMapper,
+            PasswordEncoder passwordEncoder,
+            JavaMailSender mailSender) {
         this.classInfoMapper = classInfoMapper;
         this.classStudentRelMapper = classStudentRelMapper;
         this.classProblemSetRelMapper = classProblemSetRelMapper;
@@ -68,6 +98,10 @@ public class ClassService {
         this.contestMapper = contestMapper;
         this.userInfoMapper = userInfoMapper;
         this.userRoleService = userRoleService;
+        this.userRoleMapper = userRoleMapper;
+        this.userRoleRelMapper = userRoleRelMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.mailSender = mailSender;
     }
 
     /**
@@ -208,7 +242,8 @@ public class ClassService {
         Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
-        IPage<ClassMemberItemVO> pageResult = classInfoMapper.selectClassMemberPage(new Page<>(current, size), classInfo.getId());
+        IPage<ClassMemberItemVO> pageResult = classInfoMapper.selectClassMemberPage(new Page<>(current, size),
+                classInfo.getId());
         ClassMemberPageVO vo = new ClassMemberPageVO();
         vo.setCurrent(pageResult.getCurrent());
         vo.setSize(pageResult.getSize());
@@ -279,7 +314,8 @@ public class ClassService {
         Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
-        IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassProblemSetPage(new Page<>(current, size), classInfo.getId());
+        IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassProblemSetPage(new Page<>(current, size),
+                classInfo.getId());
         return toLinkPageVO(pageResult);
     }
 
@@ -339,7 +375,8 @@ public class ClassService {
         Long userId = AuthContexts.userIdOrNull();
         assertCanViewClassRelated(classInfo, userId);
 
-        IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassContestPage(new Page<>(current, size), classInfo.getId());
+        IPage<LinkPageItemVO> pageResult = classInfoMapper.selectClassContestPage(new Page<>(current, size),
+                classInfo.getId());
         return toLinkPageVO(pageResult);
     }
 
@@ -387,6 +424,320 @@ public class ClassService {
         if (updated == 0) {
             throw new NotFoundException("班级与比赛关联不存在");
         }
+    }
+
+    /**
+     * 批量导入学生到班级
+     */
+    public ClassBatchImportResultVO batchImportStudents(String classPublicId, ClassBatchImportDTO dto) {
+        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        Long currentUserId = AuthContexts.userIdOrNull();
+        assertCanManageClass(classInfo, currentUserId);
+
+        List<ClassBatchImportDTO.StudentRow> students = dto.getStudents();
+        boolean isRandomMode = "random".equals(dto.getPasswordMode());
+        boolean shouldSendEmail = dto.isSendEmail();
+
+        ClassBatchImportResultVO result = new ClassBatchImportResultVO();
+        result.setTotalCount(students.size());
+
+        // 查找默认 USER 角色
+        UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                .eq(UserRole::getIsDel, 0));
+        if (defaultRole == null) {
+            throw new BadRequestException("默认角色 USER 不存在");
+        }
+
+        // 前置校验密码模式一致性
+        for (int i = 0; i < students.size(); i++) {
+            ClassBatchImportDTO.StudentRow row = students.get(i);
+            String pwd = row.getPassword();
+            boolean hasPwd = pwd != null && !pwd.trim().isEmpty();
+            if (!isRandomMode && !hasPwd) {
+                result.getFailures().add(new ClassBatchImportResultVO.FailDetail(
+                        i + 1, row.getStudentId(), row.getName(), "指定密码模式下密码不能为空"));
+            }
+            if (isRandomMode && hasPwd) {
+                result.getFailures().add(new ClassBatchImportResultVO.FailDetail(
+                        i + 1, row.getStudentId(), row.getName(), "随机密码模式下不应提供密码"));
+            }
+        }
+        if (!result.getFailures().isEmpty()) {
+            result.setSuccessCount(0);
+            result.setFailCount(result.getFailures().size());
+            return result;
+        }
+
+        int successCount = 0;
+        for (int i = 0; i < students.size(); i++) {
+            ClassBatchImportDTO.StudentRow row = students.get(i);
+            try {
+                String studentId = row.getStudentId().trim();
+                String name = row.getName().trim();
+                String email = (studentId + "@seu.edu.cn").toLowerCase();
+
+                // 检查用户是否已存在（按邮箱查找）
+                UserInfo existingUser = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                        .eq(UserInfo::getEmail, email));
+
+                String rawPassword;
+                boolean isExisting = false;
+
+                if (existingUser != null) {
+                    // 已有账号，检查是否已在班级中
+                    if (isStudentInClass(classInfo.getId(), existingUser.getId())) {
+                        result.getFailures().add(new ClassBatchImportResultVO.FailDetail(
+                                i + 1, studentId, name, "该学生已在班级中"));
+                        continue;
+                    }
+                    isExisting = true;
+                    rawPassword = "(已有账号)";
+
+                    // 将已有用户加入班级
+                    addStudentToClass(classInfo, existingUser.getId());
+                } else {
+                    // 创建新账号
+                    rawPassword = isRandomMode ? generateRandomPassword() : row.getPassword().trim();
+
+                    UserInfo newUser = new UserInfo();
+                    newUser.setUsername(name);
+                    newUser.setEmail(email);
+                    newUser.setPublicId(UUID.randomUUID().toString());
+                    newUser.setPassword(passwordEncoder.encode(rawPassword));
+
+                    try {
+                        userInfoMapper.insert(newUser);
+                    } catch (DuplicateKeyException e) {
+                        result.getFailures().add(new ClassBatchImportResultVO.FailDetail(
+                                i + 1, studentId, name, "邮箱或用户名已存在(并发冲突)"));
+                        continue;
+                    }
+
+                    // 分配 USER 角色
+                    UserRoleRel rel = new UserRoleRel();
+                    rel.setUserId(newUser.getId());
+                    rel.setRoleId(defaultRole.getId());
+                    userRoleRelMapper.insert(rel);
+
+                    // 将新用户加入班级
+                    addStudentToClass(classInfo, newUser.getId());
+
+                    // 发送通知邮件
+                    if (shouldSendEmail) {
+                        try {
+                            sendClassAccountNotificationEmail(email, name, rawPassword, classInfo.getName());
+                        } catch (Exception e) {
+                            log.warn("班级账号通知邮件发送失败: {}, {}", email, e.getMessage());
+                        }
+                    }
+                }
+
+                result.getSuccesses().add(new ClassBatchImportResultVO.SuccessDetail(
+                        i + 1, studentId, name, email, rawPassword, isExisting));
+                successCount++;
+            } catch (Exception e) {
+                result.getFailures().add(new ClassBatchImportResultVO.FailDetail(
+                        i + 1, row.getStudentId(), row.getName(), "系统异常: " + e.getMessage()));
+            }
+        }
+
+        result.setSuccessCount(successCount);
+        result.setFailCount(result.getTotalCount() - successCount);
+        return result;
+    }
+
+    /**
+     * 班级学情概览
+     */
+    public ClassOverviewVO getClassOverview(String classPublicId) {
+        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        Long userId = AuthContexts.userIdOrNull();
+        assertCanManageClass(classInfo, userId);
+
+        Long memberCount = classStudentRelMapper.selectCount(new LambdaQueryWrapper<ClassStudentRel>()
+                .eq(ClassStudentRel::getClassId, classInfo.getId())
+                .eq(ClassStudentRel::getIsDel, 0));
+
+        List<Map<String, Object>> stats = classInfoMapper.selectClassOverviewStats(classInfo.getId());
+
+        int totalProblems = 0;
+        List<ClassOverviewVO.ProblemSetProgressItem> psItems = new ArrayList<>();
+
+        for (Map<String, Object> row : stats) {
+            ClassOverviewVO.ProblemSetProgressItem item = new ClassOverviewVO.ProblemSetProgressItem();
+            item.setProblemSetPublicId((String) row.get("problem_set_public_id"));
+            item.setTitle((String) row.get("title"));
+            int problemCount = ((Number) row.get("problem_count")).intValue();
+            int studentAcCount = ((Number) row.get("total_student_ac_count")).intValue();
+            item.setProblemCount(problemCount);
+
+            long mc = memberCount != null ? memberCount : 0;
+            if (mc > 0 && problemCount > 0) {
+                item.setAvgCompletionRate(
+                        Math.round(studentAcCount * 10000.0 / (mc * problemCount)) / 100.0);
+            } else {
+                item.setAvgCompletionRate(0);
+            }
+            psItems.add(item);
+
+            totalProblems += problemCount;
+        }
+
+        // 每位学生的 AC 统计
+        List<Map<String, Object>> studentStats = classInfoMapper.selectClassStudentAcStats(classInfo.getId());
+        List<ClassOverviewVO.StudentOverviewItem> studentItems = new ArrayList<>();
+        for (Map<String, Object> row : studentStats) {
+            ClassOverviewVO.StudentOverviewItem si = new ClassOverviewVO.StudentOverviewItem();
+            si.setUserPublicId((String) row.get("user_public_id"));
+            si.setUsername((String) row.get("username"));
+            si.setAcCount(((Number) row.get("ac_count")).intValue());
+            studentItems.add(si);
+        }
+
+        ClassOverviewVO vo = new ClassOverviewVO();
+        vo.setMemberCount(memberCount != null ? memberCount.intValue() : 0);
+        vo.setTotalProblems(totalProblems);
+        vo.setProblemSets(psItems);
+        vo.setStudents(studentItems);
+        return vo;
+    }
+
+    /**
+     * 班级题单做题矩阵
+     */
+    public ClassProblemSetMatrixVO getClassProblemSetMatrix(String classPublicId, String problemSetPublicId) {
+        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        Long userId = AuthContexts.userIdOrNull();
+        assertCanManageClass(classInfo, userId);
+
+        ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
+
+        // 校验题单是否关联到该班级
+        Long relCount = classProblemSetRelMapper.selectCount(new LambdaQueryWrapper<ClassProblemSetRel>()
+                .eq(ClassProblemSetRel::getClassId, classInfo.getId())
+                .eq(ClassProblemSetRel::getProblemSetId, problemSet.getId())
+                .eq(ClassProblemSetRel::getIsDel, 0));
+        if (relCount == null || relCount == 0) {
+            throw new NotFoundException("题单未关联到该班级");
+        }
+
+        List<Map<String, Object>> rawData = classInfoMapper.selectClassProblemSetMatrixRaw(
+                classInfo.getId(), problemSet.getId());
+
+        // 收集题目列 (保持 sortOrder 顺序)
+        LinkedHashMap<String, ClassProblemSetMatrixVO.ProblemColumn> problemMap = new LinkedHashMap<>();
+        // 收集学生行
+        LinkedHashMap<String, ClassProblemSetMatrixVO.StudentRow> studentMap = new LinkedHashMap<>();
+        // 学生 -> pid -> status
+        LinkedHashMap<String, LinkedHashMap<String, Integer>> statusMap = new LinkedHashMap<>();
+
+        for (Map<String, Object> row : rawData) {
+            String pid = (String) row.get("pid");
+            String problemTitle = (String) row.get("problem_title");
+            int sortOrder = ((Number) row.get("sort_order")).intValue();
+            String userPublicId = (String) row.get("user_public_id");
+            String username = (String) row.get("username");
+            int bestStatus = ((Number) row.get("best_status")).intValue();
+
+            problemMap.computeIfAbsent(pid, k -> {
+                ClassProblemSetMatrixVO.ProblemColumn col = new ClassProblemSetMatrixVO.ProblemColumn();
+                col.setPid(k);
+                col.setTitle(problemTitle);
+                col.setSortOrder(sortOrder);
+                return col;
+            });
+
+            studentMap.computeIfAbsent(userPublicId, k -> {
+                ClassProblemSetMatrixVO.StudentRow sr = new ClassProblemSetMatrixVO.StudentRow();
+                sr.setUserPublicId(k);
+                sr.setUsername(username);
+                return sr;
+            });
+
+            statusMap.computeIfAbsent(userPublicId, k -> new LinkedHashMap<>())
+                    .put(pid, bestStatus);
+        }
+
+        List<ClassProblemSetMatrixVO.ProblemColumn> problems = new ArrayList<>(problemMap.values());
+        List<ClassProblemSetMatrixVO.StudentRow> students = new ArrayList<>(studentMap.values());
+
+        // 构建每个学生的 cells
+        for (ClassProblemSetMatrixVO.StudentRow student : students) {
+            LinkedHashMap<String, Integer> userStatus = statusMap.getOrDefault(student.getUserPublicId(),
+                    new LinkedHashMap<>());
+            List<String> cells = new ArrayList<>();
+            int acCount = 0;
+            for (ClassProblemSetMatrixVO.ProblemColumn prob : problems) {
+                int st = userStatus.getOrDefault(prob.getPid(), 0);
+                if (st == 2) {
+                    cells.add("AC");
+                    acCount++;
+                } else if (st == 1) {
+                    cells.add("ATTEMPTED");
+                } else {
+                    cells.add("NOT_ATTEMPTED");
+                }
+            }
+            student.setCells(cells);
+            student.setAcCount(acCount);
+        }
+
+        ClassProblemSetMatrixVO vo = new ClassProblemSetMatrixVO();
+        vo.setProblemSetTitle(problemSet.getTitle());
+        vo.setProblems(problems);
+        vo.setStudents(students);
+        return vo;
+    }
+
+    private void addStudentToClass(ClassInfo classInfo, Long userId) {
+        if (classInfo.getTeacherUserId() != null && userId.equals(classInfo.getTeacherUserId())) {
+            throw new BadRequestException("班级教师无需作为学生添加");
+        }
+        int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
+        if (restored > 0) {
+            return;
+        }
+        ClassStudentRel rel = new ClassStudentRel();
+        rel.setClassId(classInfo.getId());
+        rel.setUserId(userId);
+        try {
+            classStudentRelMapper.insert(rel);
+        } catch (DuplicateKeyException ex) {
+            // 已在班级中，忽略
+        }
+    }
+
+    private boolean isStudentInClass(Long classId, Long userId) {
+        Long count = classStudentRelMapper.selectCount(new LambdaQueryWrapper<ClassStudentRel>()
+                .eq(ClassStudentRel::getClassId, classId)
+                .eq(ClassStudentRel::getUserId, userId)
+                .eq(ClassStudentRel::getIsDel, 0));
+        return count != null && count > 0;
+    }
+
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    private void sendClassAccountNotificationEmail(String to, String username, String rawPassword, String className) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject("【SEUOJ】您的账号已创建");
+        message.setText("您好，\n\n老师已为您创建 SEUOJ 账号并将您加入班级「" + className + "」，请使用以下信息登录：\n\n"
+                + "邮箱：" + to + "\n"
+                + "用户名：" + username + "\n"
+                + "初始密码：" + rawPassword + "\n\n"
+                + "请登录后尽快修改密码。\n\n"
+                + "—— SEUOJ 团队");
+        mailSender.send(message);
     }
 
     /**
