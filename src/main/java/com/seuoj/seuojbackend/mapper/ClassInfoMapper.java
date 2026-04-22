@@ -27,11 +27,6 @@ public interface ClassInfoMapper extends BaseMapper<ClassInfo> {
     IPage<ClassMemberItemVO> selectClassMemberPage(Page<?> page, @Param("classId") Long classId);
 
     /**
-     * 分页查询班级关联题单
-     */
-    IPage<LinkPageItemVO> selectClassProblemSetPage(Page<?> page, @Param("classId") Long classId);
-
-    /**
      * 分页查询班级关联比赛
      */
     IPage<LinkPageItemVO> selectClassContestPage(Page<?> page, @Param("classId") Long classId);

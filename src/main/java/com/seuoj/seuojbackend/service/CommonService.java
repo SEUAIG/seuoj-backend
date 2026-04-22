@@ -85,7 +85,7 @@ public class CommonService {
         if (isAdmin) {
             return null;
         }
-        return Arrays.asList(RoleType.USER.getCode(), RoleType.TEACHER.getCode());
+        return Arrays.asList(RoleType.STUDENT.getCode(), RoleType.TEACHER.getCode());
     }
 
     private String normalizeKeyword(String keyword) {
@@ -104,11 +104,11 @@ public class CommonService {
         }
 
         if (normalizedRoles.isEmpty()) {
-            return Arrays.asList(RoleType.USER.getCode(), RoleType.TEACHER.getCode());
+            return Arrays.asList(RoleType.STUDENT.getCode(), RoleType.TEACHER.getCode());
         }
 
         for (String roleCode : normalizedRoles) {
-            if (!RoleType.USER.getCode().equals(roleCode) && !RoleType.TEACHER.getCode().equals(roleCode)) {
+            if (!RoleType.STUDENT.getCode().equals(roleCode) && !RoleType.TEACHER.getCode().equals(roleCode)) {
                 throw new ForbiddenException("教师只可以查询 USER 或者 TEACHER");
             }
         }

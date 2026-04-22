@@ -35,22 +35,23 @@
                 <otherwise>
                     ps.is_public = 1
                     <if test="userId != null">
-                        OR ps.owner_user_id = #{userId}
                         OR EXISTS (
                             SELECT 1
-                            FROM class_problem_set_rel cpsr
-                            INNER JOIN class_student_rel cmr ON cmr.class_id = cpsr.class_id
-                            WHERE cpsr.problem_set_id = ps.id
-                              AND cpsr.is_del = 0
-                              AND cmr.user_id = #{userId}
-                              AND cmr.is_del = 0
+                            FROM resource_permission rp
+                            WHERE rp.resource_type = 'PROBLEM_SET'
+                              AND rp.resource_id = ps.id
+                              AND rp.user_id = #{userId}
+                              AND rp.is_del = 0
                         )
                         OR EXISTS (
                             SELECT 1
-                            FROM problem_set_invited_member_rel psimr
-                            WHERE psimr.problem_set_id = ps.id
-                              AND psimr.user_id = #{userId}
-                              AND psimr.is_del = 0
+                            FROM assignment a
+                            INNER JOIN class_student_rel csr ON a.class_id = csr.class_id
+                            WHERE a.problem_set_id = ps.id
+                              AND a.status = 'PUBLISHED'
+                              AND a.is_del = 0
+                              AND csr.user_id = #{userId}
+                              AND csr.is_del = 0
                         )
                     </if>
                 </otherwise>

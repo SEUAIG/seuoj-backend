@@ -125,10 +125,10 @@ public class AuthService {
             }
 
             UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
-                    .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                    .eq(UserRole::getRoleCode, RoleType.STUDENT.getCode())
                     .eq(UserRole::getIsDel, 0));
             if (defaultRole == null) {
-                throw new BadRequestException("默认角色 USER 不存在");
+                throw new BadRequestException("默认角色 STUDENT 不存在");
             }
 
             UserRoleRel rel = new UserRoleRel();
@@ -236,12 +236,11 @@ public class AuthService {
         BatchImportResultVO result = new BatchImportResultVO();
         result.setTotalCount(users.size());
 
-        // 查找默认 USER 角色
         UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
-                .eq(UserRole::getRoleCode, RoleType.USER.getCode())
+                .eq(UserRole::getRoleCode, RoleType.STUDENT.getCode())
                 .eq(UserRole::getIsDel, 0));
         if (defaultRole == null) {
-            throw new BadRequestException("默认角色 USER 不存在");
+            throw new BadRequestException("默认角色 STUDENT 不存在");
         }
 
         // 前置校验密码模式一致性

@@ -32,6 +32,9 @@ public class ProblemSetProblemRel implements Serializable {
     @TableField("sort_order")
     private Integer sortOrder;
 
+    @TableField("weight")
+    private Integer weight;
+
     @TableField("is_del")
     @TableLogic
     private Integer isDel;

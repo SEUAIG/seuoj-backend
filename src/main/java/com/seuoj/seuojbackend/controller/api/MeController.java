@@ -21,7 +21,7 @@ public class MeController {
         this.submissionService = submissionService;
     }
 
-    @RequireRole({RoleType.USER})
+    @RequireRole({RoleType.STUDENT})
     @GetMapping("/heatmap")
     public Result<MeHeatmapVO> heatmap(@RequestParam
                                        @Pattern(regexp = "^\\d{4}$", message = "年份格式必须为4位数字") String year) {

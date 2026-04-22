@@ -3,7 +3,8 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.seuoj.seuojbackend.access.ProblemAccessService;
+import com.seuoj.seuojbackend.common.PermissionOp;
+import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemEditRequest;
 import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
@@ -21,6 +22,7 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.vo.problem.*;
@@ -50,24 +52,20 @@ public class ProblemService {
     private final JudgeClient judgeClient;
     private final TagMapper tagMapper;
     private final ProblemTagRelMapper problemTagRelMapper;
-    private final ProblemAccessService problemAccessService;
+    private final PermissionService permissionService;
     private final UserRoleService userRoleService;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
                           ProblemTagRelMapper problemTagRelMapper,
-                          ProblemAccessService problemAccessService, UserRoleService userRoleService) {
+                          PermissionService permissionService, UserRoleService userRoleService) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
         this.problemTagRelMapper = problemTagRelMapper;
-        this.problemAccessService = problemAccessService;
+        this.permissionService = permissionService;
         this.userRoleService = userRoleService;
     }
 
-    /**
-     * 分页查询题目列表
-     */
-    // TODO: 考虑查询功能使用更优雅的实现？比如 Redis Search？代价是系统整体复杂度提升？
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
         if (tagIds != null && !tagIds.isEmpty()) {
             tagIds = tagIds.stream()
@@ -93,30 +91,25 @@ public class ProblemService {
                 tagIdsSize
         );
 
-        // 批量获取标签
         List<ProblemListItemVO> records = resultPage.getRecords();
         if (records != null && !records.isEmpty()) {
             List<String> pids = records.stream()
                     .map(ProblemListItemVO::getPid)
                     .collect(Collectors.toList());
 
-            // 批量查询标签
             List<ProblemMapper.ProblemTagResult> tagResults = problemMapper.getProblemTagsBatch(pids);
 
-            // 按 pid 分组
             Map<String, List<String>> pidTagsMap = new HashMap<>();
             for (ProblemMapper.ProblemTagResult tagResult : tagResults) {
                 pidTagsMap.computeIfAbsent(tagResult.getPid(), k -> new ArrayList<>())
                         .add(tagResult.getTagName());
             }
 
-            // 设置标签
             for (ProblemListItemVO item : records) {
                 item.setTags(pidTagsMap.getOrDefault(item.getPid(), Collections.emptyList()));
             }
         }
 
-        // 构建返回结果
         ProblemPageVO vo = new ProblemPageVO();
         vo.setCurrent(current);
         vo.setSize(size);
@@ -131,7 +124,7 @@ public class ProblemService {
         if (ctx == null || ctx.isGuest()) {
             return false;
         }
-        return userRoleService.isAdmin(ctx.getUserId());
+        return userRoleService.isTeacherOrAdmin(ctx.getUserId());
     }
 
     private static String buildFulltextQuery(List<String> tokens) {
@@ -180,7 +173,7 @@ public class ProblemService {
 
         List<String> tokens = new ArrayList<>();
         StringBuilder buffer = new StringBuilder();
-        int mode = 0; // 0 none, 1 cjk, 2 alnum
+        int mode = 0;
 
         int index = 0;
         while (index < trimmed.length()) {
@@ -241,9 +234,6 @@ public class ProblemService {
         }
     }
 
-    /**
-     * 根据 pid 获取题目详情
-     */
     public ProblemDetailVO getProblemDetail(ProblemDetailQuery query) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
                 .eq(Problem::getPid, query.pid()));
@@ -252,8 +242,9 @@ public class ProblemService {
             throw new NotFoundException("题目不存在");
         }
 
-        problemAccessService.assertCanViewProblem(problem, query.sourceType(), query.ownerPublicId());
-        // 从数据库获取题目元信息
+        Long userId = AuthContexts.userIdOrNull();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ);
+
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(query.pid());
         if (problemDetail == null) {
             log.warn("获取题目详情时题目详情不存在, pid={}", query.pid());
@@ -263,7 +254,6 @@ public class ProblemService {
         List<String> tags = problemMapper.getProblemTags(query.pid());
         problemDetail.setTags(tags != null ? tags : Collections.emptyList());
 
-        // 从评测端获取题目详情
         ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(query.pid());
         if (problemContentDTO == null) {
             log.warn("题目 {} 的内容在评测服务中缺失", query.pid());
@@ -272,23 +262,23 @@ public class ProblemService {
 
         problemDetail.setContent(problemContentDTO);
 
-        // 从评测端获取题目配置数据
         ProblemConfigDTO problemConfigDTO = judgeClient.fetchProblemConfig(query.pid());
         fillProblemContentByProblemConfig(problemContentDTO, problemConfigDTO);
         return problemDetail;
     }
 
-    /**
-     * 新建题面
-     */
     @Transactional(rollbackFor = Exception.class)
     public ProblemCreateVO createProblem(ProblemCreateDTO dto) {
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertCanCreate(userId, ResourceType.PROBLEM);
+
         Problem problem = new Problem();
         problem.setPid(dto.getPid());
         problem.setTitle(dto.getTitle().trim());
         problem.setIsPublic(dto.getIsPublic());
         problem.setTotalSubmit(0);
         problem.setTotalAccept(0);
+        problem.setCreatedByUserId(userId);
 
         try {
             problemMapper.insert(problem);
@@ -296,6 +286,8 @@ public class ProblemService {
             log.warn("创建题目时 pid 冲突, pid={}", dto.getPid());
             throw new BadRequestException("pid 已存在");
         }
+
+        permissionService.autoGrantCreator(ResourceType.PROBLEM, problem.getId(), userId);
 
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
@@ -314,10 +306,6 @@ public class ProblemService {
         return vo;
     }
 
-    /**
-     * 获取下一个最小可用pid
-     * 目前仅统计p{number}格式的pid
-     */
     public NextProblemIdVO getNextProblemId() {
         Integer nextProblemId = problemMapper.selectNextAvailableNumericPid();
         int availableId = nextProblemId != null ? nextProblemId : 1;
@@ -327,10 +315,6 @@ public class ProblemService {
         return vo;
     }
 
-    // TODO: 会不会有并发修改的风险？
-    /**
-     * 编辑题面
-     */
     @Transactional(rollbackFor = Exception.class)
     public void editProblem(ProblemEditDTO dto) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
@@ -340,6 +324,9 @@ public class ProblemService {
             throw new NotFoundException("题目不存在");
         }
 
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
+
         updateProblemMeta(problem.getId(), dto.getTitle(), dto.getIsPublic());
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
@@ -347,9 +334,6 @@ public class ProblemService {
         judgeClient.updateProblem(buildJudgeRequest(dto));
     }
 
-    /**
-     * 删除题目
-     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteProblem(String pid) {
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
@@ -359,24 +343,17 @@ public class ProblemService {
             throw new NotFoundException("题目不存在");
         }
 
-        // 校验
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
+
         validateProblemDeleteRules(problem.getId(), pid);
 
-
-        // 删数据库
         problemTagRelMapper.markAllDeletedByProblemId(problem.getId());
         problemMapper.deleteById(problem.getId());
 
-        // 删评测端数据
         judgeClient.deleteProblem(pid);
     }
 
-    /**
-     * 校验题目是否可以删除（是否存在关联记录）
-     *
-     * @param problemId 题目主键id
-     * @param pid       题目pid
-     */
     private void validateProblemDeleteRules(Long problemId, String pid) {
         List<String> reasons = new ArrayList<>();
 
@@ -405,13 +382,6 @@ public class ProblemService {
         }
     }
 
-    /**
-     * 更新题目元数据
-     *
-     * @param problemId 题目主键id
-     * @param title     标题
-     * @param isPublic  是否公开
-     */
     private void updateProblemMeta(Long problemId, String title, Boolean isPublic) {
         boolean needUpdate = false;
 
@@ -431,14 +401,7 @@ public class ProblemService {
         }
     }
 
-    /**
-     * 更新题目标签信息
-     *
-     * @param problemId 题目主键id
-     * @param tags      标签主键id列表
-     */
     private void updateProblemTags(Long problemId, List<Long> tags) {
-        // 去重去null清洗
         Set<Long> tagIds = tags.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -448,7 +411,6 @@ public class ProblemService {
             return;
         }
 
-        // 验证标签存在性
         List<Tag> existingTags = tagMapper.selectList(new LambdaQueryWrapper<Tag>()
                 .in(Tag::getId, tagIds));
         if (existingTags.size() != tagIds.size()) {
@@ -456,10 +418,8 @@ public class ProblemService {
             throw new BadRequestException("标签不存在");
         }
 
-        // 移除所有标签关联
         problemTagRelMapper.markAllDeletedByProblemId(problemId);
 
-        // 恢复标签关联
         List<Long> existingRelTagIds = problemTagRelMapper
                 .selectTagIdsByProblemIdAndTagIds(problemId, tagIds);
         Set<Long> existingRelTagIdSet = new LinkedHashSet<>(existingRelTagIds);
@@ -467,7 +427,6 @@ public class ProblemService {
             problemTagRelMapper.restoreByProblemIdAndTagIds(problemId, existingRelTagIdSet);
         }
 
-        // 新增标签关联
         List<ProblemTagRel> rels = new ArrayList<>(tagIds.size());
         for (Tag tag : existingTags) {
             if (existingRelTagIdSet.contains(tag.getId())) {
@@ -512,9 +471,6 @@ public class ProblemService {
         return request;
     }
 
-    /**
-     * 用题目配置填充题目详情info
-     */
     private void fillProblemContentByProblemConfig(ProblemContentDTO problemContent, ProblemConfigDTO problemConfig) {
         if (problemConfig == null) {
             return;
@@ -577,5 +533,3 @@ public class ProblemService {
         info.setCheckerType(checkerType);
     }
 }
-
-

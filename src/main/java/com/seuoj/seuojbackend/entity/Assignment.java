@@ -15,8 +15,8 @@ import lombok.experimental.Accessors;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("problem_set_invited_member_rel")
-public class ProblemSetInvitedMemberRel implements Serializable {
+@TableName("assignment")
+public class Assignment implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,20 +24,37 @@ public class ProblemSetInvitedMemberRel implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
+    @TableField("public_id")
+    private String publicId;
+
+    @TableField("class_id")
+    private Long classId;
+
     @TableField("problem_set_id")
     private Long problemSetId;
 
-    @TableField("user_id")
-    private Long userId;
+    @TableField("title")
+    private String title;
 
-    @TableField("invited_by_user_id")
-    private Long invitedByUserId;
+    @TableField("description")
+    private String description;
 
-    @TableField("invited_at")
-    private LocalDateTime invitedAt;
+    @TableField("status")
+    private String status;
+
+    @TableField("deadline")
+    private LocalDateTime deadline;
+
+    @TableField("created_by_user_id")
+    private Long createdByUserId;
+
+    @TableField("created_at")
+    private LocalDateTime createdAt;
+
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
 
     @TableField("is_del")
     @TableLogic
     private Integer isDel;
 }
-

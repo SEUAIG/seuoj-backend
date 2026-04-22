@@ -54,6 +54,9 @@ public class Problem implements Serializable {
     @TableField("is_public")
     private Boolean isPublic;
 
+    @TableField("created_by_user_id")
+    private Long createdByUserId;
+
     /**
      * 创建时间
      */

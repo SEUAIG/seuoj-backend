@@ -27,7 +27,7 @@ public class SubmissionController {
         this.submissionService = submissionService;
     }
 
-    @RequireRole({RoleType.USER})
+    @RequireRole({RoleType.STUDENT})
     @PostMapping("/submission")
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {
         return Result.success(submissionService.submit(dto));

@@ -1,9 +1,14 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
-TRUNCATE TABLE contest_manager_rel;
+TRUNCATE TABLE resource_permission;
+TRUNCATE TABLE assignment;
 TRUNCATE TABLE contest_problem_rel;
+TRUNCATE TABLE contest_register_rel;
+TRUNCATE TABLE contest_submission;
 TRUNCATE TABLE contest;
-TRUNCATE TABLE user_problem_set_rel;
+TRUNCATE TABLE class_contest_rel;
+TRUNCATE TABLE class_student_rel;
+TRUNCATE TABLE class_info;
 TRUNCATE TABLE problem_set_problem_rel;
 TRUNCATE TABLE problem_set;
 TRUNCATE TABLE problem_tag_rel;
@@ -18,10 +23,10 @@ TRUNCATE TABLE user_info;
 SET FOREIGN_KEY_CHECKS = 1;
 
 INSERT INTO user_role (id, role_code, role_name, is_del)
-VALUES (1, 'USER', 'USER', 0),
-       (2, 'ADMIN', 'ADMIN', 0),
-       (3, 'SUPER_ADMIN', 'SUPER_ADMIN', 0),
-       (4, 'TEACHER', 'TEACHER', 0);
+VALUES (1, 'STUDENT', '学生', 0),
+       (2, 'TEACHER', '教师', 0),
+       (3, 'ADMIN', '管理员', 0),
+       (4, 'SUPER_ADMIN', '超级管理员', 0);
 
 INSERT INTO user_info (id, public_id, username, email, password, is_del)
 VALUES (10001, '00000000-0000-0000-0000-000000010001', 'admin_user', 'admin@test.local',
@@ -35,10 +40,10 @@ VALUES (10001, '00000000-0000-0000-0000-000000010001', 'admin_user', 'admin@test
 
 INSERT INTO user_role_rel (id, user_id, role_id, is_del)
 VALUES (1, 10001, 1, 0),
-       (2, 10001, 2, 0),
-       (3, 10001, 3, 0),
+       (2, 10001, 3, 0),
+       (3, 10001, 4, 0),
        (4, 10002, 1, 0),
-       (5, 10003, 4, 0),
+       (5, 10003, 2, 0),
        (6, 10004, 1, 0);
 
 INSERT INTO problem (id, pid, title, total_submit, total_accept, is_public, is_del)
@@ -52,14 +57,14 @@ VALUES (30001, '11111111-1111-1111-1111-111111113001', 'Linked Contest', 'it', '
 INSERT INTO contest_problem_rel (id, contest_id, problem_id, sort_order, is_del)
 VALUES (1, 30001, 20001, 1, 0);
 
-INSERT INTO contest_manager_rel (id, contest_id, user_id, is_owner, is_del)
-VALUES (1, 30001, 10001, 1, 0);
+INSERT INTO resource_permission (id, resource_type, resource_id, user_id, permission, granted_by, is_del)
+VALUES (1, 'CONTEST', 30001, 10001, 'WRITE', 10001, 0);
 
-INSERT INTO problem_set (id, public_id, title, description, owner_user_id, is_public, is_del)
+INSERT INTO problem_set (id, public_id, title, description, created_by_user_id, is_public, is_del)
 VALUES (40001, '22222222-2222-2222-2222-222222224001', 'Linked ProblemSet', 'for delete conflict', 10001, 1, 0);
 
-INSERT INTO user_problem_set_rel (id, user_id, problem_set_id, is_del)
-VALUES (1, 10001, 40001, 0);
+INSERT INTO resource_permission (id, resource_type, resource_id, user_id, permission, granted_by, is_del)
+VALUES (2, 'PROBLEM_SET', 40001, 10001, 'WRITE', 10001, 0);
 
-INSERT INTO problem_set_problem_rel (id, problem_set_id, problem_id, sort_order, is_del)
-VALUES (1, 40001, 20001, 1, 0);
+INSERT INTO problem_set_problem_rel (id, problem_set_id, problem_id, sort_order, weight, is_del)
+VALUES (1, 40001, 20001, 1, 100, 0);

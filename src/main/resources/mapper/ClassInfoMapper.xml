@@ -17,7 +17,7 @@
                COALESCE(ui.public_id, '') AS creator_public_id,
                ci.is_public
         FROM class_info ci
-        LEFT JOIN user_info ui ON ui.id = ci.teacher_user_id AND ui.is_del = 0
+        LEFT JOIN user_info ui ON ui.id = ci.created_by_user_id AND ui.is_del = 0
         WHERE ci.is_del = 0
           AND (
             <choose>
@@ -27,13 +27,20 @@
                 <otherwise>
                     ci.is_public = 1
                     <if test="userId != null">
-                        OR ci.teacher_user_id = #{userId}
                         OR EXISTS (
                             SELECT 1
-                            FROM class_student_rel cmr
-                            WHERE cmr.class_id = ci.id
-                              AND cmr.user_id = #{userId}
-                              AND cmr.is_del = 0
+                            FROM resource_permission rp
+                            WHERE rp.resource_type = 'CLASS'
+                              AND rp.resource_id = ci.id
+                              AND rp.user_id = #{userId}
+                              AND rp.is_del = 0
+                        )
+                        OR EXISTS (
+                            SELECT 1
+                            FROM class_student_rel csr
+                            WHERE csr.class_id = ci.id
+                              AND csr.user_id = #{userId}
+                              AND csr.is_del = 0
                         )
                     </if>
                 </otherwise>
@@ -64,17 +71,6 @@
         <result column="id" property="id"/>
         <result column="title" property="title"/>
     </resultMap>
-
-    <select id="selectClassProblemSetPage" resultMap="LinkPageItemMap">
-        SELECT ps.public_id AS id,
-               ps.title AS title
-        FROM class_problem_set_rel cpsr
-        INNER JOIN problem_set ps ON ps.id = cpsr.problem_set_id
-        WHERE cpsr.class_id = #{classId}
-          AND cpsr.is_del = 0
-          AND ps.is_del = 0
-        ORDER BY cpsr.id DESC
-    </select>
 
     <select id="selectClassContestPage" resultMap="LinkPageItemMap">
         SELECT c.public_id AS id,

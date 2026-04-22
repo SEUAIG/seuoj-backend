@@ -39,8 +39,8 @@ public class ClassInfo implements Serializable {
     @TableField("is_public")
     private Boolean isPublic;
 
-    @TableField("teacher_user_id")
-    private Long teacherUserId;
+    @TableField("created_by_user_id")
+    private Long createdByUserId;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

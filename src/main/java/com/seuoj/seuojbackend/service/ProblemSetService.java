@@ -4,24 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.seuoj.seuojbackend.common.PermissionOp;
+import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.dto.problemset.ProblemSetCreateDTO;
 import com.seuoj.seuojbackend.dto.problemset.ProblemSetProblemEditDTO;
 import com.seuoj.seuojbackend.dto.problemset.ProblemSetUpdateDTO;
-import com.seuoj.seuojbackend.entity.ClassProblemSetRel;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemSet;
-import com.seuoj.seuojbackend.entity.ProblemSetInvitedMemberRel;
 import com.seuoj.seuojbackend.entity.ProblemSetProblemRel;
-import com.seuoj.seuojbackend.common.ErrorCode;
-import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
-import com.seuoj.seuojbackend.mapper.ClassProblemSetRelMapper;
-import com.seuoj.seuojbackend.mapper.ProblemAccessMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
-import com.seuoj.seuojbackend.mapper.ProblemSetInvitedMemberRelMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetProblemRelMapper;
 import com.seuoj.seuojbackend.vo.problemset.ProblemSetCreateVO;
@@ -43,43 +37,33 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-/**
- * 题单业务服务
- */
 @Slf4j
 @Service
 public class ProblemSetService {
 
     private final ProblemSetMapper problemSetMapper;
     private final ProblemSetProblemRelMapper problemSetProblemRelMapper;
-    private final ClassProblemSetRelMapper classProblemSetRelMapper;
-    private final ProblemSetInvitedMemberRelMapper problemSetInvitedMemberRelMapper;
     private final ProblemMapper problemMapper;
-    private final ProblemAccessMapper problemAccessMapper;
+    private final PermissionService permissionService;
     private final UserRoleService userRoleService;
 
     public ProblemSetService(ProblemSetMapper problemSetMapper,
                              ProblemSetProblemRelMapper problemSetProblemRelMapper,
-                             ClassProblemSetRelMapper classProblemSetRelMapper,
-                             ProblemSetInvitedMemberRelMapper problemSetInvitedMemberRelMapper,
                              ProblemMapper problemMapper,
-                             ProblemAccessMapper problemAccessMapper,
+                             PermissionService permissionService,
                              UserRoleService userRoleService) {
         this.problemSetMapper = problemSetMapper;
         this.problemSetProblemRelMapper = problemSetProblemRelMapper;
-        this.classProblemSetRelMapper = classProblemSetRelMapper;
-        this.problemSetInvitedMemberRelMapper = problemSetInvitedMemberRelMapper;
         this.problemMapper = problemMapper;
-        this.problemAccessMapper = problemAccessMapper;
+        this.permissionService = permissionService;
         this.userRoleService = userRoleService;
     }
 
-    /**
-     * 创建题单
-     */
     @Transactional(rollbackFor = Exception.class)
     public ProblemSetCreateVO createProblemSet(ProblemSetCreateDTO dto) {
         Long userId = AuthContexts.requiredUserId();
+        permissionService.assertCanCreate(userId, ResourceType.PROBLEM_SET);
+
         String title = normalizeRequiredText(dto.getTitle(), "title 不能为空");
 
         ProblemSet problemSet = new ProblemSet();
@@ -87,17 +71,16 @@ public class ProblemSetService {
         problemSet.setTitle(title);
         problemSet.setDescription(dto.getDescription());
         problemSet.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()));
-        problemSet.setOwnerUserId(userId);
+        problemSet.setCreatedByUserId(userId);
         problemSetMapper.insert(problemSet);
+
+        permissionService.autoGrantCreator(ResourceType.PROBLEM_SET, problemSet.getId(), userId);
 
         ProblemSetCreateVO vo = new ProblemSetCreateVO();
         vo.setProblemSetPublicId(problemSet.getPublicId());
         return vo;
     }
 
-    /**
-     * 题单分页
-     */
     public ProblemSetPageVO getProblemSetPage(Integer current, Integer size) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
@@ -120,12 +103,10 @@ public class ProblemSetService {
         return vo;
     }
 
-    /**
-     * 题单详情
-     */
     public ProblemSetDetailVO getProblemSetDetail(String problemSetPublicId) {
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
-        assertCanViewProblemSet(problemSet);
+        Long userId = AuthContexts.userIdOrNull();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.READ);
 
         List<ProblemSetProblemItemVO> problemList = problemSetMapper.selectProblemSetProblems(problemSet.getId());
 
@@ -138,13 +119,11 @@ public class ProblemSetService {
         return vo;
     }
 
-    /**
-     * 更新题单基础信息
-     */
     @Transactional(rollbackFor = Exception.class)
     public void updateProblemSet(String problemSetPublicId, ProblemSetUpdateDTO dto) {
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
-        assertCanManageProblemSet(problemSet);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
         ProblemSet update = new ProblemSet();
         update.setId(problemSet.getId());
@@ -168,36 +147,24 @@ public class ProblemSetService {
         }
     }
 
-    /**
-     * 删除题单
-     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteProblemSet(String problemSetPublicId) {
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
-        assertCanManageProblemSet(problemSet);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
         problemSetMapper.deleteById(problemSet.getId());
 
         problemSetProblemRelMapper.update(null, new LambdaUpdateWrapper<ProblemSetProblemRel>()
                 .set(ProblemSetProblemRel::getIsDel, 1)
                 .eq(ProblemSetProblemRel::getProblemSetId, problemSet.getId()));
-
-        classProblemSetRelMapper.update(null, new LambdaUpdateWrapper<ClassProblemSetRel>()
-                .set(ClassProblemSetRel::getIsDel, 1)
-                .eq(ClassProblemSetRel::getProblemSetId, problemSet.getId()));
-
-        problemSetInvitedMemberRelMapper.update(null, new LambdaUpdateWrapper<ProblemSetInvitedMemberRel>()
-                .set(ProblemSetInvitedMemberRel::getIsDel, 1)
-                .eq(ProblemSetInvitedMemberRel::getProblemSetId, problemSet.getId()));
     }
 
-    /**
-     * 全量覆盖题单题目列表
-     */
     @Transactional(rollbackFor = Exception.class)
     public void replaceProblemSetProblems(String problemSetPublicId, ProblemSetProblemEditDTO dto) {
         ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
-        assertCanManageProblemSet(problemSet);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
         List<ProblemPlanItem> planItems = buildProblemPlan(dto.getProblemList());
         Map<String, Problem> problemByPid = loadProblemMapByPid(planItems);
@@ -384,57 +351,6 @@ public class ProblemSetService {
         return problemSet;
     }
 
-    /**
-     * 校验题单查看权限
-     */
-    private void assertCanViewProblemSet(ProblemSet problemSet) {
-        if (Boolean.TRUE.equals(problemSet.getIsPublic())) {
-            return;
-        }
-
-        Long userId = AuthContexts.userIdOrNull();
-        if (userId == null) {
-            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
-        }
-        if (userRoleService.isAdmin(userId)) {
-            return;
-        }
-
-        ProblemAccessMapper.ProblemSetAccessRow accessRow =
-                problemAccessMapper.selectProblemSetAccess(problemSet.getPublicId(), userId);
-        if (accessRow == null) {
-            throw new NotFoundException("题单不存在");
-        }
-        if (accessRow.isOwner() || accessRow.isClassMember() || accessRow.isSharedUser()) {
-            return;
-        }
-        throw new ForbiddenException("无权访问该题单");
-    }
-
-    /**
-     * 校验题单管理权限
-     */
-    private void assertCanManageProblemSet(ProblemSet problemSet) {
-        Long userId = AuthContexts.requiredUserId();
-        if (userRoleService.isAdmin(userId)) {
-            return;
-        }
-        if (userId.equals(problemSet.getOwnerUserId())) {
-            return;
-        }
-
-        ProblemAccessMapper.ProblemSetAccessRow accessRow =
-                problemAccessMapper.selectProblemSetAccess(problemSet.getPublicId(), userId);
-        if (accessRow != null && accessRow.isSharedUser()) {
-            return;
-        }
-
-        throw new ForbiddenException("无权管理该题单");
-    }
-
-    /**
-     * 构造题目覆盖计划并做参数校验
-     */
     private List<ProblemPlanItem> buildProblemPlan(List<ProblemSetProblemEditDTO.ProblemItemDTO> input) {
         if (input == null) {
             return Collections.emptyList();
@@ -465,10 +381,6 @@ public class ProblemSetService {
         return plan;
     }
 
-
-    /**
-     * 规范化必填字符串
-     */
     private String normalizeRequiredText(String raw, String message) {
         if (!StringUtils.hasText(raw)) {
             throw new BadRequestException(message);
@@ -480,18 +392,6 @@ public class ProblemSetService {
         return trimmed;
     }
 
-    /**
-     * 题目覆盖执行项
-     */
     private record ProblemPlanItem(String pid, Integer sortOrder) {
     }
 }
-
-
-
-
-
-
-
-
-
