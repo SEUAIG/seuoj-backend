@@ -3,13 +3,18 @@ package com.seuoj.seuojbackend.controller.api;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.assignment.AssignmentCreateDTO;
+import com.seuoj.seuojbackend.dto.assignment.AssignmentImportFromProblemSetDTO;
+import com.seuoj.seuojbackend.dto.assignment.AssignmentProblemEditDTO;
 import com.seuoj.seuojbackend.dto.assignment.AssignmentUpdateDTO;
 import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.service.AssignmentService;
+import com.seuoj.seuojbackend.vo.assignment.AssignmentDetailVO;
+import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,10 +58,45 @@ public class AssignmentController {
     }
 
     @GetMapping("/{assignmentId}")
-    public Result<Assignment> getAssignmentDetail(
+    public Result<AssignmentDetailVO> getAssignmentDetail(
             @PathVariable("classId") Long classId,
             @PathVariable("assignmentId") Long assignmentId) {
-        return Result.success(assignmentService.getAssignmentDetail(classId, assignmentId));
+        return Result.success(assignmentService.getAssignmentDetailVO(classId, assignmentId));
+    }
+
+    @GetMapping("/{assignmentId}/problems")
+    public Result<List<AssignmentDetailVO.ProblemItem>> getAssignmentProblems(
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId) {
+        return Result.success(assignmentService.getAssignmentProblems(classId, assignmentId));
+    }
+
+    @PutMapping("/{assignmentId}/problems")
+    public Result<Void> replaceAssignmentProblems(
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId,
+            @Valid @RequestBody AssignmentProblemEditDTO dto) {
+        assignmentService.replaceAssignmentProblems(classId, assignmentId, dto);
+        return Result.success();
+    }
+
+    @PostMapping("/{assignmentId}/import")
+    public Result<Void> importFromProblemSet(
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId,
+            @Valid @RequestBody AssignmentImportFromProblemSetDTO dto) {
+        assignmentService.importFromProblemSet(classId, assignmentId, dto);
+        return Result.success();
+    }
+
+    @GetMapping("/{assignmentId}/submission/page")
+    public Result<SubmissionPageVO> getAssignmentSubmissionPage(
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId,
+            @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
+            @Max(value = 100, message = "每页条数最大为 100") Integer size) {
+        return Result.success(assignmentService.getAssignmentSubmissionPage(classId, assignmentId, current, size));
     }
 
     @PutMapping("/{assignmentId}")

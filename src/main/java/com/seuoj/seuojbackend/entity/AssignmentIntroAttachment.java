@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -14,8 +15,8 @@ import lombok.experimental.Accessors;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("problem_set_problem_rel")
-public class ProblemSetProblemRel implements Serializable {
+@TableName("assignment_intro_attachment")
+public class AssignmentIntroAttachment implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -23,17 +24,22 @@ public class ProblemSetProblemRel implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("problem_set_id")
-    private Long problemSetId;
+    @TableField("assignment_id")
+    private Long assignmentId;
 
-    @TableField("problem_id")
-    private Long problemId;
+    @TableField("file_path")
+    private String filePath;
 
-    @TableField("sort_order")
-    private Integer sortOrder;
+    @TableField("file_name")
+    private String fileName;
+
+    @TableField("file_size")
+    private Long fileSize;
+
+    @TableField("created_at")
+    private LocalDateTime createdAt;
 
     @TableField("is_del")
     @TableLogic
     private Integer isDel;
 }
-

@@ -14,8 +14,8 @@ import lombok.experimental.Accessors;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("problem_set_problem_rel")
-public class ProblemSetProblemRel implements Serializable {
+@TableName("assignment_problem_rel")
+public class AssignmentProblemRel implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -23,8 +23,8 @@ public class ProblemSetProblemRel implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("problem_set_id")
-    private Long problemSetId;
+    @TableField("assignment_id")
+    private Long assignmentId;
 
     @TableField("problem_id")
     private Long problemId;
@@ -32,8 +32,10 @@ public class ProblemSetProblemRel implements Serializable {
     @TableField("sort_order")
     private Integer sortOrder;
 
+    @TableField("weight")
+    private Integer weight;
+
     @TableField("is_del")
     @TableLogic
     private Integer isDel;
 }
-

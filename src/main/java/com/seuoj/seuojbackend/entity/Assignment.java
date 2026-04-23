@@ -27,20 +27,26 @@ public class Assignment implements Serializable {
     @TableField("class_id")
     private Long classId;
 
-    @TableField("problem_set_id")
-    private Long problemSetId;
-
     @TableField("title")
     private String title;
 
     @TableField("description")
     private String description;
 
+    @TableField("introduction")
+    private String introduction;
+
     @TableField("status")
     private String status;
 
     @TableField("deadline")
     private LocalDateTime deadline;
+
+    @TableField("visible_from")
+    private LocalDateTime visibleFrom;
+
+    @TableField("visible_to")
+    private LocalDateTime visibleTo;
 
     @TableField("created_by_user_id")
     private Long createdByUserId;
