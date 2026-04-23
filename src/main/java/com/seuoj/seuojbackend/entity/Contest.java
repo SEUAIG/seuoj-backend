@@ -45,6 +45,15 @@ public class Contest implements Serializable {
     @TableField("is_public")
     private Boolean isPublic;
 
+    @TableField("hide_statistics")
+    private Boolean hideStatistics;
+
+    @TableField("scoring_config")
+    private String scoringConfig;
+
+    @TableField("scoring_script")
+    private String scoringScript;
+
     @TableField("created_by_user_id")
     private Long createdByUserId;
 

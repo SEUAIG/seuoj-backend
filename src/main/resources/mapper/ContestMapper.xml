@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.seuoj.seuojbackend.mapper.ContestMapper">
+
+    <select id="selectContestPage" resultType="com.seuoj.seuojbackend.vo.contest.ContestPageItemVO">
+        SELECT c.id AS contestId,
+               c.title,
+               c.subtitle,
+               c.description,
+               c.start_time AS startTime,
+               c.end_time AS endTime,
+               c.rule_type AS ruleType,
+               c.is_public AS isPublic
+        FROM contest c
+        WHERE c.is_del = 0
+        <choose>
+            <when test="isAdmin">
+            </when>
+            <otherwise>
+                AND (
+                    c.is_public = 1
+                    <if test="userId != null">
+                        OR EXISTS (SELECT 1 FROM resource_permission rp
+                            WHERE rp.resource_type = 'CONTEST'
+                              AND rp.resource_id = c.id
+                              AND rp.user_id = #{userId}
+                              AND rp.is_del = 0)
+                        OR EXISTS (SELECT 1 FROM contest_register_rel crr
+                            WHERE crr.contest_id = c.id
+                              AND crr.user_id = #{userId}
+                              AND crr.is_del = 0)
+                        OR EXISTS (SELECT 1 FROM class_contest_rel ccr
+                            INNER JOIN class_student_rel csr ON ccr.class_id = csr.class_id
+                            WHERE ccr.contest_id = c.id
+                              AND csr.user_id = #{userId}
+                              AND ccr.is_del = 0
+                              AND csr.is_del = 0)
+                    </if>
+                )
+            </otherwise>
+        </choose>
+        <if test="status != null and status != ''">
+            <choose>
+                <when test="status == 'NOT_STARTED'">AND NOW() &lt; c.start_time</when>
+                <when test="status == 'IN_PROGRESS'">AND NOW() &gt;= c.start_time AND NOW() &lt;= c.end_time</when>
+                <when test="status == 'FINISHED'">AND NOW() &gt; c.end_time</when>
+            </choose>
+        </if>
+        <if test="titleKeyword != null and titleKeyword != ''">
+            AND c.title LIKE CONCAT('%', #{titleKeyword}, '%')
+        </if>
+        <if test="ruleType != null and ruleType != ''">
+            AND c.rule_type = #{ruleType}
+        </if>
+        <if test="startTimeFrom != null">AND c.start_time &gt;= #{startTimeFrom}</if>
+        <if test="endTimeTo != null">AND c.end_time &lt;= #{endTimeTo}</if>
+        ORDER BY c.start_time DESC, c.id DESC
+    </select>
+
+    <select id="selectContestProblems" resultType="com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO">
+        SELECT cpr.sort_order AS sortOrder, p.pid, p.title
+        FROM contest_problem_rel cpr
+        INNER JOIN problem p ON cpr.problem_id = p.id
+        WHERE cpr.contest_id = #{contestId}
+          AND cpr.is_del = 0
+          AND p.is_del = 0
+        ORDER BY cpr.sort_order ASC
+    </select>
+
+    <resultMap id="contestSubmissionRecordMap" type="com.seuoj.seuojbackend.vo.contest.ContestSubmissionRecordVO">
+        <result column="submission_no" property="submissionNo"/>
+        <result column="language" property="language"/>
+        <result column="status" property="status"/>
+        <result column="verdict" property="verdict"/>
+        <result column="score" property="score"/>
+        <result column="submit_time" property="submitTime"/>
+        <result column="username" property="username"/>
+        <result column="nickname" property="nickname"/>
+        <association property="problem" javaType="com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO">
+            <result column="problem_sort_order" property="sortOrder"/>
+            <result column="problem_pid" property="pid"/>
+            <result column="problem_title" property="title"/>
+        </association>
+    </resultMap>
+
+    <select id="selectContestSubmissionPage" resultMap="contestSubmissionRecordMap">
+        SELECT s.submission_no,
+               s.language,
+               s.status,
+               s.verdict,
+               s.score,
+               s.submit_time,
+               u.username,
+               u.nickname,
+               cpr.sort_order AS problem_sort_order,
+               p.pid AS problem_pid,
+               p.title AS problem_title
+        FROM contest_submission cs
+        INNER JOIN submission s ON cs.submission_id = s.id
+        INNER JOIN user_info u ON s.user_id = u.id
+        INNER JOIN problem p ON s.problem_id = p.id
+        LEFT JOIN contest_problem_rel cpr ON cpr.contest_id = cs.contest_id
+                                         AND cpr.problem_id = s.problem_id
+                                         AND cpr.is_del = 0
+        WHERE cs.contest_id = #{contestId}
+          AND cs.is_del = 0
+          AND s.is_del = 0
+        ORDER BY s.submit_time DESC, s.id DESC
+    </select>
+
+    <select id="selectContestFinishedSubmissions" resultType="com.seuoj.seuojbackend.entity.Submission">
+        SELECT s.id, s.user_id, s.problem_id, s.score, s.verdict, s.submit_time
+        FROM contest_submission cs
+        INNER JOIN submission s ON cs.submission_id = s.id
+        WHERE cs.contest_id = #{contestId}
+          AND cs.is_del = 0
+          AND s.is_del = 0
+          AND s.status = 'Finished'
+        ORDER BY s.submit_time ASC
+    </select>
+
+    <select id="selectContestRegisteredUsers" resultType="com.seuoj.seuojbackend.entity.UserInfo">
+        SELECT u.id, u.username, u.nickname
+        FROM contest_register_rel crr
+        INNER JOIN user_info u ON crr.user_id = u.id
+        WHERE crr.contest_id = #{contestId}
+          AND crr.is_del = 0
+          AND u.is_del = 0
+    </select>
+
+</mapper>
