@@ -5,13 +5,14 @@ FROM maven:3.9.6-eclipse-temurin-21-alpine AS build-stage
 # 设置工作目录
 WORKDIR /app
 
-# 1. 优化：先只复制 pom.xml，下载依赖（利用 Docker 缓存）
+# 1. 优化：先只复制 pom.xml，下载所有依赖和插件（利用 Docker 缓存）
 COPY pom.xml .
-RUN mvn dependency:go-offline
+RUN mvn dependency:go-offline -B && \
+    mvn dependency:resolve-plugins -B
 
-# 2. 复制源码并进行打包
+# 2. 复制源码并进行打包（依赖层已缓存，-o 离线模式避免再次检查）
 COPY src ./src
-RUN mvn clean package -Dmaven.test.skip=true
+RUN mvn package -Dmaven.test.skip=true -o
 
 # --- 第二阶段：运行阶段 ---
 # 使用轻量级的 JRE 21 镜像
