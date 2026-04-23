@@ -41,14 +41,15 @@ CREATE TABLE `class_info`
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `name`            varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '班级名称',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级描述',
-    `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `teacher_user_id` bigint                                                        NULL COMMENT '教师用户ID 仅教师创建班级时填写',
-    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `introduction`    text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级介绍（Markdown 富文本）',
+    `is_public`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_by_user_id` bigint                                                        NULL COMMENT '创建者用户ID（仅信息记录，权限走resource_permission）',
+    `created_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`             tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    INDEX `idx_class_teacher` (`teacher_user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_class_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    INDEX `idx_class_creator` (`created_by_user_id` ASC) USING BTREE,
+    CONSTRAINT `fk_class_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '班级表'
@@ -81,28 +82,150 @@ CREATE TABLE `class_student_rel`
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Table structure for class_problem_set_rel
+-- Table structure for assignment
 -- ----------------------------
-DROP TABLE IF EXISTS `class_problem_set_rel`;
-CREATE TABLE `class_problem_set_rel`
+DROP TABLE IF EXISTS `assignment`;
+CREATE TABLE `assignment`
 (
-    `id`             bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `class_id`       bigint                                                                                                         NOT NULL COMMENT '班级ID',
-    `problem_set_id` bigint                                                                                                         NOT NULL COMMENT '题单ID',
-    `is_del`         tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    `active_key`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
-                                                                                                             when (`is_del` = 0)
-                                                                                                                 then concat(`class_id`, _utf8mb4'#', `problem_set_id`)
-                                                                                                             else NULL end)) STORED NULL,
+    `id`                 bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `class_id`           bigint                                                        NOT NULL COMMENT '班级ID',
+    `title`              varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '作业标题',
+    `description`        text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '作业描述',
+    `introduction`       text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '作业介绍（Markdown 富文本）',
+    `status`             varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/PUBLISHED/CLOSED',
+    `deadline`           datetime                                                      NULL     COMMENT '截止时间，NULL表示无截止时间',
+    `visible_from`       datetime                                                      NULL     COMMENT '可见开始时间，NULL=手动控制',
+    `visible_to`         datetime                                                      NULL     COMMENT '可见结束时间，NULL=永久可见',
+    `created_by_user_id` bigint                                                        NULL COMMENT '创建者用户ID',
+    `created_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`             tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_class_ps_active` (`active_key` ASC) USING BTREE,
-    INDEX `idx_class_ps_class` (`class_id` ASC) USING BTREE,
-    INDEX `idx_class_ps_ps` (`problem_set_id` ASC) USING BTREE,
-    CONSTRAINT `fk_class_ps_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_class_ps_problem_set` FOREIGN KEY (`problem_set_id`) REFERENCES `problem_set` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    INDEX `idx_assignment_class` (`class_id` ASC) USING BTREE,
+    CONSTRAINT `fk_assignment_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_assignment_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT = '班级题单关联表'
+  COLLATE = utf8mb4_unicode_ci COMMENT = '作业表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for assignment_problem_rel
+-- ----------------------------
+DROP TABLE IF EXISTS `assignment_problem_rel`;
+CREATE TABLE `assignment_problem_rel`
+(
+    `id`              bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `assignment_id`   bigint                                                                                                         NOT NULL COMMENT '作业ID',
+    `problem_id`      bigint                                                                                                         NOT NULL COMMENT '题目ID',
+    `sort_order`      int                                                                                                            NOT NULL COMMENT '排序序号',
+    `weight`          int                                                                                                            NOT NULL DEFAULT 1 COMMENT '题目权重，默认1',
+    `is_del`          tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`      varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                              when (`is_del` = 0)
+                                                                                                                  then concat(`assignment_id`, _utf8mb4'#', `problem_id`)
+                                                                                                              else NULL end)) STORED NULL,
+    `active_sort_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                              when (`is_del` = 0)
+                                                                                                                  then concat(`assignment_id`, _utf8mb4'#', `sort_order`)
+                                                                                                              else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_asn_problem_active` (`active_key` ASC) USING BTREE,
+    UNIQUE INDEX `uk_asn_sort_active` (`active_sort_key` ASC) USING BTREE,
+    INDEX `idx_asn_problem_rel_asn` (`assignment_id` ASC) USING BTREE,
+    INDEX `idx_asn_problem_rel_problem` (`problem_id` ASC) USING BTREE,
+    CONSTRAINT `fk_asn_problem_rel_asn` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_asn_problem_rel_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '作业题目关联表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for announcement
+-- ----------------------------
+DROP TABLE IF EXISTS `announcement`;
+CREATE TABLE `announcement`
+(
+    `id`                 bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `target_type`        varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '目标类型：CLASS/ASSIGNMENT',
+    `target_id`          bigint                                                        NOT NULL COMMENT '目标内部ID',
+    `title`              varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公告标题',
+    `content`            text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT 'Markdown正文',
+    `is_pinned`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否置顶：0-否，1-是',
+    `created_by_user_id` bigint                                                        NOT NULL COMMENT '创建者用户ID',
+    `created_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`             tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    INDEX `idx_announcement_target` (`target_type` ASC, `target_id` ASC) USING BTREE,
+    CONSTRAINT `fk_announcement_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '公告表（班级/作业公告与资源）'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for announcement_attachment
+-- ----------------------------
+DROP TABLE IF EXISTS `announcement_attachment`;
+CREATE TABLE `announcement_attachment`
+(
+    `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `announcement_id` bigint                                                        NOT NULL COMMENT '公告ID',
+    `file_path`       varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件存储相对路径',
+    `file_name`       varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
+    `file_size`       bigint                                                        NOT NULL COMMENT '文件大小（字节）',
+    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    INDEX `idx_attachment_announcement` (`announcement_id` ASC) USING BTREE,
+    CONSTRAINT `fk_attachment_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcement` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '公告附件表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for class_intro_attachment
+-- ----------------------------
+DROP TABLE IF EXISTS `class_intro_attachment`;
+CREATE TABLE `class_intro_attachment`
+(
+    `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `class_id`        bigint                                                        NOT NULL COMMENT '班级ID',
+    `file_path`       varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件存储相对路径',
+    `file_name`       varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
+    `file_size`       bigint                                                        NOT NULL COMMENT '文件大小（字节）',
+    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    INDEX `idx_intro_attachment_class` (`class_id` ASC) USING BTREE,
+    CONSTRAINT `fk_intro_attachment_class` FOREIGN KEY (`class_id`) REFERENCES `class_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '班级介绍附件表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for assignment_intro_attachment
+-- ----------------------------
+DROP TABLE IF EXISTS `assignment_intro_attachment`;
+CREATE TABLE `assignment_intro_attachment`
+(
+    `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `assignment_id`   bigint                                                        NOT NULL COMMENT '作业ID',
+    `file_path`       varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件存储相对路径',
+    `file_name`       varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
+    `file_size`       bigint                                                        NOT NULL COMMENT '文件大小（字节）',
+    `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    INDEX `idx_asn_intro_att_asn` (`assignment_id` ASC) USING BTREE,
+    CONSTRAINT `fk_asn_intro_att_asn` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '作业介绍附件表'
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
@@ -117,42 +240,23 @@ CREATE TABLE `contest`
     `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
     `start_time`  datetime                                                                  NOT NULL COMMENT '开始时间',
     `end_time`    datetime                                                                  NOT NULL COMMENT '结束时间',
-    `rule_type`   enum ('NOI','IOI','ACM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
-    `is_public`   tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `created_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`      tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    PRIMARY KEY (`id`) USING BTREE
+    `rule_type`   enum ('NOI','IOI','ACM','CUSTOM') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '赛制类型',
+    `is_public`          tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `hide_statistics`    tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '比赛期间是否隐藏实时统计：0-否，1-是',
+    `scoring_config`     json                                                                      NULL COMMENT '赛制参数覆盖(JSON)',
+    `scoring_script`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '自定义赛制脚本(JavaScript), 仅rule_type=CUSTOM时使用',
+    `created_by_user_id` bigint                                                                    NULL COMMENT '创建者用户ID（仅信息记录，权限走resource_permission）',
+    `created_at`         timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`             tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    CONSTRAINT `fk_contest_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '比赛表'
   ROW_FORMAT = DYNAMIC;
 
--- ----------------------------
--- Table structure for contest_manager_rel
--- ----------------------------
-DROP TABLE IF EXISTS `contest_manager_rel`;
-CREATE TABLE `contest_manager_rel`
-(
-    `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `contest_id` bigint                                                                                                         NOT NULL COMMENT '比赛ID',
-    `user_id`    bigint                                                                                                         NOT NULL COMMENT '用户ID',
-    `is_owner`   tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否拥有者：0-否，1-是',
-    `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
-                                                                                                         when (`is_del` = 0)
-                                                                                                             then concat(`contest_id`, _utf8mb4'#', `user_id`)
-                                                                                                         else NULL end)) STORED NULL,
-    PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_contest_manager_active` (`active_key` ASC) USING BTREE,
-    INDEX `idx_contest_manager_contest` (`contest_id` ASC) USING BTREE,
-    INDEX `idx_contest_manager_user` (`user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_contest_manager_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_contest_manager_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB
-  CHARACTER SET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT = '比赛管理者关联表'
-  ROW_FORMAT = DYNAMIC;
+-- contest_manager_rel: REMOVED — replaced by resource_permission(CONTEST, contest_id, user_id, WRITE)
 
 -- ----------------------------
 -- Table structure for contest_problem_rel
@@ -248,13 +352,15 @@ CREATE TABLE `problem`
     `title`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题目标题',
     `total_submit` int                                                           NOT NULL DEFAULT 0,
     `total_accept` int                                                           NOT NULL DEFAULT 0,
-    `is_public`    tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开，0-不公开，1-公开',
-    `created_at`   timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`   timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `is_del`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    `is_public`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开，0-不公开，1-公开',
+    `created_by_user_id` bigint                                                        NULL COMMENT '创建者用户ID（仅信息记录，权限走resource_permission）',
+    `created_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_del`             tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `pid` (`pid` ASC) USING BTREE,
-    FULLTEXT INDEX `idx_problem_title_ft` (`title`) WITH PARSER `ngram`
+    FULLTEXT INDEX `idx_problem_title_ft` (`title`) WITH PARSER `ngram`,
+    CONSTRAINT `fk_problem_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 2
   CHARACTER SET = utf8mb4
@@ -270,71 +376,22 @@ CREATE TABLE `problem_set`
     `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `title`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
     `description`   text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
-    `owner_user_id` bigint                                                        NOT NULL COMMENT '题单所属用户ID',
-    `is_public`     tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
-    `created_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_del`        tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `created_by_user_id` bigint                                                        NOT NULL COMMENT '创建者用户ID（仅信息记录，权限走resource_permission）',
+    `is_public`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
+    `created_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`         timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`             tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    INDEX `idx_problem_set_owner` (`owner_user_id` ASC) USING BTREE
+    INDEX `idx_problem_set_creator` (`created_by_user_id` ASC) USING BTREE,
+    CONSTRAINT `fk_problem_set_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '题单表'
   ROW_FORMAT = DYNAMIC;
 
--- ----------------------------
--- Table structure for user_problem_set_rel
--- ----------------------------
-DROP TABLE IF EXISTS `user_problem_set_rel`;
-CREATE TABLE `user_problem_set_rel`
-(
-    `id`             bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `user_id`        bigint                                                                                                         NOT NULL COMMENT '用户ID',
-    `problem_set_id` bigint                                                                                                         NOT NULL COMMENT '题单ID',
-    `is_del`         tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    `active_key`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
-                                                                                                             when (`is_del` = 0)
-                                                                                                                 then concat(`user_id`, _utf8mb4'#', `problem_set_id`)
-                                                                                                             else NULL end)) STORED NULL,
-    PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_user_problem_set_active` (`active_key` ASC) USING BTREE,
-    INDEX `idx_user_problem_set_user` (`user_id` ASC) USING BTREE,
-    INDEX `idx_user_problem_set_problem_set` (`problem_set_id` ASC) USING BTREE,
-    CONSTRAINT `fk_user_problem_set_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_user_problem_set_problem_set` FOREIGN KEY (`problem_set_id`) REFERENCES `problem_set` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB
-  CHARACTER SET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT = '用户题单关联表'
-  ROW_FORMAT = DYNAMIC;
+-- user_problem_set_rel: REMOVED — replaced by resource_permission(PROBLEM_SET, ps_id, user_id, READ)
 
--- ----------------------------
--- Table structure for problem_set_invited_member_rel
--- ----------------------------
-DROP TABLE IF EXISTS `problem_set_invited_member_rel`;
-CREATE TABLE `problem_set_invited_member_rel`
-(
-    `id`                 bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `problem_set_id`     bigint                                                                                                         NOT NULL COMMENT '题单ID',
-    `user_id`            bigint                                                                                                         NOT NULL COMMENT '受邀用户ID',
-    `invited_by_user_id` bigint                                                                                                         NOT NULL COMMENT '邀请人用户ID',
-    `invited_at`         datetime                                                                                                       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '邀请时间',
-    `is_del`             tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    `active_key`         varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
-                                                                                                                 when (`is_del` = 0)
-                                                                                                                     then concat(`problem_set_id`, _utf8mb4'#', `user_id`)
-                                                                                                                 else NULL end)) STORED NULL,
-    PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_problem_set_invited_user_active` (`active_key` ASC) USING BTREE,
-    INDEX `idx_ps_invited_member_problem_set` (`problem_set_id` ASC) USING BTREE,
-    INDEX `idx_ps_invited_member_user` (`user_id` ASC) USING BTREE,
-    INDEX `idx_ps_invited_member_inviter` (`invited_by_user_id` ASC) USING BTREE,
-    CONSTRAINT `fk_ps_invited_member_problem_set` FOREIGN KEY (`problem_set_id`) REFERENCES `problem_set` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_ps_invited_member_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_ps_invited_member_inviter` FOREIGN KEY (`invited_by_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB
-  CHARACTER SET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci COMMENT = '题单受邀成员关联表'
-  ROW_FORMAT = DYNAMIC;
+-- problem_set_invited_member_rel: REMOVED — replaced by resource_permission(PROBLEM_SET, ps_id, user_id, READ/WRITE)
 
 -- ----------------------------
 -- Table structure for problem_set_problem_rel
@@ -395,6 +452,35 @@ CREATE TABLE `problem_tag_rel`
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
+-- Table structure for resource_permission
+-- ----------------------------
+DROP TABLE IF EXISTS `resource_permission`;
+CREATE TABLE `resource_permission`
+(
+    `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `resource_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '资源类型：PROBLEM/PROBLEM_SET/CLASS/CONTEST',
+    `resource_id`   bigint                                                        NOT NULL COMMENT '资源内部ID',
+    `user_id`       bigint                                                        NOT NULL COMMENT '被授权用户ID',
+    `permission`    varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '权限类型：READ/WRITE（WRITE蕴含READ）',
+    `granted_by`    bigint                                                        NULL COMMENT '授权者用户ID，NULL表示系统自动授权',
+    `created_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_del`        tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`    varchar(192) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                            when (`is_del` = 0)
+                                                                                                                then concat(`resource_type`, _utf8mb4'#', `resource_id`, _utf8mb4'#', `user_id`, _utf8mb4'#', `permission`)
+                                                                                                            else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_resource_perm_active` (`active_key` ASC) USING BTREE,
+    INDEX `idx_resource_perm_user` (`user_id` ASC, `resource_type` ASC) USING BTREE,
+    INDEX `idx_resource_perm_resource` (`resource_type` ASC, `resource_id` ASC) USING BTREE,
+    CONSTRAINT `fk_resource_perm_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_resource_perm_granter` FOREIGN KEY (`granted_by`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '统一资源权限表（替代多张专用关联表）'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for submission
 -- ----------------------------
 DROP TABLE IF EXISTS `submission`;
@@ -405,6 +491,7 @@ CREATE TABLE `submission`
     `user_id`       bigint                                                       NOT NULL,
     `problem_id`    bigint                                                       NOT NULL,
     `language`      varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `assignment_id` bigint                                                       NULL     COMMENT '关联作业ID',
     `status`        varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '生命周期状态：Pending/Running/Finished/Failed',
     `verdict`       varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL     DEFAULT NULL COMMENT '最终判定状态：Accepted/WA/TLE/...',
     `score`         int                                                          NULL     DEFAULT NULL COMMENT '得分',
@@ -419,8 +506,10 @@ CREATE TABLE `submission`
     INDEX `idx_problem` (`problem_id` ASC) USING BTREE,
     INDEX `idx_status` (`status` ASC) USING BTREE,
     INDEX `idx_user_time` (`user_id` ASC, `submit_time` DESC) USING BTREE,
+    INDEX `idx_assignment` (`assignment_id` ASC) USING BTREE,
     CONSTRAINT `fk_submission_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `fk_submission_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `fk_submission_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_submission_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 5
   CHARACTER SET = utf8mb4
@@ -496,6 +585,7 @@ CREATE TABLE `user_info`
 (
     `id`         bigint                                                        NOT NULL AUTO_INCREMENT,
     `username`   varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '登录名',
+    `nickname`   varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '昵称/显示名',
     `email`      varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邮箱',
     `password`   varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '加密密码',
     `created_at` timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
