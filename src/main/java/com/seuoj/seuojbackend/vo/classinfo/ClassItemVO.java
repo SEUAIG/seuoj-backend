@@ -7,10 +7,10 @@ import lombok.Data;
 public class ClassItemVO {
 
     /**
-     * 班级公开 ID
+     * 班级 ID
      */
-    @JsonProperty("class_public_id")
-    private String classPublicId;
+    @JsonProperty("class_id")
+    private Long classId;
 
     /**
      * 班级名称
@@ -23,10 +23,10 @@ public class ClassItemVO {
     private String description;
 
     /**
-     * 创建者公开 ID
+     * 创建者 ID
      */
-    @JsonProperty("creator_public_id")
-    private String creatorPublicId;
+    @JsonProperty("creator_id")
+    private Long creatorId;
 
     /**
      * 是否公开班级

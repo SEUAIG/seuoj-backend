@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Validated
-@RequestMapping("/api/class/{class_public_id}/assignment")
+@RequestMapping("/api/class/{classId}/assignment")
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
@@ -34,45 +34,45 @@ public class AssignmentController {
     }
 
     @PostMapping
-    public Result<Map<String, String>> createAssignment(
-            @PathVariable("class_public_id") String classPublicId,
+    public Result<Map<String, Long>> createAssignment(
+            @PathVariable("classId") Long classId,
             @Valid @RequestBody AssignmentCreateDTO dto) {
-        String publicId = assignmentService.createAssignment(classPublicId, dto);
-        Map<String, String> result = new HashMap<>();
-        result.put("assignmentPublicId", publicId);
+        Long assignmentId = assignmentService.createAssignment(classId, dto);
+        Map<String, Long> result = new HashMap<>();
+        result.put("assignment_id", assignmentId);
         return Result.success(result);
     }
 
     @GetMapping("/page")
     public Result<IPage<Assignment>> getAssignmentPage(
-            @PathVariable("class_public_id") String classPublicId,
+            @PathVariable("classId") Long classId,
             @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
             @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
             @Max(value = 100, message = "每页条数最大为 100") Integer size) {
-        return Result.success(assignmentService.getAssignmentPage(classPublicId, current, size));
+        return Result.success(assignmentService.getAssignmentPage(classId, current, size));
     }
 
-    @GetMapping("/{assignment_public_id}")
+    @GetMapping("/{assignmentId}")
     public Result<Assignment> getAssignmentDetail(
-            @PathVariable("class_public_id") String classPublicId,
-            @PathVariable("assignment_public_id") String assignmentPublicId) {
-        return Result.success(assignmentService.getAssignmentDetail(classPublicId, assignmentPublicId));
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId) {
+        return Result.success(assignmentService.getAssignmentDetail(classId, assignmentId));
     }
 
-    @PutMapping("/{assignment_public_id}")
+    @PutMapping("/{assignmentId}")
     public Result<Void> updateAssignment(
-            @PathVariable("class_public_id") String classPublicId,
-            @PathVariable("assignment_public_id") String assignmentPublicId,
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId,
             @RequestBody AssignmentUpdateDTO dto) {
-        assignmentService.updateAssignment(classPublicId, assignmentPublicId, dto);
+        assignmentService.updateAssignment(classId, assignmentId, dto);
         return Result.success();
     }
 
-    @DeleteMapping("/{assignment_public_id}")
+    @DeleteMapping("/{assignmentId}")
     public Result<Void> deleteAssignment(
-            @PathVariable("class_public_id") String classPublicId,
-            @PathVariable("assignment_public_id") String assignmentPublicId) {
-        assignmentService.deleteAssignment(classPublicId, assignmentPublicId);
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId) {
+        assignmentService.deleteAssignment(classId, assignmentId);
         return Result.success();
     }
 }

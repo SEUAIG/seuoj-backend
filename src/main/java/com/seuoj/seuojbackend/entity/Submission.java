@@ -1,18 +1,13 @@
 package com.seuoj.seuojbackend.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import com.seuoj.seuojbackend.client.dto.ProblemConfigDTO;
-import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
-import org.apache.ibatis.type.JdbcType;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 用户提交与评测结果表实体类
@@ -68,24 +63,6 @@ public class Submission implements Serializable {
      */
     @TableField("verdict")
     private String verdict;
-
-    /**
-     * 评测详细信息（JSON 存储）
-     */
-    @TableField(value = "result_detail", typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
-    private List<JudgeResultDetailItem> resultDetail;
-
-    /**
-     * 子任务信息
-     */
-    @TableField(value = "subtasks", typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
-    private List<ProblemConfigDTO.Subtask> subtasks;
-
-    /**
-     * 编译/判题错误详情
-     */
-    @TableField("error_detail")
-    private String errorDetail;
 
     /**
      * 分数

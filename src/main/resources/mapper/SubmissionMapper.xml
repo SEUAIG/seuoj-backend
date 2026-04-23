@@ -10,13 +10,14 @@
                s.verdict,
                s.submit_time,
                s.finish_time,
-               u.username
+               u.username,
+               u.nickname
         FROM submission s
                  LEFT JOIN problem p ON s.problem_id = p.id AND p.is_del = 0
                  LEFT JOIN user_info u ON s.user_id = u.id AND u.is_del = 0
         WHERE s.is_del = 0
-        <if test="userPublicId != null and userPublicId != ''">
-          AND u.public_id = #{userPublicId}
+        <if test="userId != null">
+          AND s.user_id = #{userId}
         </if>
         <if test="verdict != null and verdict != ''">
           AND s.verdict = #{verdict}

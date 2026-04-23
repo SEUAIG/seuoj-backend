@@ -30,7 +30,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -67,7 +66,6 @@ public class ProblemSetService {
         String title = normalizeRequiredText(dto.getTitle(), "title 不能为空");
 
         ProblemSet problemSet = new ProblemSet();
-        problemSet.setPublicId(UUID.randomUUID().toString());
         problemSet.setTitle(title);
         problemSet.setDescription(dto.getDescription());
         problemSet.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()));
@@ -77,7 +75,7 @@ public class ProblemSetService {
         permissionService.autoGrantCreator(ResourceType.PROBLEM_SET, problemSet.getId(), userId);
 
         ProblemSetCreateVO vo = new ProblemSetCreateVO();
-        vo.setProblemSetPublicId(problemSet.getPublicId());
+        vo.setProblemSetId(problemSet.getId());
         return vo;
     }
 
@@ -103,15 +101,21 @@ public class ProblemSetService {
         return vo;
     }
 
-    public ProblemSetDetailVO getProblemSetDetail(String problemSetPublicId) {
-        ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
+    public ProblemSetDetailVO getProblemSetDetail(Long problemSetId) {
+        if (problemSetId == null) {
+            throw new BadRequestException("problem_set_id 不能为空");
+        }
+        ProblemSet problemSet = problemSetMapper.selectById(problemSetId);
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
         Long userId = AuthContexts.userIdOrNull();
         permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.READ);
 
         List<ProblemSetProblemItemVO> problemList = problemSetMapper.selectProblemSetProblems(problemSet.getId());
 
         ProblemSetDetailVO vo = new ProblemSetDetailVO();
-        vo.setProblemSetId(problemSet.getPublicId());
+        vo.setProblemSetId(String.valueOf(problemSet.getId()));
         vo.setTitle(problemSet.getTitle());
         vo.setDescription(problemSet.getDescription());
         vo.setIsPublic(problemSet.getIsPublic());
@@ -120,8 +124,14 @@ public class ProblemSetService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void updateProblemSet(String problemSetPublicId, ProblemSetUpdateDTO dto) {
-        ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
+    public void updateProblemSet(Long problemSetId, ProblemSetUpdateDTO dto) {
+        if (problemSetId == null) {
+            throw new BadRequestException("problem_set_id 不能为空");
+        }
+        ProblemSet problemSet = problemSetMapper.selectById(problemSetId);
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
@@ -148,8 +158,14 @@ public class ProblemSetService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void deleteProblemSet(String problemSetPublicId) {
-        ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
+    public void deleteProblemSet(Long problemSetId) {
+        if (problemSetId == null) {
+            throw new BadRequestException("problem_set_id 不能为空");
+        }
+        ProblemSet problemSet = problemSetMapper.selectById(problemSetId);
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
@@ -161,8 +177,14 @@ public class ProblemSetService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void replaceProblemSetProblems(String problemSetPublicId, ProblemSetProblemEditDTO dto) {
-        ProblemSet problemSet = getProblemSetByPublicId(problemSetPublicId);
+    public void replaceProblemSetProblems(Long problemSetId, ProblemSetProblemEditDTO dto) {
+        if (problemSetId == null) {
+            throw new BadRequestException("problem_set_id 不能为空");
+        }
+        ProblemSet problemSet = problemSetMapper.selectById(problemSetId);
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE);
 
@@ -336,19 +358,6 @@ public class ProblemSetService {
             candidate = 1_000_000_000L;
         }
         return (int) candidate;
-    }
-
-    private ProblemSet getProblemSetByPublicId(String problemSetPublicId) {
-        if (!StringUtils.hasText(problemSetPublicId)) {
-            throw new BadRequestException("problem_set_public_id 不能为空");
-        }
-
-        ProblemSet problemSet = problemSetMapper.selectOne(new LambdaQueryWrapper<ProblemSet>()
-                .eq(ProblemSet::getPublicId, problemSetPublicId));
-        if (problemSet == null) {
-            throw new NotFoundException("题单不存在");
-        }
-        return problemSet;
     }
 
     private List<ProblemPlanItem> buildProblemPlan(List<ProblemSetProblemEditDTO.ProblemItemDTO> input) {

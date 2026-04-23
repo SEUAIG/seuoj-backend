@@ -3,7 +3,7 @@
 <mapper namespace="com.seuoj.seuojbackend.mapper.ProblemSetMapper">
 
     <resultMap id="ProblemSetItemMap" type="com.seuoj.seuojbackend.vo.problemset.ProblemSetItemVO">
-        <result column="problem_set_public_id" property="problemSetPublicId"/>
+        <result column="problem_set_id" property="problemSetId"/>
         <result column="title" property="title"/>
         <result column="description" property="description"/>
         <result column="is_public" property="isPublic"/>
@@ -11,7 +11,7 @@
     </resultMap>
 
     <select id="selectProblemSetPage" resultMap="ProblemSetItemMap">
-        SELECT ps.public_id AS problem_set_public_id,
+        SELECT ps.id AS problem_set_id,
                ps.title,
                COALESCE(ps.description, '') AS description,
                ps.is_public,

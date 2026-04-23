@@ -35,13 +35,12 @@ public class BatchImportUserDTO {
         @Size(max = 64, message = "用户名最长64个字符")
         private String username;
 
-        @NotEmpty(message = "邮箱不能为空")
+        @Size(max = 64, message = "昵称最长64个字符")
+        private String nickname;
+
         @Size(max = 128, message = "邮箱最长128个字符")
         private String email;
 
-        /**
-         * 指定密码模式下必填，随机密码模式下忽略
-         */
         @Size(min = 6, max = 64, message = "密码长度6-64个字符")
         private String password;
     }

@@ -1,6 +1,5 @@
 package com.seuoj.seuojbackend.interceptor;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.AuthStatus;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
@@ -65,10 +64,17 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
-                .eq(UserInfo::getPublicId, parsedToken.subject()));
+        UserInfo user;
+        try {
+            user = userInfoMapper.selectById(Long.parseLong(parsedToken.subject()));
+        } catch (NumberFormatException e) {
+            log.warn("JWT 令牌中的用户标识格式无效 - subject: {}, URI: {} {}, Controller: {}.{}",
+                    parsedToken.subject(), method, requestUri, controllerName, methodName);
+            UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
+            return true;
+        }
         if (user == null) {
-            log.warn("JWT 令牌中的用户标识不存在 - publicId: {}, URI: {} {}, Controller: {}.{}",
+            log.warn("JWT 令牌中的用户标识不存在 - userId: {}, URI: {} {}, Controller: {}.{}",
                     parsedToken.subject(), method, requestUri, controllerName, methodName);
             UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
             return true;

@@ -7,9 +7,11 @@ import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.classinfo.ClassCreateDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassUpdateDTO;
 import com.seuoj.seuojbackend.service.ClassService;
+import com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassCreateVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberPageVO;
+import com.seuoj.seuojbackend.vo.classinfo.ClassOverviewVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassPageVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageVO;
 import jakarta.validation.Valid;
@@ -52,67 +54,80 @@ public class ClassController {
         return Result.success(classService.getClassPage(current, size));
     }
 
-    @PutMapping("/{class_public_id}")
-    public Result<ClassItemVO> updateClass(@PathVariable("class_public_id") String classPublicId,
+    @PutMapping("/{classId}")
+    public Result<ClassItemVO> updateClass(@PathVariable("classId") Long classId,
                                            @RequestBody ClassUpdateDTO dto) {
-        return Result.success(classService.updateClass(classPublicId, dto));
+        return Result.success(classService.updateClass(classId, dto));
     }
 
-    @DeleteMapping("/{class_public_id}")
-    public Result<Void> deleteClass(@PathVariable("class_public_id") String classPublicId) {
-        classService.deleteClass(classPublicId);
+    @DeleteMapping("/{classId}")
+    public Result<Void> deleteClass(@PathVariable("classId") Long classId) {
+        classService.deleteClass(classId);
         return Result.success();
     }
 
-    @PostMapping("/{class_public_id}/join")
-    public Result<Void> joinClass(@PathVariable("class_public_id") String classPublicId) {
-        classService.joinClass(classPublicId);
+    @PostMapping("/{classId}/join")
+    public Result<Void> joinClass(@PathVariable("classId") Long classId) {
+        classService.joinClass(classId);
         return Result.success();
     }
 
-    @GetMapping("/{class_public_id}/member/page")
+    @GetMapping("/{classId}/member/page")
     public Result<ClassMemberPageVO> getClassMemberPage(
-            @PathVariable("class_public_id") String classPublicId,
+            @PathVariable("classId") Long classId,
             @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
             @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
             @Max(value = 100, message = "每页条数最大为 100") Integer size) {
-        return Result.success(classService.getClassMemberPage(classPublicId, current, size));
+        return Result.success(classService.getClassMemberPage(classId, current, size));
     }
 
-    @DeleteMapping("/{class_public_id}/member/{user_public_id}")
-    public Result<Void> removeMember(@PathVariable("class_public_id") String classPublicId,
-                                     @PathVariable("user_public_id") String userPublicId) {
-        classService.removeMember(classPublicId, userPublicId);
+    @DeleteMapping("/{classId}/member/{userId}")
+    public Result<Void> removeMember(@PathVariable("classId") Long classId,
+                                     @PathVariable("userId") Long userId) {
+        classService.removeMember(classId, userId);
         return Result.success();
     }
 
-    @PostMapping("/{class_public_id}/member/{user_public_id}")
-    public Result<Void> addMember(@PathVariable("class_public_id") String classPublicId,
-                                  @PathVariable("user_public_id") String userPublicId) {
-        classService.addMember(classPublicId, userPublicId);
+    @PostMapping("/{classId}/member/{userId}")
+    public Result<Void> addMember(@PathVariable("classId") Long classId,
+                                  @PathVariable("userId") Long userId) {
+        classService.addMember(classId, userId);
         return Result.success();
     }
 
-    @GetMapping("/{class_public_id}/contest/page")
+    @GetMapping("/{classId}/contest/page")
     public Result<LinkPageVO> getClassContestPage(
-            @PathVariable("class_public_id") String classPublicId,
+            @PathVariable("classId") Long classId,
             @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
             @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
             @Max(value = 100, message = "每页条数最大为 100") Integer size) {
-        return Result.success(classService.getClassContestPage(classPublicId, current, size));
+        return Result.success(classService.getClassContestPage(classId, current, size));
     }
 
-    @PutMapping("/{class_public_id}/contest/{contest_public_id}")
-    public Result<Void> linkContest(@PathVariable("class_public_id") String classPublicId,
-                                    @PathVariable("contest_public_id") String contestPublicId) {
-        classService.linkContest(classPublicId, contestPublicId);
+    @PutMapping("/{classId}/contest/{contestId}")
+    public Result<Void> linkContest(@PathVariable("classId") Long classId,
+                                    @PathVariable("contestId") Long contestId) {
+        classService.linkContest(classId, contestId);
         return Result.success();
     }
 
-    @DeleteMapping("/{class_public_id}/contest/{contest_public_id}")
-    public Result<Void> unlinkContest(@PathVariable("class_public_id") String classPublicId,
-                                      @PathVariable("contest_public_id") String contestPublicId) {
-        classService.unlinkContest(classPublicId, contestPublicId);
+    @DeleteMapping("/{classId}/contest/{contestId}")
+    public Result<Void> unlinkContest(@PathVariable("classId") Long classId,
+                                      @PathVariable("contestId") Long contestId) {
+        classService.unlinkContest(classId, contestId);
         return Result.success();
+    }
+
+    @GetMapping("/{classId}/overview")
+    public Result<ClassOverviewVO> getClassOverview(
+            @PathVariable("classId") Long classId) {
+        return Result.success(classService.getClassOverview(classId));
+    }
+
+    @GetMapping("/{classId}/overview/assignment/{assignmentId}")
+    public Result<AssignmentOverviewVO> getAssignmentOverview(
+            @PathVariable("classId") Long classId,
+            @PathVariable("assignmentId") Long assignmentId) {
+        return Result.success(classService.getAssignmentOverview(classId, assignmentId));
     }
 }

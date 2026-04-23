@@ -5,12 +5,9 @@ import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.entity.ResourcePermission;
-import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ResourcePermissionMapper;
-import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.service.PermissionService;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +27,11 @@ public class PermissionController {
 
     private final PermissionService permissionService;
     private final ResourcePermissionMapper resourcePermissionMapper;
-    private final UserInfoMapper userInfoMapper;
 
     public PermissionController(PermissionService permissionService,
-                                ResourcePermissionMapper resourcePermissionMapper,
-                                UserInfoMapper userInfoMapper) {
+                                ResourcePermissionMapper resourcePermissionMapper) {
         this.permissionService = permissionService;
         this.resourcePermissionMapper = resourcePermissionMapper;
-        this.userInfoMapper = userInfoMapper;
     }
 
     @PostMapping("/grant")
@@ -45,7 +39,7 @@ public class PermissionController {
         Long userId = AuthContexts.requiredUserId();
         ResourceType type = parseResourceType(body.get("resourceType"));
         Long resourceId = parseLong(body.get("resourceId"));
-        Long targetUserId = resolveUserIdByPublicId(body.get("targetUserPublicId"));
+        Long targetUserId = parseLong(body.get("targetUserId"));
         PermissionOp op = parsePermissionOp(body.get("permission"));
 
         permissionService.grantPermission(userId, type, resourceId, targetUserId, op);
@@ -57,7 +51,7 @@ public class PermissionController {
         Long userId = AuthContexts.requiredUserId();
         ResourceType type = parseResourceType(body.get("resourceType"));
         Long resourceId = parseLong(body.get("resourceId"));
-        Long targetUserId = resolveUserIdByPublicId(body.get("targetUserPublicId"));
+        Long targetUserId = parseLong(body.get("targetUserId"));
         PermissionOp op = parsePermissionOp(body.get("permission"));
 
         permissionService.revokePermission(userId, type, resourceId, targetUserId, op);
@@ -103,15 +97,4 @@ public class PermissionController {
         }
     }
 
-    private Long resolveUserIdByPublicId(String userPublicId) {
-        if (userPublicId == null || userPublicId.isBlank()) {
-            throw new BadRequestException("targetUserPublicId 不能为空");
-        }
-        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
-                .eq(UserInfo::getPublicId, userPublicId));
-        if (user == null) {
-            throw new NotFoundException("用户不存在");
-        }
-        return user.getId();
-    }
 }

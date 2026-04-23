@@ -24,9 +24,6 @@ public class ProblemSet implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("public_id")
-    private String publicId;
-
     @TableField("title")
     private String title;
 

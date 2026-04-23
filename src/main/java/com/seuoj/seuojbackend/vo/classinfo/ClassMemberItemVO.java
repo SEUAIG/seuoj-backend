@@ -8,15 +8,17 @@ import lombok.Data;
 public class ClassMemberItemVO {
 
     /**
-     * 用户公开 ID
+     * 用户 ID
      */
-    @JsonProperty("user_public_id")
-    private String userPublicId;
+    @JsonProperty("user_id")
+    private Long userId;
 
     /**
      * 用户名
      */
     private String username;
+
+    private String nickname;
 
     /**
      * 加入时间

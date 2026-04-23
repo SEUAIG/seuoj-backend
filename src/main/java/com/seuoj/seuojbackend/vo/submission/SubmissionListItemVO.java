@@ -18,4 +18,5 @@ public class SubmissionListItemVO {
     @JsonProperty("finish_time")
     private LocalDateTime finishTime;
     private String username;
+    private String nickname;
 }

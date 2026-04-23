@@ -9,5 +9,6 @@ import lombok.Data;
 public class LoginVO {
     String jwt;
     String username;
+    String nickname;
     String role;
 }

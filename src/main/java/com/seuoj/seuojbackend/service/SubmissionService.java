@@ -11,6 +11,7 @@ import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.entity.SubmissionDetail;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.exception.BadRequestException;
@@ -21,6 +22,7 @@ import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.storage.CodeStorage;
@@ -51,6 +53,7 @@ public class SubmissionService {
     private static final int MAX_CODE_BYTES = 65535;
 
     private final SubmissionMapper submissionMapper;
+    private final SubmissionDetailMapper submissionDetailMapper;
     private final ProblemMapper problemMapper;
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
@@ -58,10 +61,12 @@ public class SubmissionService {
     private final UserRoleService userRoleService;
     private final TransactionTemplate transactionTemplate;
 
-    public SubmissionService(SubmissionMapper submissionMapper, ProblemMapper problemMapper, JudgeClient judgeClient,
+    public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
+                             ProblemMapper problemMapper, JudgeClient judgeClient,
                              CodeStorage codeStorage, UserInfoMapper userInfoMapper,
                              UserRoleService userRoleService, TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
+        this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
@@ -203,7 +208,8 @@ public class SubmissionService {
             throw new ForbiddenException("无权查看他人提交记录");
         }
 
-        return convertToResultVO(submission, problem);
+        SubmissionDetail detail = submissionDetailMapper.selectById(submission.getId());
+        return convertToResultVO(submission, problem, detail);
     }
 
     /**
@@ -213,7 +219,7 @@ public class SubmissionService {
      * @param size 每页条数
      * @return 提交记录分页
      */
-    public SubmissionPageVO listSubmissions(Integer current, Integer size, String userPublicId, String verdict) {
+    public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
         }
@@ -221,10 +227,9 @@ public class SubmissionService {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
 
-
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
-                page, userPublicId, verdict);
+                page, userId, verdict);
 
         SubmissionPageVO result = new SubmissionPageVO();
         result.setCurrent(pageResult.getCurrent());
@@ -259,23 +264,24 @@ public class SubmissionService {
         return result;
     }
 
-    private SubmissionResultVO convertToResultVO(Submission submission, Problem problem) {
+    private SubmissionResultVO convertToResultVO(Submission submission, Problem problem, SubmissionDetail detail) {
         SubmissionResultVO vo = new SubmissionResultVO();
         vo.setSubmissionNo(submission.getSubmissionNo());
         vo.setPid(problem != null ? problem.getPid() : null);
         vo.setLanguage(submission.getLanguage());
         vo.setStatus(submission.getStatus());
         vo.setVerdict(submission.getVerdict());
-        vo.setResultDetail(submission.getResultDetail());
-        vo.setSubtasks(submission.getSubtasks());
-        vo.setErrorDetail(submission.getErrorDetail());
         vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
-        // 查询用户代码
-        vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
 
-        // 查询用户名
+        if (detail != null) {
+            vo.setResultDetail(detail.getResultDetail());
+            vo.setSubtasks(detail.getSubtasks());
+            vo.setErrorDetail(detail.getErrorDetail());
+        }
+
+        vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
         return vo;

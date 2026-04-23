@@ -18,7 +18,6 @@ import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -46,15 +45,26 @@ public class AssignmentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public String createAssignment(String classPublicId, AssignmentCreateDTO dto) {
+    public Long createAssignment(Long classId, AssignmentCreateDTO dto) {
         Long userId = AuthContexts.requiredUserId();
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        if (classId == null) {
+            throw new BadRequestException("class_id 不能为空");
+        }
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
-        ProblemSet problemSet = getProblemSetByPublicId(dto.getProblemSetPublicId());
+        if (dto.getProblemSetId() == null) {
+            throw new BadRequestException("problem_set_id 不能为空");
+        }
+        ProblemSet problemSet = problemSetMapper.selectById(dto.getProblemSetId());
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
 
         Assignment assignment = new Assignment();
-        assignment.setPublicId(UUID.randomUUID().toString());
         assignment.setClassId(classInfo.getId());
         assignment.setProblemSetId(problemSet.getId());
         assignment.setTitle(normalizeRequired(dto.getTitle(), "title 不能为空"));
@@ -64,12 +74,18 @@ public class AssignmentService {
         assignment.setCreatedByUserId(userId);
         assignmentMapper.insert(assignment);
 
-        return assignment.getPublicId();
+        return assignment.getId();
     }
 
-    public IPage<Assignment> getAssignmentPage(String classPublicId, Integer current, Integer size) {
+    public IPage<Assignment> getAssignmentPage(Long classId, Integer current, Integer size) {
         Long userId = AuthContexts.requiredUserId();
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        if (classId == null) {
+            throw new BadRequestException("class_id 不能为空");
+        }
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
 
         boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
@@ -85,12 +101,24 @@ public class AssignmentService {
         return assignmentMapper.selectPage(new Page<>(current, size), wrapper);
     }
 
-    public Assignment getAssignmentDetail(String classPublicId, String assignmentPublicId) {
+    public Assignment getAssignmentDetail(Long classId, Long assignmentId) {
         Long userId = AuthContexts.requiredUserId();
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        if (classId == null) {
+            throw new BadRequestException("class_id 不能为空");
+        }
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
 
-        Assignment assignment = getAssignmentByPublicId(assignmentPublicId);
+        if (assignmentId == null) {
+            throw new BadRequestException("assignment_id 不能为空");
+        }
+        Assignment assignment = assignmentMapper.selectById(assignmentId);
+        if (assignment == null) {
+            throw new NotFoundException("作业不存在");
+        }
         if (!assignment.getClassId().equals(classInfo.getId())) {
             throw new NotFoundException("作业不存在");
         }
@@ -104,12 +132,24 @@ public class AssignmentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void updateAssignment(String classPublicId, String assignmentPublicId, AssignmentUpdateDTO dto) {
+    public void updateAssignment(Long classId, Long assignmentId, AssignmentUpdateDTO dto) {
         Long userId = AuthContexts.requiredUserId();
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        if (classId == null) {
+            throw new BadRequestException("class_id 不能为空");
+        }
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
-        Assignment assignment = getAssignmentByPublicId(assignmentPublicId);
+        if (assignmentId == null) {
+            throw new BadRequestException("assignment_id 不能为空");
+        }
+        Assignment assignment = assignmentMapper.selectById(assignmentId);
+        if (assignment == null) {
+            throw new NotFoundException("作业不存在");
+        }
         if (!assignment.getClassId().equals(classInfo.getId())) {
             throw new NotFoundException("作业不存在");
         }
@@ -142,12 +182,24 @@ public class AssignmentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void deleteAssignment(String classPublicId, String assignmentPublicId) {
+    public void deleteAssignment(Long classId, Long assignmentId) {
         Long userId = AuthContexts.requiredUserId();
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        if (classId == null) {
+            throw new BadRequestException("class_id 不能为空");
+        }
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
-        Assignment assignment = getAssignmentByPublicId(assignmentPublicId);
+        if (assignmentId == null) {
+            throw new BadRequestException("assignment_id 不能为空");
+        }
+        Assignment assignment = assignmentMapper.selectById(assignmentId);
+        if (assignment == null) {
+            throw new NotFoundException("作业不存在");
+        }
         if (!assignment.getClassId().equals(classInfo.getId())) {
             throw new NotFoundException("作业不存在");
         }
@@ -166,42 +218,6 @@ public class AssignmentService {
         if (!allowed.contains(target)) {
             throw new BadRequestException("不允许的状态变更: " + current + " → " + target);
         }
-    }
-
-    private ClassInfo getClassByPublicId(String classPublicId) {
-        if (!StringUtils.hasText(classPublicId)) {
-            throw new BadRequestException("class_public_id 不能为空");
-        }
-        ClassInfo classInfo = classInfoMapper.selectOne(new LambdaQueryWrapper<ClassInfo>()
-                .eq(ClassInfo::getPublicId, classPublicId));
-        if (classInfo == null) {
-            throw new NotFoundException("班级不存在");
-        }
-        return classInfo;
-    }
-
-    private ProblemSet getProblemSetByPublicId(String problemSetPublicId) {
-        if (!StringUtils.hasText(problemSetPublicId)) {
-            throw new BadRequestException("problem_set_public_id 不能为空");
-        }
-        ProblemSet problemSet = problemSetMapper.selectOne(new LambdaQueryWrapper<ProblemSet>()
-                .eq(ProblemSet::getPublicId, problemSetPublicId));
-        if (problemSet == null) {
-            throw new NotFoundException("题单不存在");
-        }
-        return problemSet;
-    }
-
-    private Assignment getAssignmentByPublicId(String publicId) {
-        if (!StringUtils.hasText(publicId)) {
-            throw new BadRequestException("assignment_public_id 不能为空");
-        }
-        Assignment assignment = assignmentMapper.selectOne(new LambdaQueryWrapper<Assignment>()
-                .eq(Assignment::getPublicId, publicId));
-        if (assignment == null) {
-            throw new NotFoundException("作业不存在");
-        }
-        return assignment;
     }
 
     private String normalizeRequired(String raw, String message) {

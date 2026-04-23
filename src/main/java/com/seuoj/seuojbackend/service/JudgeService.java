@@ -7,9 +7,11 @@ import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import com.seuoj.seuojbackend.common.SubmitExecStatus;
 import com.seuoj.seuojbackend.dto.judge.JudgeResultDTO;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.entity.SubmissionDetail;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import java.time.LocalDateTime;
@@ -24,10 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class JudgeService {
 
     private final SubmissionMapper submissionMapper;
+    private final SubmissionDetailMapper submissionDetailMapper;
     private final ProblemMapper problemMapper;
 
-    public JudgeService(SubmissionMapper submissionMapper, ProblemMapper problemMapper) {
+    public JudgeService(SubmissionMapper submissionMapper,
+                        SubmissionDetailMapper submissionDetailMapper,
+                        ProblemMapper problemMapper) {
         this.submissionMapper = submissionMapper;
+        this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
     }
 
@@ -42,6 +48,7 @@ public class JudgeService {
 
         Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()
+                        .select(Submission::getId, Submission::getStatus, Submission::getProblemId)
                         .eq(Submission::getSubmissionNo, submissionNo));
 
         if (submission == null) {
@@ -70,9 +77,6 @@ public class JudgeService {
         Submission updateEntity = new Submission()
                 .setStatus(SubmissionStatus.FINISHED.getStatus())
                 .setVerdict(verdict)
-                .setResultDetail(dto.getResultDetail())
-                .setSubtasks(dto.getSubtasks())
-                .setErrorDetail(dto.getErrorDetail())
                 .setFinishTime(LocalDateTime.now())
                 .setScore(dto.getScore());
 
@@ -80,14 +84,19 @@ public class JudgeService {
                 .eq(Submission::getSubmissionNo, submissionNo)
                 .in(Submission::getStatus, modifiableStatusStrs));
 
-        // 并发或重复回调场景下，状态未成功迁移则直接忽略
         if (updatedRows == 0) {
             log.info("忽略重复或不可修改状态的评测回调，submissionNo={}, currentStatus={}",
                     submissionNo, submission.getStatus());
             return;
         }
 
-        // 仅在本次成功迁移到 Finished 且判定为 AC 时累计通过数
+        SubmissionDetail detail = new SubmissionDetail()
+                .setSubmissionId(submission.getId())
+                .setResultDetail(dto.getResultDetail())
+                .setSubtasks(dto.getSubtasks())
+                .setErrorDetail(dto.getErrorDetail());
+        submissionDetailMapper.insertOrUpdate(detail);
+
         if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict)) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }

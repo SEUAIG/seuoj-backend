@@ -8,7 +8,7 @@ public class LinkPageItemVO {
     /**
      * 关联对象 ID
      */
-    private String id;
+    private Long id;
 
     /**
      * 关联对象标题

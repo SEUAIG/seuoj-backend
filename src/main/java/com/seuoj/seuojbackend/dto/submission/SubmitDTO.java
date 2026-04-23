@@ -9,6 +9,7 @@ import lombok.Data;
 public class SubmitDTO {
 
     @NotBlank(message = "题目编号不能为空")
+    @Pattern(regexp = "^[A-Z][A-Z0-9]{1,19}$", message = "题目编号格式无效")
     private String pid;
 
     @NotBlank(message = "编程语言不能为空")

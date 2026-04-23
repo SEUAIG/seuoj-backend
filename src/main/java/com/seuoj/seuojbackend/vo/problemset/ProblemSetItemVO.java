@@ -9,10 +9,10 @@ import lombok.Data;
 @Data
 public class ProblemSetItemVO {
     /**
-     * 题单公开 ID
+     * 题单 ID
      */
-    @JsonProperty("problem_set_public_id")
-    private String problemSetPublicId;
+    @JsonProperty("problem_set_id")
+    private Long problemSetId;
 
     /**
      * 题单标题

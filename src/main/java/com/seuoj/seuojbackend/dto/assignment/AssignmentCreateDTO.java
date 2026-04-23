@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class AssignmentCreateDTO {
-    private String problemSetPublicId;
+    private Long problemSetId;
     private String title;
     private String description;
     private LocalDateTime deadline;

@@ -45,9 +45,9 @@ public class AdminController {
     }
 
     @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PutMapping("/user/{user_public_id}/role")
+    @PutMapping("/user/{userId}/role")
     public Result<Void> setUserRole(
-            @PathVariable("user_public_id") String userPublicId,
+            @PathVariable("userId") Long targetUserId,
             @RequestBody Map<String, String> body) {
         Long currentUserId = AuthContexts.requiredUserId();
         String targetRoleCode = body.get("role");
@@ -64,8 +64,7 @@ public class AdminController {
             throw new ForbiddenException("仅 SUPER_ADMIN 可授予 ADMIN 角色");
         }
 
-        UserInfo targetUser = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
-                .eq(UserInfo::getPublicId, userPublicId));
+        UserInfo targetUser = userInfoMapper.selectById(targetUserId);
         if (targetUser == null) {
             throw new NotFoundException("用户不存在");
         }

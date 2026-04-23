@@ -27,14 +27,14 @@ public class UserInfo implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("public_id")
-    private String publicId;
-
     /**
      * 登录名
      */
     @TableField("username")
     private String username;
+
+    @TableField("nickname")
+    private String nickname;
 
     /**
      * 邮箱

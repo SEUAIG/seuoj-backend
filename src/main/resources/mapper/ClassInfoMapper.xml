@@ -3,18 +3,18 @@
 <mapper namespace="com.seuoj.seuojbackend.mapper.ClassInfoMapper">
 
     <resultMap id="ClassItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassItemVO">
-        <result column="class_public_id" property="classPublicId"/>
+        <result column="class_id" property="classId"/>
         <result column="name" property="name"/>
         <result column="description" property="description"/>
-        <result column="creator_public_id" property="creatorPublicId"/>
+        <result column="creator_id" property="creatorId"/>
         <result column="is_public" property="isPublic"/>
     </resultMap>
 
     <select id="selectClassPage" resultMap="ClassItemMap">
-        SELECT ci.public_id AS class_public_id,
+        SELECT ci.id AS class_id,
                ci.name,
                COALESCE(ci.description, '') AS description,
-               COALESCE(ui.public_id, '') AS creator_public_id,
+               ui.id AS creator_id,
                ci.is_public
         FROM class_info ci
         LEFT JOIN user_info ui ON ui.id = ci.created_by_user_id AND ui.is_del = 0
@@ -50,14 +50,16 @@
     </select>
 
     <resultMap id="ClassMemberItemMap" type="com.seuoj.seuojbackend.vo.classinfo.ClassMemberItemVO">
-        <result column="user_public_id" property="userPublicId"/>
+        <result column="user_id" property="userId"/>
         <result column="username" property="username"/>
+        <result column="nickname" property="nickname"/>
         <result column="joined_at" property="joinedAt"/>
     </resultMap>
 
     <select id="selectClassMemberPage" resultMap="ClassMemberItemMap">
-        SELECT ui.public_id AS user_public_id,
+        SELECT ui.id AS user_id,
                ui.username,
+               ui.nickname,
                cmr.joined_at
         FROM class_student_rel cmr
         INNER JOIN user_info ui ON ui.id = cmr.user_id
@@ -73,7 +75,7 @@
     </resultMap>
 
     <select id="selectClassContestPage" resultMap="LinkPageItemMap">
-        SELECT c.public_id AS id,
+        SELECT c.id AS id,
                c.title AS title
         FROM class_contest_rel ccr
         INNER JOIN contest c ON c.id = ccr.contest_id
@@ -81,6 +83,151 @@
           AND ccr.is_del = 0
           AND c.is_del = 0
         ORDER BY ccr.id DESC
+    </select>
+
+    <!-- 学情概览：学生 AC 统计 -->
+    <select id="selectStudentOverview"
+            resultType="com.seuoj.seuojbackend.vo.classinfo.ClassOverviewVO$StudentOverviewItem">
+        SELECT u.id AS user_id,
+               u.username,
+               u.nickname,
+               COUNT(DISTINCT sub.problem_id) AS ac_count
+        FROM class_student_rel csr
+                 JOIN user_info u ON u.id = csr.user_id AND u.is_del = 0
+                 LEFT JOIN (
+            SELECT DISTINCT s.user_id, s.problem_id
+            FROM submission s
+            WHERE s.verdict = 'Accepted'
+              AND s.is_del = 0
+              AND s.problem_id IN (
+                SELECT pspr.problem_id
+                FROM assignment a
+                         JOIN problem_set_problem_rel pspr
+                              ON pspr.problem_set_id = a.problem_set_id AND pspr.is_del = 0
+                WHERE a.class_id = #{classId}
+                  AND a.is_del = 0
+                  AND a.status != 'DRAFT'
+            )
+        ) sub ON sub.user_id = csr.user_id
+        WHERE csr.class_id = #{classId}
+          AND csr.is_del = 0
+        GROUP BY u.id
+        ORDER BY ac_count DESC
+    </select>
+
+    <!-- 学情概览：各作业完成率 -->
+    <select id="selectAssignmentProgress"
+            resultType="com.seuoj.seuojbackend.vo.classinfo.ClassOverviewVO$AssignmentProgressItem">
+        SELECT a.id                                             AS assignment_id,
+               a.title,
+               a.status,
+               a.deadline,
+               (SELECT COUNT(*)
+                FROM problem_set_problem_rel pspr
+                WHERE pspr.problem_set_id = a.problem_set_id
+                  AND pspr.is_del = 0)                        AS problem_count,
+               COALESCE(
+                       ROUND(
+                               (SELECT AVG(student_ac.ac_cnt * 100.0 / NULLIF(pc.cnt, 0))
+                                FROM (SELECT csr2.user_id,
+                                             COUNT(DISTINCT CASE
+                                                                WHEN s2.verdict = 'Accepted'
+                                                                    THEN s2.problem_id END) AS ac_cnt
+                                      FROM class_student_rel csr2
+                                               LEFT JOIN submission s2
+                                                         ON s2.user_id = csr2.user_id
+                                                             AND s2.is_del = 0
+                                                             AND s2.problem_id IN (SELECT pspr2.problem_id
+                                                                                   FROM problem_set_problem_rel pspr2
+                                                                                   WHERE pspr2.problem_set_id = a.problem_set_id
+                                                                                     AND pspr2.is_del = 0)
+                                      WHERE csr2.class_id = #{classId}
+                                        AND csr2.is_del = 0
+                                      GROUP BY csr2.user_id) student_ac,
+                                     (SELECT COUNT(*) AS cnt
+                                      FROM problem_set_problem_rel pspr3
+                                      WHERE pspr3.problem_set_id = a.problem_set_id
+                                        AND pspr3.is_del = 0) pc),
+                               1),
+                       0)                                     AS avg_completion_rate
+        FROM assignment a
+        WHERE a.class_id = #{classId}
+          AND a.is_del = 0
+          AND a.status != 'DRAFT'
+        ORDER BY a.created_at DESC
+    </select>
+
+    <!-- 学情概览：所有作业去重题目总数 -->
+    <select id="selectTotalProblems" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT pspr.problem_id)
+        FROM assignment a
+                 JOIN problem_set_problem_rel pspr
+                      ON pspr.problem_set_id = a.problem_set_id AND pspr.is_del = 0
+        WHERE a.class_id = #{classId}
+          AND a.is_del = 0
+          AND a.status != 'DRAFT'
+    </select>
+
+    <!-- 单次作业钻取：每题统计 -->
+    <select id="selectAssignmentProblemStats"
+            resultType="com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO$ProblemStatItem">
+        SELECT p.pid,
+               p.title,
+               pspr.weight,
+               COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.user_id END) AS ac_count,
+               COUNT(DISTINCT s.user_id)                                            AS attempt_count,
+               ROUND(
+                       COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.user_id END) * 100.0
+                           / NULLIF((SELECT COUNT(*)
+                                     FROM class_student_rel
+                                     WHERE class_id = #{classId}
+                                       AND is_del = 0), 0),
+                       1)                                                           AS ac_rate
+        FROM problem_set_problem_rel pspr
+                 JOIN problem p ON p.id = pspr.problem_id AND p.is_del = 0
+                 LEFT JOIN submission s
+                           ON s.problem_id = pspr.problem_id
+                               AND s.is_del = 0
+                               AND s.user_id IN (SELECT user_id
+                                                  FROM class_student_rel
+                                                  WHERE class_id = #{classId}
+                                                    AND is_del = 0)
+        WHERE pspr.problem_set_id = #{problemSetId}
+          AND pspr.is_del = 0
+        GROUP BY pspr.problem_id
+        ORDER BY pspr.sort_order
+    </select>
+
+    <!-- 单次作业钻取：每个学生统计 -->
+    <select id="selectAssignmentStudentStats"
+            resultType="com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO$StudentStatItem">
+        SELECT u.id                                                                             AS user_id,
+               u.username,
+               u.nickname,
+               COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.problem_id END)        AS ac_count,
+               (SELECT COUNT(*)
+                FROM problem_set_problem_rel pspr
+                WHERE pspr.problem_set_id = #{problemSetId}
+                  AND pspr.is_del = 0)                                                        AS problem_count,
+               CASE
+                   WHEN #{deadline} IS NULL THEN TRUE
+                   WHEN MAX(CASE WHEN s.verdict = 'Accepted' THEN s.submit_time END) IS NULL THEN FALSE
+                   WHEN MAX(CASE WHEN s.verdict = 'Accepted' THEN s.submit_time END) &lt;= #{deadline} THEN TRUE
+                   ELSE FALSE
+                   END                                                                        AS submitted_before_deadline
+        FROM class_student_rel csr
+                 JOIN user_info u ON u.id = csr.user_id AND u.is_del = 0
+                 LEFT JOIN submission s
+                           ON s.user_id = csr.user_id
+                               AND s.is_del = 0
+                               AND s.problem_id IN (SELECT pspr2.problem_id
+                                                    FROM problem_set_problem_rel pspr2
+                                                    WHERE pspr2.problem_set_id = #{problemSetId}
+                                                      AND pspr2.is_del = 0)
+        WHERE csr.class_id = #{classId}
+          AND csr.is_del = 0
+        GROUP BY u.id
+        ORDER BY ac_count DESC
     </select>
 
 </mapper>

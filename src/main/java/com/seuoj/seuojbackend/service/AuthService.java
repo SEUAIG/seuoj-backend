@@ -25,7 +25,7 @@ import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
 import com.seuoj.seuojbackend.vo.user.UserMeVO;
 import java.security.SecureRandom;
 import java.util.List;
-import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -114,7 +114,6 @@ public class AuthService {
             UserInfo newUser = new UserInfo();
             newUser.setUsername(dto.getUsername());
             newUser.setEmail(normalizedEmail);
-            newUser.setPublicId(UUID.randomUUID().toString());
             // 使用 passwordEncoder 加密密码
             newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
@@ -165,11 +164,12 @@ public class AuthService {
             throw new AuthorizationException("密码或邮箱错误");
         }
 
-        String token = jwtUtil.createAccessToken(user.getPublicId());
+        String token = jwtUtil.createAccessToken(String.valueOf(user.getId()));
 
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
         loginVO.setUsername(user.getUsername());
+        loginVO.setNickname(user.getNickname());
         loginVO.setRole(userRoleService.getHighestRoleLabel(user.getId()));
 
         return loginVO;
@@ -181,19 +181,25 @@ public class AuthService {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
 
-        UserInfo user = getUserByPublicId(parsedToken.subject());
+        UserInfo user;
+        try {
+            user = userInfoMapper.selectById(Long.parseLong(parsedToken.subject()));
+        } catch (NumberFormatException e) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
+        }
         if (user == null) {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "用户不存在");
         }
 
+        String userIdStr = String.valueOf(user.getId());
         TokenExchangeVO response = new TokenExchangeVO();
         if (parsedToken.tokenType() == JwtTokenType.TEMP) {
-            response.setAccessToken(jwtUtil.createAccessToken(user.getPublicId()));
+            response.setAccessToken(jwtUtil.createAccessToken(userIdStr));
             return response;
         }
 
         if (parsedToken.tokenType() == JwtTokenType.ACCESS) {
-            response.setTempToken(jwtUtil.createTempToken(user.getPublicId()));
+            response.setTempToken(jwtUtil.createTempToken(userIdStr));
             return response;
         }
 
@@ -207,10 +213,24 @@ public class AuthService {
         }
 
         UserMeVO profile = new UserMeVO();
-        profile.setUuid(user.getPublicId());
+        profile.setId(user.getId());
         profile.setUsername(user.getUsername());
+        profile.setNickname(user.getNickname());
         profile.setEmail(user.getEmail());
         return profile;
+    }
+
+    public UserMeVO updateProfile(Long userId, com.seuoj.seuojbackend.dto.user.UpdateProfileDTO dto) {
+        UserInfo user = userInfoMapper.selectById(userId);
+        if (user == null) {
+            throw new BadRequestException("用户不存在");
+        }
+        if (dto.getNickname() != null) {
+            String nickname = dto.getNickname().trim();
+            user.setNickname(nickname.isEmpty() ? null : nickname);
+        }
+        userInfoMapper.updateById(user);
+        return getCurrentUserProfile(userId);
     }
 
     private String normalizeEmail(String email) {
@@ -218,11 +238,6 @@ public class AuthService {
             return null;
         }
         return email.trim().toLowerCase();
-    }
-
-    private UserInfo getUserByPublicId(String publicId) {
-        return userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
-                .eq(UserInfo::getPublicId, publicId));
     }
 
     /**
@@ -270,6 +285,10 @@ public class AuthService {
                 String normalizedEmail = normalizeEmail(row.getEmail());
                 String username = row.getUsername().trim();
 
+                if (normalizedEmail == null || normalizedEmail.isEmpty()) {
+                    normalizedEmail = username.toLowerCase() + "@seu.edu.cn";
+                }
+
                 // 检查邮箱格式
                 if (!normalizedEmail.matches("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
                     result.getFailures().add(new BatchImportResultVO.FailDetail(
@@ -290,8 +309,10 @@ public class AuthService {
 
                 UserInfo newUser = new UserInfo();
                 newUser.setUsername(username);
+                if (row.getNickname() != null && !row.getNickname().trim().isEmpty()) {
+                    newUser.setNickname(row.getNickname().trim());
+                }
                 newUser.setEmail(normalizedEmail);
-                newUser.setPublicId(UUID.randomUUID().toString());
                 newUser.setPassword(passwordEncoder.encode(rawPassword));
 
                 try {

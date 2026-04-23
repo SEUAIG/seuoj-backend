@@ -12,7 +12,6 @@ import com.seuoj.seuojbackend.entity.ClassContestRel;
 import com.seuoj.seuojbackend.entity.ClassInfo;
 import com.seuoj.seuojbackend.entity.ClassStudentRel;
 import com.seuoj.seuojbackend.entity.Contest;
-import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
@@ -21,17 +20,19 @@ import com.seuoj.seuojbackend.mapper.ClassContestRelMapper;
 import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
 import com.seuoj.seuojbackend.mapper.ClassStudentRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
-import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.entity.Assignment;
+import com.seuoj.seuojbackend.mapper.AssignmentMapper;
+import com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassCreateVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberPageVO;
+import com.seuoj.seuojbackend.vo.classinfo.ClassOverviewVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassPageVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageVO;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +45,7 @@ public class ClassService {
     private final ClassStudentRelMapper classStudentRelMapper;
     private final ClassContestRelMapper classContestRelMapper;
     private final ContestMapper contestMapper;
-    private final UserInfoMapper userInfoMapper;
+    private final AssignmentMapper assignmentMapper;
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
 
@@ -52,14 +53,14 @@ public class ClassService {
                         ClassStudentRelMapper classStudentRelMapper,
                         ClassContestRelMapper classContestRelMapper,
                         ContestMapper contestMapper,
-                        UserInfoMapper userInfoMapper,
+                        AssignmentMapper assignmentMapper,
                         PermissionService permissionService,
                         UserRoleService userRoleService) {
         this.classInfoMapper = classInfoMapper;
         this.classStudentRelMapper = classStudentRelMapper;
         this.classContestRelMapper = classContestRelMapper;
         this.contestMapper = contestMapper;
-        this.userInfoMapper = userInfoMapper;
+        this.assignmentMapper = assignmentMapper;
         this.permissionService = permissionService;
         this.userRoleService = userRoleService;
     }
@@ -70,7 +71,6 @@ public class ClassService {
         permissionService.assertCanCreate(userId, ResourceType.CLASS);
 
         ClassInfo classInfo = new ClassInfo();
-        classInfo.setPublicId(UUID.randomUUID().toString());
         classInfo.setName(normalizeRequiredText(dto.getName(), "name 不能为空"));
         classInfo.setDescription(dto.getDescription());
         classInfo.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()));
@@ -80,7 +80,7 @@ public class ClassService {
         permissionService.autoGrantCreator(ResourceType.CLASS, classInfo.getId(), userId);
 
         ClassCreateVO vo = new ClassCreateVO();
-        vo.setClassPublicId(classInfo.getPublicId());
+        vo.setClassId(classInfo.getId());
         return vo;
     }
 
@@ -100,8 +100,11 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public ClassItemVO updateClass(String classPublicId, ClassUpdateDTO dto) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public ClassItemVO updateClass(Long classId, ClassUpdateDTO dto) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
@@ -131,8 +134,11 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void deleteClass(String classPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void deleteClass(Long classId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
@@ -148,8 +154,11 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void joinClass(String classPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void joinClass(Long classId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
 
         int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
@@ -167,10 +176,13 @@ public class ClassService {
         }
     }
 
-    public ClassMemberPageVO getClassMemberPage(String classPublicId, Integer current, Integer size) {
+    public ClassMemberPageVO getClassMemberPage(Long classId, Integer current, Integer size) {
         validatePageParam(current, size);
 
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
 
@@ -184,12 +196,13 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void removeMember(String classPublicId, String userPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void removeMember(Long classId, Long userId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long currentUserId = AuthContexts.requiredUserId();
         permissionService.assertPermission(currentUserId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
-
-        Long userId = findUserIdByPublicId(userPublicId);
 
         int updated = classStudentRelMapper.update(null, new LambdaUpdateWrapper<ClassStudentRel>()
                 .set(ClassStudentRel::getIsDel, 1)
@@ -201,12 +214,13 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void addMember(String classPublicId, String userPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void addMember(Long classId, Long userId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long currentUserId = AuthContexts.requiredUserId();
         permissionService.assertPermission(currentUserId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
-
-        Long userId = findUserIdByPublicId(userPublicId);
 
         int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
         if (restored > 0) {
@@ -223,10 +237,13 @@ public class ClassService {
         }
     }
 
-    public LinkPageVO getClassContestPage(String classPublicId, Integer current, Integer size) {
+    public LinkPageVO getClassContestPage(Long classId, Integer current, Integer size) {
         validatePageParam(current, size);
 
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
 
@@ -235,12 +252,18 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void linkContest(String classPublicId, String contestPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void linkContest(Long classId, Long contestId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
-        Contest contest = getContestByPublicId(contestPublicId);
+        Contest contest = contestMapper.selectById(contestId);
+        if (contest == null) {
+            throw new NotFoundException("比赛不存在");
+        }
 
         int restored = classContestRelMapper.restoreDeletedContestLink(classInfo.getId(), contest.getId());
         if (restored > 0) {
@@ -258,12 +281,18 @@ public class ClassService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void unlinkContest(String classPublicId, String contestPublicId) {
-        ClassInfo classInfo = getClassByPublicId(classPublicId);
+    public void unlinkContest(Long classId, Long contestId) {
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
-        Contest contest = getContestByPublicId(contestPublicId);
+        Contest contest = contestMapper.selectById(contestId);
+        if (contest == null) {
+            throw new NotFoundException("比赛不存在");
+        }
 
         int updated = classContestRelMapper.update(null, new LambdaUpdateWrapper<ClassContestRel>()
                 .set(ClassContestRel::getIsDel, 1)
@@ -272,6 +301,78 @@ public class ClassService {
         if (updated == 0) {
             throw new NotFoundException("班级与比赛关联不存在");
         }
+    }
+
+    public ClassOverviewVO getClassOverview(Long classId) {
+        Long userId = AuthContexts.requiredUserId();
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
+        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
+
+        Long memberCount = classStudentRelMapper.selectCount(
+                new LambdaQueryWrapper<ClassStudentRel>()
+                        .eq(ClassStudentRel::getClassId, classInfo.getId()));
+
+        Integer totalProblems = classInfoMapper.selectTotalProblems(classInfo.getId());
+        List<ClassOverviewVO.StudentOverviewItem> students = classInfoMapper.selectStudentOverview(classInfo.getId());
+        List<ClassOverviewVO.AssignmentProgressItem> assignments = classInfoMapper.selectAssignmentProgress(classInfo.getId());
+
+        ClassOverviewVO vo = new ClassOverviewVO();
+        vo.setMemberCount(memberCount != null ? memberCount.intValue() : 0);
+        vo.setTotalProblems(totalProblems != null ? totalProblems : 0);
+        vo.setStudents(students != null ? students : Collections.emptyList());
+        vo.setAssignments(assignments != null ? assignments : Collections.emptyList());
+        return vo;
+    }
+
+    public AssignmentOverviewVO getAssignmentOverview(Long classId, Long assignmentId) {
+        Long userId = AuthContexts.requiredUserId();
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
+        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
+
+        Assignment assignment = assignmentMapper.selectById(assignmentId);
+        if (assignment == null || !assignment.getClassId().equals(classInfo.getId())) {
+            throw new NotFoundException("作业不存在");
+        }
+
+        boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
+        if (!canWrite && !"PUBLISHED".equals(assignment.getStatus()) && !"CLOSED".equals(assignment.getStatus())) {
+            throw new NotFoundException("作业不存在");
+        }
+
+        Long memberCount = classStudentRelMapper.selectCount(
+                new LambdaQueryWrapper<ClassStudentRel>()
+                        .eq(ClassStudentRel::getClassId, classInfo.getId()));
+
+        List<AssignmentOverviewVO.ProblemStatItem> problems =
+                classInfoMapper.selectAssignmentProblemStats(classInfo.getId(), assignment.getProblemSetId());
+        List<AssignmentOverviewVO.StudentStatItem> students =
+                classInfoMapper.selectAssignmentStudentStats(classInfo.getId(), assignment.getProblemSetId(), assignment.getDeadline());
+
+        int problemCount = problems != null ? problems.size() : 0;
+        double avgRate = 0;
+        if (students != null && !students.isEmpty() && problemCount > 0) {
+            double totalRate = students.stream()
+                    .mapToDouble(s -> s.getAcCount() * 100.0 / problemCount)
+                    .sum();
+            avgRate = Math.round(totalRate / students.size() * 10.0) / 10.0;
+        }
+
+        AssignmentOverviewVO vo = new AssignmentOverviewVO();
+        vo.setAssignmentId(assignment.getId());
+        vo.setTitle(assignment.getTitle());
+        vo.setDeadline(assignment.getDeadline());
+        vo.setMemberCount(memberCount != null ? memberCount.intValue() : 0);
+        vo.setProblemCount(problemCount);
+        vo.setAvgCompletionRate(avgRate);
+        vo.setProblems(problems != null ? problems : Collections.emptyList());
+        vo.setStudents(students != null ? students : Collections.emptyList());
+        return vo;
     }
 
     private void validatePageParam(Integer current, Integer size) {
@@ -283,58 +384,13 @@ public class ClassService {
         }
     }
 
-    private ClassInfo getClassByPublicId(String classPublicId) {
-        if (!StringUtils.hasText(classPublicId)) {
-            throw new BadRequestException("class_public_id 不能为空");
-        }
-        ClassInfo classInfo = classInfoMapper.selectOne(new LambdaQueryWrapper<ClassInfo>()
-                .eq(ClassInfo::getPublicId, classPublicId));
-        if (classInfo == null) {
-            throw new NotFoundException("班级不存在");
-        }
-        return classInfo;
-    }
-
-    private Contest getContestByPublicId(String contestPublicId) {
-        if (!StringUtils.hasText(contestPublicId)) {
-            throw new BadRequestException("contest_public_id 不能为空");
-        }
-        Contest contest = contestMapper.selectOne(new LambdaQueryWrapper<Contest>()
-                .eq(Contest::getPublicId, contestPublicId));
-        if (contest == null) {
-            throw new NotFoundException("比赛不存在");
-        }
-        return contest;
-    }
-
-    private Long findUserIdByPublicId(String userPublicId) {
-        if (!StringUtils.hasText(userPublicId)) {
-            throw new BadRequestException("user_public_id 不能为空");
-        }
-        UserInfo user = userInfoMapper.selectOne(
-                new LambdaQueryWrapper<UserInfo>()
-                        .eq(UserInfo::getPublicId, userPublicId));
-        if (user == null) {
-            throw new NotFoundException("用户不存在");
-        }
-        return user.getId();
-    }
-
     private ClassItemVO toClassItemVO(ClassInfo classInfo) {
         ClassItemVO vo = new ClassItemVO();
-        vo.setClassPublicId(classInfo.getPublicId());
+        vo.setClassId(classInfo.getId());
         vo.setName(classInfo.getName());
         vo.setDescription(classInfo.getDescription() == null ? "" : classInfo.getDescription());
         vo.setIsPublic(Boolean.TRUE.equals(classInfo.getIsPublic()));
-
-        String creatorPublicId = "";
-        if (classInfo.getCreatedByUserId() != null) {
-            UserInfo creator = userInfoMapper.selectById(classInfo.getCreatedByUserId());
-            if (creator != null) {
-                creatorPublicId = creator.getPublicId();
-            }
-        }
-        vo.setCreatorPublicId(creatorPublicId);
+        vo.setCreatorId(classInfo.getCreatedByUserId());
         return vo;
     }
 

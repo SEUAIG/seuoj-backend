@@ -24,9 +24,6 @@ public class ClassInfo implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("public_id")
-    private String publicId;
-
     @TableField("name")
     private String name;
 

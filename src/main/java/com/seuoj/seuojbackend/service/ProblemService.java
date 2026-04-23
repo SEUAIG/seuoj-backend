@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
@@ -54,16 +53,19 @@ public class ProblemService {
     private final ProblemTagRelMapper problemTagRelMapper;
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
+    private final ProblemPidGenerator pidGenerator;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
                           ProblemTagRelMapper problemTagRelMapper,
-                          PermissionService permissionService, UserRoleService userRoleService) {
+                          PermissionService permissionService, UserRoleService userRoleService,
+                          ProblemPidGenerator pidGenerator) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
         this.problemTagRelMapper = problemTagRelMapper;
         this.permissionService = permissionService;
         this.userRoleService = userRoleService;
+        this.pidGenerator = pidGenerator;
     }
 
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
@@ -311,7 +313,7 @@ public class ProblemService {
         int availableId = nextProblemId != null ? nextProblemId : 1;
 
         NextProblemIdVO vo = new NextProblemIdVO();
-        vo.setNextPid("p" + availableId);
+        vo.setNextPid(pidGenerator.generate((long) availableId));
         return vo;
     }
 

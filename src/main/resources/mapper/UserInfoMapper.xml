@@ -4,15 +4,15 @@
 
     <resultMap id="UserPageItemMap" type="com.seuoj.seuojbackend.vo.common.UserPageItemVO">
         <result column="user_id" property="userId"/>
-        <result column="user_public_id" property="userPublicId"/>
         <result column="username" property="username"/>
+        <result column="nickname" property="nickname"/>
         <result column="email" property="email"/>
     </resultMap>
 
     <select id="selectUserPageBasic" resultMap="UserPageItemMap">
         SELECT ui.id AS user_id,
-               ui.public_id AS user_public_id,
                ui.username,
+               ui.nickname,
                ui.email
         FROM user_info ui
         WHERE ui.is_del = 0

@@ -65,19 +65,19 @@ public class ProblemSetController {
      * 题单详情
      */
     @AllowAnonymous
-    @GetMapping("/{problem_set_public_id}")
-    public Result<ProblemSetDetailVO> getProblemSetDetail(@PathVariable("problem_set_public_id") String problemSetPublicId) {
-        return Result.success(problemSetService.getProblemSetDetail(problemSetPublicId));
+    @GetMapping("/{problemSetId}")
+    public Result<ProblemSetDetailVO> getProblemSetDetail(@PathVariable("problemSetId") Long problemSetId) {
+        return Result.success(problemSetService.getProblemSetDetail(problemSetId));
     }
 
     /**
      * 更新题单基础信息
      */
     @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PutMapping("/{problem_set_public_id}")
-    public Result<Void> updateProblemSet(@PathVariable("problem_set_public_id") String problemSetPublicId,
+    @PutMapping("/{problemSetId}")
+    public Result<Void> updateProblemSet(@PathVariable("problemSetId") Long problemSetId,
                                          @Valid @RequestBody ProblemSetUpdateDTO dto) {
-        problemSetService.updateProblemSet(problemSetPublicId, dto);
+        problemSetService.updateProblemSet(problemSetId, dto);
         return Result.success();
     }
 
@@ -85,9 +85,9 @@ public class ProblemSetController {
      * 删除题单
      */
     @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @DeleteMapping("/{problem_set_public_id}")
-    public Result<Void> deleteProblemSet(@PathVariable("problem_set_public_id") String problemSetPublicId) {
-        problemSetService.deleteProblemSet(problemSetPublicId);
+    @DeleteMapping("/{problemSetId}")
+    public Result<Void> deleteProblemSet(@PathVariable("problemSetId") Long problemSetId) {
+        problemSetService.deleteProblemSet(problemSetId);
         return Result.success();
     }
 
@@ -95,8 +95,8 @@ public class ProblemSetController {
      * 全量覆盖题单题目列表
      */
     @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PostMapping("/{problem_set_id}/problem")
-    public Result<Void> replaceProblemSetProblems(@PathVariable("problem_set_id") String problemSetId,
+    @PostMapping("/{problemSetId}/problem")
+    public Result<Void> replaceProblemSetProblems(@PathVariable("problemSetId") Long problemSetId,
                                                   @Valid @RequestBody ProblemSetProblemEditDTO dto) {
         problemSetService.replaceProblemSetProblems(problemSetId, dto);
         return Result.success();

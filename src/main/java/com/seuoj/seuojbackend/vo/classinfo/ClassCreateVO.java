@@ -7,8 +7,8 @@ import lombok.Data;
 public class ClassCreateVO {
 
     /**
-     * 班级公开 ID
+     * 班级 ID
      */
-    @JsonProperty("class_public_id")
-    private String classPublicId;
+    @JsonProperty("class_id")
+    private Long classId;
 }

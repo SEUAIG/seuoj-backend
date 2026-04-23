@@ -167,26 +167,11 @@
     </select>
 
     <select id="selectNextAvailableNumericPid" resultType="java.lang.Integer">
-        SELECT candidate
-        FROM (
-            SELECT 1 AS candidate
-            UNION ALL
-            SELECT n.num + 1 AS candidate
-            FROM (
-                SELECT CAST(SUBSTRING(p.pid, 2) AS UNSIGNED) AS num
-                FROM problem p
-                WHERE p.pid REGEXP '^p[0-9]+$'
-            ) n
-        ) candidates
-        LEFT JOIN (
-            SELECT CAST(SUBSTRING(p.pid, 2) AS UNSIGNED) AS num
-            FROM problem p
-            WHERE p.pid REGEXP '^p[0-9]+$'
-        ) existing ON existing.num = candidates.candidate
-        WHERE existing.num IS NULL
-          AND candidates.candidate &gt; 0
-        ORDER BY candidates.candidate ASC
-        LIMIT 1
+        SELECT COALESCE(
+            MAX(CAST(SUBSTRING(p.pid, 2) AS UNSIGNED)), 0
+        ) + 1
+        FROM problem p
+        WHERE p.pid REGEXP '^P[0-9]{4}$'
     </select>
 
     <!-- 删除检查：题目是否存在有效提交 -->

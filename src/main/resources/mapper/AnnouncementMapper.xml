@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.seuoj.seuojbackend.mapper.AnnouncementMapper">
+
+    <select id="selectAnnouncementPage" resultType="com.seuoj.seuojbackend.vo.announcement.AnnouncementVO">
+        SELECT a.id               AS announcement_id,
+               a.title,
+               a.content,
+               a.is_pinned,
+               a.created_at,
+               a.updated_at,
+               u.id               AS created_by_user_id,
+               u.username          AS created_by_username,
+               u.nickname          AS created_by_nickname
+        FROM announcement a
+                 JOIN user_info u ON u.id = a.created_by_user_id AND u.is_del = 0
+        WHERE a.target_type = #{targetType}
+          AND a.target_id = #{targetId}
+          AND a.is_del = 0
+        ORDER BY a.is_pinned DESC, a.created_at DESC
+    </select>
+
+</mapper>
