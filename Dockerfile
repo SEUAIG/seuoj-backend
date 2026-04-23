@@ -12,7 +12,7 @@ RUN mvn dependency:go-offline -B && \
 
 # 2. 复制源码并进行打包（依赖层已缓存，-o 离线模式避免再次检查）
 COPY src ./src
-RUN mvn package -Dmaven.test.skip=true -o
+RUN mvn package -Dmaven.test.skip=true
 
 # --- 第二阶段：运行阶段 ---
 # 使用轻量级的 JRE 21 镜像
