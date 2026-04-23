@@ -5,8 +5,10 @@ import com.seuoj.seuojbackend.dto.user.UpdateProfileDTO;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.service.AuthService;
 import com.seuoj.seuojbackend.vo.user.UserMeVO;
+import com.seuoj.seuojbackend.vo.user.UserProfileVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,5 +32,10 @@ public class UserController {
     @PutMapping("/me/profile")
     public Result<UserMeVO> updateProfile(@Valid @RequestBody UpdateProfileDTO dto) {
         return Result.success(authService.updateProfile(AuthContexts.requiredUserId(), dto));
+    }
+
+    @GetMapping("/profile/{userId}")
+    public Result<UserProfileVO> getUserProfile(@PathVariable Long userId) {
+        return Result.success(authService.getUserProfile(AuthContexts.requiredUserId(), userId));
     }
 }

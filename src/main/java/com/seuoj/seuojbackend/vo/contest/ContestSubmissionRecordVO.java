@@ -21,6 +21,9 @@ public class ContestSubmissionRecordVO {
     @JsonProperty("submit_time")
     private LocalDateTime submitTime;
 
+    @JsonProperty("user_id")
+    private Long userId;
+
     private String username;
 
     private String nickname;

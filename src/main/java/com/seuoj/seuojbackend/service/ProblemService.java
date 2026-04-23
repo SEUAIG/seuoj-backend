@@ -245,7 +245,12 @@ public class ProblemService {
         }
 
         Long userId = AuthContexts.userIdOrNull();
-        permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ);
+        switch (query.sourceType()) {
+            case DIRECT -> permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ);
+            case CONTEST -> permissionService.assertProblemAccessViaContest(userId, problem.getId(), query.ownerId());
+            case PROBLEM_SET -> permissionService.assertProblemAccessViaProblemSet(userId, problem.getId(), query.ownerId());
+            case ASSIGNMENT -> permissionService.assertProblemAccessViaAssignment(userId, problem.getId(), query.ownerId());
+        }
 
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(query.pid());
         if (problemDetail == null) {

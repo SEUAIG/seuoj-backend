@@ -4,18 +4,27 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.entity.Assignment;
+import com.seuoj.seuojbackend.entity.AssignmentProblemRel;
 import com.seuoj.seuojbackend.entity.ClassInfo;
 import com.seuoj.seuojbackend.entity.Contest;
+import com.seuoj.seuojbackend.entity.ContestProblemRel;
 import com.seuoj.seuojbackend.entity.ContestRegisterRel;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemSet;
+import com.seuoj.seuojbackend.entity.ProblemSetProblemRel;
 import com.seuoj.seuojbackend.entity.ResourcePermission;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
-import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
+import com.seuoj.seuojbackend.exception.NotFoundException;
+import com.seuoj.seuojbackend.mapper.AssignmentMapper;
+import com.seuoj.seuojbackend.mapper.AssignmentProblemRelMapper;
+import org.springframework.dao.DuplicateKeyException;import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
+import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestRegisterRelMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
+import com.seuoj.seuojbackend.mapper.ProblemSetProblemRelMapper;
 import com.seuoj.seuojbackend.mapper.ResourcePermissionMapper;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,48 +37,65 @@ public class PermissionService {
     private final UserRoleService userRoleService;
     private final ProblemMapper problemMapper;
     private final ProblemSetMapper problemSetMapper;
+    private final ProblemSetProblemRelMapper problemSetProblemRelMapper;
     private final ClassInfoMapper classInfoMapper;
     private final ContestMapper contestMapper;
+    private final ContestProblemRelMapper contestProblemRelMapper;
     private final ContestRegisterRelMapper contestRegisterRelMapper;
+    private final AssignmentMapper assignmentMapper;
+    private final AssignmentProblemRelMapper assignmentProblemRelMapper;
 
     public PermissionService(ResourcePermissionMapper resourcePermissionMapper,
                              UserRoleService userRoleService,
                              ProblemMapper problemMapper,
                              ProblemSetMapper problemSetMapper,
+                             ProblemSetProblemRelMapper problemSetProblemRelMapper,
                              ClassInfoMapper classInfoMapper,
                              ContestMapper contestMapper,
-                             ContestRegisterRelMapper contestRegisterRelMapper) {
+                             ContestProblemRelMapper contestProblemRelMapper,
+                             ContestRegisterRelMapper contestRegisterRelMapper,
+                             AssignmentMapper assignmentMapper,
+                             AssignmentProblemRelMapper assignmentProblemRelMapper) {
         this.resourcePermissionMapper = resourcePermissionMapper;
         this.userRoleService = userRoleService;
         this.problemMapper = problemMapper;
         this.problemSetMapper = problemSetMapper;
+        this.problemSetProblemRelMapper = problemSetProblemRelMapper;
         this.classInfoMapper = classInfoMapper;
         this.contestMapper = contestMapper;
+        this.contestProblemRelMapper = contestProblemRelMapper;
         this.contestRegisterRelMapper = contestRegisterRelMapper;
+        this.assignmentMapper = assignmentMapper;
+        this.assignmentProblemRelMapper = assignmentProblemRelMapper;
     }
 
     /**
      * Permission resolution chain:
-     * 1. ADMIN/SUPER_ADMIN -> READ+WRITE all
-     * 2. Explicit grant in resource_permission (WRITE implies READ)
-     * 3. is_public == true && op == READ -> pass
+     * 1. is_public == true && op == READ -> pass (anonymous allowed)
+     * 2. ADMIN/SUPER_ADMIN -> READ+WRITE all
+     * 3. Explicit grant in resource_permission (WRITE implies READ)
      * 4. Inherited access (class membership -> assignment/contest)
      * 5. TEACHER role -> READ all + can create
      * 6. Deny
      */
     public boolean hasPermission(Long userId, ResourceType type, Long resourceId, PermissionOp op) {
+        // 1. Public resource + READ (anonymous allowed)
+        if (op == PermissionOp.READ && isResourcePublic(type, resourceId)) {
+            return true;
+        }
+
         if (userId == null) {
             return false;
         }
 
         List<String> roles = userRoleService.getRoleCodesByUserId(userId);
 
-        // 1. ADMIN/SUPER_ADMIN
+        // 2. ADMIN/SUPER_ADMIN
         if (roles.contains(RoleType.ADMIN.getCode()) || roles.contains(RoleType.SUPER_ADMIN.getCode())) {
             return true;
         }
 
-        // 2. Explicit grant
+        // 3. Explicit grant
         if (op == PermissionOp.WRITE) {
             if (resourcePermissionMapper.hasPermission(type.name(), resourceId, userId, PermissionOp.WRITE.name())) {
                 return true;
@@ -78,11 +104,6 @@ public class PermissionService {
             if (resourcePermissionMapper.hasAnyPermission(type.name(), resourceId, userId)) {
                 return true;
             }
-        }
-
-        // 3. Public resource + READ
-        if (op == PermissionOp.READ && isResourcePublic(type, resourceId)) {
-            return true;
         }
 
         // 4. Inherited access
@@ -139,7 +160,10 @@ public class PermissionService {
         perm.setUserId(targetUserId);
         perm.setPermission(op.name());
         perm.setGrantedBy(granterId);
-        resourcePermissionMapper.insert(perm);
+        try {
+            resourcePermissionMapper.insert(perm);
+        } catch (DuplicateKeyException ignored) {
+        }
     }
 
     public void revokePermission(Long revokerId, ResourceType type, Long resourceId,
@@ -213,5 +237,79 @@ public class PermissionService {
         }
         // After contest
         return isRegistered || isClassMember || Boolean.TRUE.equals(contest.getIsPublic());
+    }
+
+    public void assertProblemAccessViaAssignment(Long userId, Long problemId, Long assignmentId) {
+        if (userId != null && userRoleService.isTeacherOrAdmin(userId)) {
+            return;
+        }
+
+        Assignment assignment = assignmentMapper.selectById(assignmentId);
+        if (assignment == null) {
+            throw new NotFoundException("作业不存在");
+        }
+
+        if (!"PUBLISHED".equals(assignment.getStatus())) {
+            throw new ForbiddenException("无权操作");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (assignment.getVisibleFrom() != null && now.isBefore(assignment.getVisibleFrom())) {
+            throw new ForbiddenException("无权操作");
+        }
+        if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
+            throw new ForbiddenException("无权操作");
+        }
+
+        assertPermission(userId, ResourceType.CLASS, assignment.getClassId(), PermissionOp.READ);
+
+        Long count = assignmentProblemRelMapper.selectCount(
+                new LambdaQueryWrapper<AssignmentProblemRel>()
+                        .eq(AssignmentProblemRel::getAssignmentId, assignmentId)
+                        .eq(AssignmentProblemRel::getProblemId, problemId));
+        if (count == null || count == 0) {
+            throw new NotFoundException("题目不在该作业中");
+        }
+    }
+
+    public void assertProblemAccessViaContest(Long userId, Long problemId, Long contestId) {
+        if (userId != null && userRoleService.isTeacherOrAdmin(userId)) {
+            return;
+        }
+
+        Contest contest = contestMapper.selectById(contestId);
+        if (contest == null) {
+            throw new NotFoundException("比赛不存在");
+        }
+
+        assertPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.READ);
+
+        Long count = contestProblemRelMapper.selectCount(
+                new LambdaQueryWrapper<ContestProblemRel>()
+                        .eq(ContestProblemRel::getContestId, contestId)
+                        .eq(ContestProblemRel::getProblemId, problemId));
+        if (count == null || count == 0) {
+            throw new NotFoundException("题目不在该比赛中");
+        }
+    }
+
+    public void assertProblemAccessViaProblemSet(Long userId, Long problemId, Long problemSetId) {
+        if (userId != null && userRoleService.isTeacherOrAdmin(userId)) {
+            return;
+        }
+
+        ProblemSet problemSet = problemSetMapper.selectById(problemSetId);
+        if (problemSet == null) {
+            throw new NotFoundException("题单不存在");
+        }
+
+        assertPermission(userId, ResourceType.PROBLEM_SET, problemSetId, PermissionOp.READ);
+
+        Long count = problemSetProblemRelMapper.selectCount(
+                new LambdaQueryWrapper<ProblemSetProblemRel>()
+                        .eq(ProblemSetProblemRel::getProblemSetId, problemSetId)
+                        .eq(ProblemSetProblemRel::getProblemId, problemId));
+        if (count == null || count == 0) {
+            throw new NotFoundException("题目不在该题单中");
+        }
     }
 }

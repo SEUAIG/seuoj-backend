@@ -23,7 +23,11 @@ import com.seuoj.seuojbackend.vo.admin.BatchImportResultVO;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
 import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
 import com.seuoj.seuojbackend.vo.user.UserMeVO;
+import com.seuoj.seuojbackend.vo.user.UserProfileVO;
+import com.seuoj.seuojbackend.exception.ForbiddenException;
+import com.seuoj.seuojbackend.exception.NotFoundException;
 import java.security.SecureRandom;
+import java.util.Objects;
 import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
@@ -218,6 +222,22 @@ public class AuthService {
         profile.setNickname(user.getNickname());
         profile.setEmail(user.getEmail());
         return profile;
+    }
+
+    public UserProfileVO getUserProfile(Long currentUserId, Long targetUserId) {
+        if (!Objects.equals(currentUserId, targetUserId) && !userRoleService.isTeacherOrAdmin(currentUserId)) {
+            throw new ForbiddenException("无权查看该用户资料");
+        }
+        UserInfo user = userInfoMapper.selectById(targetUserId);
+        if (user == null) {
+            throw new NotFoundException("用户不存在");
+        }
+        UserProfileVO vo = new UserProfileVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setRole(userRoleService.getHighestRoleLabel(targetUserId));
+        return vo;
     }
 
     public UserMeVO updateProfile(Long userId, com.seuoj.seuojbackend.dto.user.UpdateProfileDTO dto) {

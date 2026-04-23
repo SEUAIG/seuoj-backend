@@ -76,6 +76,7 @@
         <result column="verdict" property="verdict"/>
         <result column="score" property="score"/>
         <result column="submit_time" property="submitTime"/>
+        <result column="user_id" property="userId"/>
         <result column="username" property="username"/>
         <result column="nickname" property="nickname"/>
         <association property="problem" javaType="com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO">
@@ -92,6 +93,7 @@
                s.verdict,
                s.score,
                s.submit_time,
+               u.id AS user_id,
                u.username,
                u.nickname,
                cpr.sort_order AS problem_sort_order,

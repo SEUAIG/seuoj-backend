@@ -10,6 +10,7 @@
                s.verdict,
                s.submit_time,
                s.finish_time,
+               u.id AS user_id,
                u.username,
                u.nickname
         FROM submission s
@@ -46,6 +47,7 @@
                s.verdict,
                s.submit_time,
                s.finish_time,
+               u.id AS user_id,
                u.username,
                u.nickname
         FROM submission s

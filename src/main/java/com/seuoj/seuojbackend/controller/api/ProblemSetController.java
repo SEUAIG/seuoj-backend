@@ -42,7 +42,7 @@ public class ProblemSetController {
     /**
      * 创建题单
      */
-    @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping
     public Result<ProblemSetCreateVO> createProblemSet(@Valid @RequestBody ProblemSetCreateDTO dto) {
         return Result.success(problemSetService.createProblemSet(dto));
@@ -73,7 +73,7 @@ public class ProblemSetController {
     /**
      * 更新题单基础信息
      */
-    @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/{problemSetId}")
     public Result<Void> updateProblemSet(@PathVariable("problemSetId") Long problemSetId,
                                          @Valid @RequestBody ProblemSetUpdateDTO dto) {
@@ -84,7 +84,7 @@ public class ProblemSetController {
     /**
      * 删除题单
      */
-    @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/{problemSetId}")
     public Result<Void> deleteProblemSet(@PathVariable("problemSetId") Long problemSetId) {
         problemSetService.deleteProblemSet(problemSetId);
@@ -94,7 +94,7 @@ public class ProblemSetController {
     /**
      * 全量覆盖题单题目列表
      */
-    @RequireRole({RoleType.STUDENT, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/{problemSetId}/problem")
     public Result<Void> replaceProblemSetProblems(@PathVariable("problemSetId") Long problemSetId,
                                                   @Valid @RequestBody ProblemSetProblemEditDTO dto) {

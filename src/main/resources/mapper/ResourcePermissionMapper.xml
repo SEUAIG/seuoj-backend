@@ -25,15 +25,9 @@
           AND is_del = 0
     </select>
 
+    <!-- assignment 表无 problem_set_id 列，当前 schema 不支持作业→题单继承访问 -->
     <select id="hasProblemSetAccessViaAssignment" resultType="boolean">
-        SELECT COUNT(1) > 0
-        FROM assignment a
-        INNER JOIN class_student_rel csr ON a.class_id = csr.class_id
-        WHERE a.problem_set_id = #{problemSetId}
-          AND csr.user_id = #{userId}
-          AND a.status = 'PUBLISHED'
-          AND a.is_del = 0
-          AND csr.is_del = 0
+        SELECT FALSE
     </select>
 
     <select id="hasContestAccessViaClass" resultType="boolean">

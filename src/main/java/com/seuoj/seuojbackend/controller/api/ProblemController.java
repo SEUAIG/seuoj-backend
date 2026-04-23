@@ -61,9 +61,10 @@ public class ProblemController {
     @GetMapping("/{pid}")
     public Result<ProblemDetailVO> getProblemDetail(@PathVariable String pid,
                                                     @RequestParam(value = "contest_id", required = false) Long contestId,
-                                                    @RequestParam(value = "problem_set_id", required = false) Long problemSetId) {
+                                                    @RequestParam(value = "problem_set_id", required = false) Long problemSetId,
+                                                    @RequestParam(value = "assignment_id", required = false) Long assignmentId) {
         return Result.success(problemService.getProblemDetail(
-                ProblemDetailQuery.fromRequest(pid, contestId, problemSetId)
+                ProblemDetailQuery.fromRequest(pid, contestId, problemSetId, assignmentId)
         ));
     }
 

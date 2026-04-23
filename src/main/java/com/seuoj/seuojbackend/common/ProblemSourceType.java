@@ -6,7 +6,8 @@ import java.util.Locale;
 public enum ProblemSourceType {
     DIRECT,
     CONTEST,
-    PROBLEM_SET;
+    PROBLEM_SET,
+    ASSIGNMENT;
 
     public static ProblemSourceType fromRequest(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {

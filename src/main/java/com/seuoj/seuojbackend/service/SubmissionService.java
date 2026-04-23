@@ -62,13 +62,15 @@ public class SubmissionService {
     private final CodeStorage codeStorage;
     private final UserInfoMapper userInfoMapper;
     private final UserRoleService userRoleService;
+    private final PermissionService permissionService;
     private final TransactionTemplate transactionTemplate;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
                              ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
                              JudgeClient judgeClient,
                              CodeStorage codeStorage, UserInfoMapper userInfoMapper,
-                             UserRoleService userRoleService, TransactionTemplate transactionTemplate) {
+                             UserRoleService userRoleService, PermissionService permissionService,
+                             TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
@@ -77,6 +79,7 @@ public class SubmissionService {
         this.codeStorage = codeStorage;
         this.userInfoMapper = userInfoMapper;
         this.userRoleService = userRoleService;
+        this.permissionService = permissionService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -94,10 +97,16 @@ public class SubmissionService {
         Long userId = userContext.getUserId();
 
         Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, dto.getPid())
-                .eq(Problem::getIsPublic, true));
+                .eq(Problem::getPid, dto.getPid()));
         if (problem == null) {
             throw new NotFoundException("题目不存在: " + dto.getPid());
+        }
+
+        if (!Boolean.TRUE.equals(problem.getIsPublic())) {
+            if (dto.getAssignmentId() == null) {
+                throw new NotFoundException("题目不存在: " + dto.getPid());
+            }
+            permissionService.assertProblemAccessViaAssignment(userId, problem.getId(), dto.getAssignmentId());
         }
 
         int codeBytes = dto.getCode() == null ? 0 : dto.getCode().getBytes(StandardCharsets.UTF_8).length;
@@ -323,8 +332,10 @@ public class SubmissionService {
             log.warn("代码文件缺失 submissionNo={}", submission.getSubmissionNo());
             vo.setCode(null);
         }
+        vo.setUserId(submission.getUserId());
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
+        vo.setNickname(user != null ? user.getNickname() : null);
         return vo;
     }
 

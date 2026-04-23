@@ -20,18 +20,19 @@ public record ProblemDetailQuery(String pid, ProblemSourceType sourceType, Long 
         }
     }
 
-    public static ProblemDetailQuery fromRequest(String pid, Long contestId, Long problemSetId) {
-        boolean hasContest = contestId != null;
-        boolean hasProblemSet = problemSetId != null;
-
-        if (hasContest && hasProblemSet) {
-            throw new BadRequestException("contest_id 和 problem_set_id 不能同时传");
+    public static ProblemDetailQuery fromRequest(String pid, Long contestId, Long problemSetId, Long assignmentId) {
+        int contextCount = (contestId != null ? 1 : 0) + (problemSetId != null ? 1 : 0) + (assignmentId != null ? 1 : 0);
+        if (contextCount > 1) {
+            throw new BadRequestException("contest_id、problem_set_id、assignment_id 不能同时传多个");
         }
-        if (!hasContest && !hasProblemSet) {
+        if (contextCount == 0) {
             return direct(pid);
         }
-        if (hasContest) {
+        if (contestId != null) {
             return new ProblemDetailQuery(pid, ProblemSourceType.CONTEST, contestId);
+        }
+        if (assignmentId != null) {
+            return new ProblemDetailQuery(pid, ProblemSourceType.ASSIGNMENT, assignmentId);
         }
         return new ProblemDetailQuery(pid, ProblemSourceType.PROBLEM_SET, problemSetId);
     }

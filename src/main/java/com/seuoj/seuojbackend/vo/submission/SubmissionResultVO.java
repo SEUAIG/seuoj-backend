@@ -70,7 +70,17 @@ public class SubmissionResultVO {
     private String code;
 
     /**
+     * 提交者用户ID
+     */
+    private Long userId;
+
+    /**
      * 提交者用户名
      */
     private String username;
+
+    /**
+     * 提交者昵称
+     */
+    private String nickname;
 }
