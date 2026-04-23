@@ -289,6 +289,14 @@ public class AuthService {
                     normalizedEmail = username.toLowerCase() + "@seu.edu.cn";
                 }
 
+                // 检查用户名是否已存在 → 跳过（账号复用）
+                if (userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                        .eq(UserInfo::getUsername, username)) != null) {
+                    result.getSkipped().add(new BatchImportResultVO.SkipDetail(
+                            i + 1, username, normalizedEmail, "用户名已存在，跳过"));
+                    continue;
+                }
+
                 // 检查邮箱格式
                 if (!normalizedEmail.matches("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
                     result.getFailures().add(new BatchImportResultVO.FailDetail(
@@ -296,11 +304,11 @@ public class AuthService {
                     continue;
                 }
 
-                // 检查邮箱是否已存在
+                // 检查邮箱是否已存在 → 跳过
                 if (userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
                         .eq(UserInfo::getEmail, normalizedEmail)) != null) {
-                    result.getFailures().add(new BatchImportResultVO.FailDetail(
-                            i + 1, username, normalizedEmail, "邮箱已被注册"));
+                    result.getSkipped().add(new BatchImportResultVO.SkipDetail(
+                            i + 1, username, normalizedEmail, "邮箱已被注册，跳过"));
                     continue;
                 }
 
@@ -318,8 +326,8 @@ public class AuthService {
                 try {
                     userInfoMapper.insert(newUser);
                 } catch (DuplicateKeyException e) {
-                    result.getFailures().add(new BatchImportResultVO.FailDetail(
-                            i + 1, username, normalizedEmail, "邮箱或用户名已存在"));
+                    result.getSkipped().add(new BatchImportResultVO.SkipDetail(
+                            i + 1, username, normalizedEmail, "用户名或邮箱已存在，跳过"));
                     continue;
                 }
 
@@ -337,6 +345,8 @@ public class AuthService {
                     }
                 }
 
+                result.getSuccesses().add(new BatchImportResultVO.SuccessDetail(
+                        i + 1, username, normalizedEmail, rawPassword));
                 successCount++;
             } catch (Exception e) {
                 result.getFailures().add(new BatchImportResultVO.FailDetail(
@@ -345,7 +355,8 @@ public class AuthService {
         }
 
         result.setSuccessCount(successCount);
-        result.setFailCount(result.getTotalCount() - successCount);
+        result.setSkippedCount(result.getSkipped().size());
+        result.setFailCount(result.getTotalCount() - successCount - result.getSkippedCount());
         return result;
     }
 
