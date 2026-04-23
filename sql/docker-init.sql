@@ -39,7 +39,6 @@ DROP TABLE IF EXISTS `class_info`;
 CREATE TABLE `class_info`
 (
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`       char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '班级公开ID（UUID）',
     `name`            varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '班级名称',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级描述',
     `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
@@ -48,7 +47,6 @@ CREATE TABLE `class_info`
     `updated_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`          tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
     INDEX `idx_class_teacher` (`teacher_user_id` ASC) USING BTREE,
     CONSTRAINT `fk_class_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB
@@ -114,7 +112,6 @@ DROP TABLE IF EXISTS `contest`;
 CREATE TABLE `contest`
 (
     `id`          bigint                                                                    NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`   char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                 NOT NULL COMMENT '比赛公开ID（UUID）',
     `title`       varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NOT NULL COMMENT '比赛标题',
     `subtitle`    varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci             NULL     DEFAULT NULL COMMENT '比赛副标题',
     `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                     NULL COMMENT '比赛描述',
@@ -125,8 +122,7 @@ CREATE TABLE `contest`
     `created_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  timestamp                                                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`      tinyint(1)                                                                NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
-    PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE
+    PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '比赛表'
@@ -272,7 +268,6 @@ DROP TABLE IF EXISTS `problem_set`;
 CREATE TABLE `problem_set`
 (
     `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `public_id`     char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '题单公开ID（UUID）',
     `title`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题单标题',
     `description`   text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '题单描述',
     `owner_user_id` bigint                                                        NOT NULL COMMENT '题单所属用户ID',
@@ -281,7 +276,6 @@ CREATE TABLE `problem_set`
     `updated_at`    timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`        tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE,
     INDEX `idx_problem_set_owner` (`owner_user_id` ASC) USING BTREE
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
@@ -413,9 +407,6 @@ CREATE TABLE `submission`
     `language`      varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `status`        varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '生命周期状态：Pending/Running/Finished/Failed',
     `verdict`       varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL     DEFAULT NULL COMMENT '最终判定状态：Accepted/WA/TLE/...',
-    `result_detail` json                                                         NULL COMMENT '评测详细信息',
-    `subtasks`      json                                                         NULL COMMENT '子任务信息',
-    `error_detail`  text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci        NULL COMMENT '编译/判题错误详情',
     `score`         int                                                          NULL     DEFAULT NULL COMMENT '得分',
     `submit_time`   datetime                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `finish_time`   datetime                                                     NULL     DEFAULT NULL COMMENT '评测完成时间',
@@ -434,6 +425,26 @@ CREATE TABLE `submission`
   AUTO_INCREMENT = 5
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '用户提交与评测结果表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for submission_detail
+-- ----------------------------
+DROP TABLE IF EXISTS `submission_detail`;
+CREATE TABLE `submission_detail`
+(
+    `submission_id` bigint                                                 NOT NULL COMMENT '提交ID，与submission表1:1关系',
+    `result_detail` json                                                   NULL COMMENT '评测详细信息（每个测试点结果）',
+    `subtasks`      json                                                   NULL COMMENT '子任务信息',
+    `error_detail`  text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '编译/判题错误详情',
+    `created_at`    timestamp                                              NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    timestamp                                              NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`submission_id`) USING BTREE,
+    CONSTRAINT `fk_submission_detail_submission` FOREIGN KEY (`submission_id`)
+        REFERENCES `submission` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '提交评测详情表（大字段，与submission 1:1）'
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
@@ -484,7 +495,6 @@ DROP TABLE IF EXISTS `user_info`;
 CREATE TABLE `user_info`
 (
     `id`         bigint                                                        NOT NULL AUTO_INCREMENT,
-    `public_id`  char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci     NOT NULL COMMENT '用户公开ID（UUID）',
     `username`   varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '登录名',
     `email`      varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邮箱',
     `password`   varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '加密密码',
@@ -492,8 +502,7 @@ CREATE TABLE `user_info`
     `updated_at` timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `is_del`     tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_email_del` (`email` ASC, `is_del` ASC) USING BTREE,
-    UNIQUE INDEX `uk_public_id` (`public_id` ASC) USING BTREE
+    UNIQUE INDEX `uk_email_del` (`email` ASC, `is_del` ASC) USING BTREE
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 2
   CHARACTER SET = utf8mb4
@@ -549,27 +558,27 @@ SET FOREIGN_KEY_CHECKS = 1;
 SET FOREIGN_KEY_CHECKS = 0;
 
 INSERT INTO `problem` (id, pid, title, total_submit, total_accept, is_public)
-VALUES (1, 'p01', 'a+b', 0, 0, 1),
-       (2, 'p02', '数组求和', 0, 0, 1),
-       (3, 'p03', '最大子数组和', 0, 0, 1),
-       (4, 'p04', '两数之和', 0, 0, 1),
-       (5, 'p05', '二分查找', 0, 0, 1),
-       (6, 'p06', '合并区间', 0, 0, 1),
-       (7, 'p07', '前K大', 0, 0, 1),
-       (8, 'p08', '迷宫最短路', 0, 0, 1),
-       (9, 'p09', '树的深度优先遍历', 0, 0, 1),
-       (10, 'p10', '迪杰斯特拉', 0, 0, 1),
-       (11, 'p11', 'Floyd最短路', 0, 0, 1),
-       (12, 'p12', '最长公共子序列', 0, 0, 1),
-       (13, 'p13', '01背包', 0, 0, 1),
-       (14, 'p14', '线段树', 0, 0, 1),
-       (15, 'p15', '树状数组', 0, 0, 1),
-       (16, 'p16', '并查集', 0, 0, 1),
-       (17, 'p17', '拓扑排序', 0, 0, 1),
-       (18, 'p18', '强连通分量', 0, 0, 1),
-       (19, 'p19', '最短路径', 0, 0, 1),
-       (20, 'p20', '字符串匹配', 0, 0, 1),
-       (21, 'p21', '回文判断', 0, 0, 1);
+VALUES (1, 'P0001', 'a+b', 0, 0, 1),
+       (2, 'P0002', '数组求和', 0, 0, 1),
+       (3, 'P0003', '最大子数组和', 0, 0, 1),
+       (4, 'P0004', '两数之和', 0, 0, 1),
+       (5, 'P0005', '二分查找', 0, 0, 1),
+       (6, 'P0006', '合并区间', 0, 0, 1),
+       (7, 'P0007', '前K大', 0, 0, 1),
+       (8, 'P0008', '迷宫最短路', 0, 0, 1),
+       (9, 'P0009', '树的深度优先遍历', 0, 0, 1),
+       (10, 'P0010', '迪杰斯特拉', 0, 0, 1),
+       (11, 'P0011', 'Floyd最短路', 0, 0, 1),
+       (12, 'P0012', '最长公共子序列', 0, 0, 1),
+       (13, 'P0013', '01背包', 0, 0, 1),
+       (14, 'P0014', '线段树', 0, 0, 1),
+       (15, 'P0015', '树状数组', 0, 0, 1),
+       (16, 'P0016', '并查集', 0, 0, 1),
+       (17, 'P0017', '拓扑排序', 0, 0, 1),
+       (18, 'P0018', '强连通分量', 0, 0, 1),
+       (19, 'P0019', '最短路径', 0, 0, 1),
+       (20, 'P0020', '字符串匹配', 0, 0, 1),
+       (21, 'P0021', '回文判断', 0, 0, 1);
 
 INSERT INTO `tag_group` (id, type, name, created_at, updated_at, is_del)
 VALUES (1, 'algorithm', NULL, NOW(), NOW(), 0),
@@ -651,10 +660,10 @@ VALUES (1, 1, 1),
        (41, 21, 1),
        (42, 21, 4);
 
-INSERT INTO `user_info` (id, public_id, username, email, password)
-VALUES (1, '123', '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.'),
-       (2, '00000000-0000-0000-0000-000000000002', 'test', 'test@test.com', '$2b$12$ieCFljnNZGJRUNhio1N/s.U8/8R35p74FXKIv/s/1G3pXuEMa1KrK'),
-       (3, '00000000-0000-0000-0000-000000000003', 'testu', 'testu@test.com', '$2a$10$LSfRC3/lPblawhSjqFUbdOq/kh5zAZGJe5Dwlofs/e8ydUlozesyu');
+INSERT INTO `user_info` (id, username, email, password)
+VALUES (1, '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.'),
+       (2, 'test', 'test@test.com', '$2b$12$ieCFljnNZGJRUNhio1N/s.U8/8R35p74FXKIv/s/1G3pXuEMa1KrK'),
+       (3, 'testu', 'testu@test.com', '$2a$10$LSfRC3/lPblawhSjqFUbdOq/kh5zAZGJe5Dwlofs/e8ydUlozesyu');
 
 INSERT INTO `user_role` (id, role_code, role_name, is_del)
 VALUES (1, 'USER', 'USER', 0),
@@ -673,11 +682,10 @@ VALUES (1, 1, 1, 0),
        (7, 3, 4, 0);
 
 INSERT INTO `contest` (
-    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
+    `id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
 )
 VALUES (
            1,
-           '11111111-1111-1111-1111-111111111111',
            '春季训练赛',
            '热身赛',
            '用于集成测试的最小化预置比赛',
@@ -688,11 +696,11 @@ VALUES (
            0
        );
 
-INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
-VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 3, 0);
+INSERT INTO `class_info` (`id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
+VALUES (1, '班级一', '用于测试的最小化预置班级', 1, 3, 0);
 
-INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
-VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
+INSERT INTO `problem_set` (`id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
+VALUES (1, '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
 
 INSERT INTO `contest_problem_rel` (`id`, `contest_id`, `problem_id`, `sort_order`, `is_del`)
 VALUES (1, 1, 1, 1, 0),

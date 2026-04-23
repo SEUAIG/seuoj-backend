@@ -1,27 +1,27 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 INSERT INTO `problem` (id, pid, title, total_submit, total_accept, is_public)
-VALUES (1, 'p01', 'a+b', 0, 0, 1),
-       (2, 'p02', '数组求和', 0, 0, 1),
-       (3, 'p03', '最大子数组和', 0, 0, 1),
-       (4, 'p04', '两数之和', 0, 0, 1),
-       (5, 'p05', '二分查找', 0, 0, 1),
-       (6, 'p06', '合并区间', 0, 0, 1),
-       (7, 'p07', '前K大', 0, 0, 1),
-       (8, 'p08', '迷宫最短路', 0, 0, 1),
-       (9, 'p09', '树的深度优先遍历', 0, 0, 1),
-       (10, 'p10', '迪杰斯特拉', 0, 0, 1),
-       (11, 'p11', 'Floyd最短路', 0, 0, 1),
-       (12, 'p12', '最长公共子序列', 0, 0, 1),
-       (13, 'p13', '01背包', 0, 0, 1),
-       (14, 'p14', '线段树', 0, 0, 1),
-       (15, 'p15', '树状数组', 0, 0, 1),
-       (16, 'p16', '并查集', 0, 0, 1),
-       (17, 'p17', '拓扑排序', 0, 0, 1),
-       (18, 'p18', '强连通分量', 0, 0, 1),
-       (19, 'p19', '最短路径', 0, 0, 1),
-       (20, 'p20', '字符串匹配', 0, 0, 1),
-       (21, 'p21', '回文判断', 0, 0, 1);
+VALUES (1, 'P0001', 'a+b', 0, 0, 1),
+       (2, 'P0002', '数组求和', 0, 0, 1),
+       (3, 'P0003', '最大子数组和', 0, 0, 1),
+       (4, 'P0004', '两数之和', 0, 0, 1),
+       (5, 'P0005', '二分查找', 0, 0, 1),
+       (6, 'P0006', '合并区间', 0, 0, 1),
+       (7, 'P0007', '前K大', 0, 0, 1),
+       (8, 'P0008', '迷宫最短路', 0, 0, 1),
+       (9, 'P0009', '树的深度优先遍历', 0, 0, 1),
+       (10, 'P0010', '迪杰斯特拉', 0, 0, 1),
+       (11, 'P0011', 'Floyd最短路', 0, 0, 1),
+       (12, 'P0012', '最长公共子序列', 0, 0, 1),
+       (13, 'P0013', '01背包', 0, 0, 1),
+       (14, 'P0014', '线段树', 0, 0, 1),
+       (15, 'P0015', '树状数组', 0, 0, 1),
+       (16, 'P0016', '并查集', 0, 0, 1),
+       (17, 'P0017', '拓扑排序', 0, 0, 1),
+       (18, 'P0018', '强连通分量', 0, 0, 1),
+       (19, 'P0019', '最短路径', 0, 0, 1),
+       (20, 'P0020', '字符串匹配', 0, 0, 1),
+       (21, 'P0021', '回文判断', 0, 0, 1);
 
 INSERT INTO `tag_group` (id, type, name, created_at, updated_at, is_del)
 VALUES (1, 'algorithm', NULL, NOW(), NOW(), 0),
@@ -103,10 +103,10 @@ VALUES (1, 1, 1),
        (41, 21, 1),
        (42, 21, 4);
 
-INSERT INTO `user_info` (id, public_id, username, email, password)
-VALUES (1, '123', '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.'),
-       (2, '00000000-0000-0000-0000-000000000002', 'test', 'test@test.com', '$2b$12$ieCFljnNZGJRUNhio1N/s.U8/8R35p74FXKIv/s/1G3pXuEMa1KrK'),
-       (3, '00000000-0000-0000-0000-000000000003', 'testu', 'testu@test.com', '$2a$10$LSfRC3/lPblawhSjqFUbdOq/kh5zAZGJe5Dwlofs/e8ydUlozesyu');
+INSERT INTO `user_info` (id, username, email, password)
+VALUES (1, '123', '1234567891@qq.com', '$2a$10$JOD0yzajuN.zC5a2mUaw6uq05DHOeDka9VFM4UWj4xodHAtlvE1O.'),
+       (2, 'test', 'test@test.com', '$2b$12$ieCFljnNZGJRUNhio1N/s.U8/8R35p74FXKIv/s/1G3pXuEMa1KrK'),
+       (3, 'testu', 'testu@test.com', '$2a$10$LSfRC3/lPblawhSjqFUbdOq/kh5zAZGJe5Dwlofs/e8ydUlozesyu');
 
 INSERT INTO `user_role` (id, role_code, role_name, is_del)
 VALUES (1, 'USER', 'USER', 0),
@@ -125,11 +125,10 @@ VALUES (1, 1, 1, 0),
        (7, 3, 4, 0);
 
 INSERT INTO `contest` (
-    `id`, `public_id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
+    `id`, `title`, `subtitle`, `description`, `start_time`, `end_time`, `rule_type`, `is_public`, `is_del`
 )
 VALUES (
     1,
-    '11111111-1111-1111-1111-111111111111',
     '春季训练赛',
     '热身赛',
     '用于集成测试的最小化预置比赛',
@@ -140,11 +139,11 @@ VALUES (
     0
 );
 
-INSERT INTO `class_info` (`id`, `public_id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
-VALUES (1, '22222222-2222-2222-2222-222222222222', '班级一', '用于测试的最小化预置班级', 1, 3, 0);
+INSERT INTO `class_info` (`id`, `name`, `description`, `is_public`, `teacher_user_id`, `is_del`)
+VALUES (1, '班级一', '用于测试的最小化预置班级', 1, 3, 0);
 
-INSERT INTO `problem_set` (`id`, `public_id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
-VALUES (1, '33333333-3333-3333-3333-333333333333', '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
+INSERT INTO `problem_set` (`id`, `title`, `description`, `owner_user_id`, `is_public`, `is_del`)
+VALUES (1, '基础题单', '用于测试的最小化预置题单', 1, 1, 0);
 
 INSERT INTO `contest_problem_rel` (`id`, `contest_id`, `problem_id`, `sort_order`, `is_del`)
 VALUES (1, 1, 1, 1, 0),
