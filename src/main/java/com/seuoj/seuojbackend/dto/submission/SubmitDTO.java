@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.dto.submission;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -22,4 +23,7 @@ public class SubmitDTO {
     @NotBlank(message = "代码不能为空")
     @Size(max = 65535, message = "代码长度不能超过65535字符")
     private String code;
+
+    @JsonProperty("assignment_id")
+    private Long assignmentId;
 }

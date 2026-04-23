@@ -22,6 +22,9 @@
         <if test="verdict != null and verdict != ''">
           AND s.verdict = #{verdict}
         </if>
+        <if test="assignmentId != null">
+          AND s.assignment_id = #{assignmentId}
+        </if>
         ORDER BY s.submit_time DESC, s.id DESC
     </select>
 

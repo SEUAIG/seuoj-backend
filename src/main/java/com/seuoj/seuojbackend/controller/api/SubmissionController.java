@@ -45,7 +45,8 @@ public class SubmissionController {
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(value = "user_id", required = false) Long userId,
-            @RequestParam(value = "verdict", required = false) String verdict) {
-        return Result.success(submissionService.listSubmissions(current, size, userId, verdict));
+            @RequestParam(value = "verdict", required = false) String verdict,
+            @RequestParam(value = "assignment_id", required = false) Long assignmentId) {
+        return Result.success(submissionService.listSubmissions(current, size, userId, verdict, assignmentId));
     }
 }

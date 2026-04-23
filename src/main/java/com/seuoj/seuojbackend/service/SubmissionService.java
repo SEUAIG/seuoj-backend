@@ -9,6 +9,7 @@ import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
+import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.SubmissionDetail;
@@ -21,6 +22,7 @@ import com.seuoj.seuojbackend.exception.InternalServerException;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
+import com.seuoj.seuojbackend.mapper.AssignmentMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
@@ -55,6 +57,7 @@ public class SubmissionService {
     private final SubmissionMapper submissionMapper;
     private final SubmissionDetailMapper submissionDetailMapper;
     private final ProblemMapper problemMapper;
+    private final AssignmentMapper assignmentMapper;
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
     private final UserInfoMapper userInfoMapper;
@@ -62,12 +65,14 @@ public class SubmissionService {
     private final TransactionTemplate transactionTemplate;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
-                             ProblemMapper problemMapper, JudgeClient judgeClient,
+                             ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
+                             JudgeClient judgeClient,
                              CodeStorage codeStorage, UserInfoMapper userInfoMapper,
                              UserRoleService userRoleService, TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
+        this.assignmentMapper = assignmentMapper;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
         this.userInfoMapper = userInfoMapper;
@@ -103,6 +108,24 @@ public class SubmissionService {
             throw new BadRequestException("提交代码过长，请修改后重试");
         }
 
+        Long assignmentId = dto.getAssignmentId();
+        if (assignmentId != null) {
+            Assignment assignment = assignmentMapper.selectById(assignmentId);
+            if (assignment == null) {
+                throw new NotFoundException("作业不存在");
+            }
+            if (!"PUBLISHED".equals(assignment.getStatus())) {
+                throw new BadRequestException("作业未发布，不可提交");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (assignment.getVisibleFrom() != null && now.isBefore(assignment.getVisibleFrom())) {
+                throw new BadRequestException("作业尚未开放");
+            }
+            if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
+                throw new BadRequestException("作业已结束");
+            }
+        }
+
         // 数据库操作（事务完成）
         Submission submission = submitInTransaction(dto, userId, problem.getId());
         if (submission == null) {
@@ -128,6 +151,7 @@ public class SubmissionService {
             submission.setUserId(userId);
             submission.setProblemId(problemId);
             submission.setLanguage(dto.getLanguage());
+            submission.setAssignmentId(dto.getAssignmentId());
             submission.setStatus(SubmissionStatus.PENDING.getStatus());
             submission.setSubmitTime(LocalDateTime.now());
             submissionMapper.insert(submission);
@@ -219,7 +243,7 @@ public class SubmissionService {
      * @param size 每页条数
      * @return 提交记录分页
      */
-    public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict) {
+    public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict, Long assignmentId) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
         }
@@ -229,7 +253,7 @@ public class SubmissionService {
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
-                page, userId, verdict);
+                page, userId, verdict, assignmentId);
 
         SubmissionPageVO result = new SubmissionPageVO();
         result.setCurrent(pageResult.getCurrent());

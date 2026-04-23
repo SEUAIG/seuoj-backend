@@ -23,7 +23,8 @@ public interface SubmissionMapper extends BaseMapper<Submission> {
      */
     IPage<SubmissionListItemVO> selectSubmissionPage(Page<?> page,
                                                      @Param("userId") Long userId,
-                                                     @Param("verdict") String verdict);
+                                                     @Param("verdict") String verdict,
+                                                     @Param("assignmentId") Long assignmentId);
 
     List<HeatmapDayVO> selectUserHeatmapDays(@Param("userId") Long userId, @Param("year") Integer year);
 }

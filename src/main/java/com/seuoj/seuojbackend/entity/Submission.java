@@ -52,6 +52,9 @@ public class Submission implements Serializable {
     @TableField("language")
     private String language;
 
+    @TableField("assignment_id")
+    private Long assignmentId;
+
     /**
      * 提交流程状态
      */
