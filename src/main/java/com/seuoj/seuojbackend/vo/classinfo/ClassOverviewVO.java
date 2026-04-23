@@ -29,6 +29,9 @@ public class ClassOverviewVO {
 
         @JsonProperty("ac_count")
         private Integer acCount;
+
+        @JsonProperty("submit_count")
+        private Integer submitCount;
     }
 
     @Data

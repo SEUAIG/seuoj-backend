@@ -347,11 +347,24 @@ public class AssignmentService {
                                                          Integer current, Integer size) {
         Assignment assignment = getAssignmentDetail(classId, assignmentId);
 
-        Page<SubmissionListItemVO> page = new Page<>(current, size);
-        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
-                page, null, null, assignment.getId());
+        List<AssignmentProblemRel> rels = assignmentProblemRelMapper.selectList(
+                new LambdaQueryWrapper<AssignmentProblemRel>()
+                        .eq(AssignmentProblemRel::getAssignmentId, assignment.getId()));
+        List<Long> problemIds = rels.stream().map(AssignmentProblemRel::getProblemId).toList();
 
         SubmissionPageVO result = new SubmissionPageVO();
+        if (problemIds.isEmpty()) {
+            result.setCurrent(current);
+            result.setSize(size);
+            result.setTotal(0);
+            result.setRecords(Collections.emptyList());
+            return result;
+        }
+
+        Page<SubmissionListItemVO> page = new Page<>(current, size);
+        IPage<SubmissionListItemVO> pageResult = submissionMapper.selectAssignmentSubmissionPage(
+                page, problemIds, classId);
+
         result.setCurrent(pageResult.getCurrent());
         result.setSize(pageResult.getSize());
         result.setTotal(pageResult.getTotal());

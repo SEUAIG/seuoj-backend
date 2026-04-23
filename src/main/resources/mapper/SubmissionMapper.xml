@@ -25,6 +25,39 @@
         <if test="assignmentId != null">
           AND s.assignment_id = #{assignmentId}
         </if>
+        <if test="pid != null and pid != ''">
+          AND p.pid = #{pid}
+        </if>
+        <if test="language != null and language != ''">
+          AND s.language = #{language}
+        </if>
+        <if test="username != null and username != ''">
+          AND u.username LIKE CONCAT('%', #{username}, '%')
+        </if>
+        ORDER BY s.submit_time DESC, s.id DESC
+    </select>
+
+    <select id="selectAssignmentSubmissionPage"
+            resultType="com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO">
+        SELECT s.submission_no,
+               p.pid,
+               s.language,
+               s.status,
+               s.verdict,
+               s.submit_time,
+               s.finish_time,
+               u.username,
+               u.nickname
+        FROM submission s
+                 LEFT JOIN problem p ON s.problem_id = p.id AND p.is_del = 0
+                 LEFT JOIN user_info u ON s.user_id = u.id AND u.is_del = 0
+        WHERE s.is_del = 0
+          AND s.problem_id IN
+            <foreach collection="problemIds" item="pid" open="(" separator="," close=")">
+                #{pid}
+            </foreach>
+          AND s.user_id IN (SELECT user_id FROM class_student_rel
+                            WHERE class_id = #{classId} AND is_del = 0)
         ORDER BY s.submit_time DESC, s.id DESC
     </select>
 

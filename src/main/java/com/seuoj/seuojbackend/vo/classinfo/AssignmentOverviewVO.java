@@ -58,6 +58,9 @@ public class AssignmentOverviewVO {
         @JsonProperty("ac_count")
         private Integer acCount;
 
+        @JsonProperty("submit_count")
+        private Integer submitCount;
+
         @JsonProperty("problem_count")
         private Integer problemCount;
 

@@ -91,7 +91,8 @@
         SELECT u.id AS user_id,
                u.username,
                u.nickname,
-               COUNT(DISTINCT sub.problem_id) AS ac_count
+               COUNT(DISTINCT sub_ac.problem_id) AS ac_count,
+               COALESCE(sub_total.cnt, 0)        AS submit_count
         FROM class_student_rel csr
                  JOIN user_info u ON u.id = csr.user_id AND u.is_del = 0
                  LEFT JOIN (
@@ -108,10 +109,25 @@
                   AND a.is_del = 0
                   AND a.status != 'DRAFT'
             )
-        ) sub ON sub.user_id = csr.user_id
+        ) sub_ac ON sub_ac.user_id = csr.user_id
+                 LEFT JOIN (
+            SELECT s2.user_id, COUNT(*) AS cnt
+            FROM submission s2
+            WHERE s2.is_del = 0
+              AND s2.problem_id IN (
+                SELECT apr2.problem_id
+                FROM assignment a2
+                         JOIN assignment_problem_rel apr2
+                              ON apr2.assignment_id = a2.id AND apr2.is_del = 0
+                WHERE a2.class_id = #{classId}
+                  AND a2.is_del = 0
+                  AND a2.status != 'DRAFT'
+            )
+            GROUP BY s2.user_id
+        ) sub_total ON sub_total.user_id = csr.user_id
         WHERE csr.class_id = #{classId}
           AND csr.is_del = 0
-        GROUP BY u.id
+        GROUP BY u.id, sub_total.cnt
         ORDER BY ac_count DESC
     </select>
 
@@ -173,7 +189,7 @@
             resultType="com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO$ProblemStatItem">
         SELECT p.pid,
                p.title,
-               apr.weight,
+               ANY_VALUE(apr.weight) AS weight,
                COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.user_id END) AS ac_count,
                COUNT(DISTINCT s.user_id)                                            AS attempt_count,
                ROUND(
@@ -205,6 +221,7 @@
                u.username,
                u.nickname,
                COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.problem_id END)        AS ac_count,
+               COUNT(s.id)                                                                    AS submit_count,
                (SELECT COUNT(*)
                 FROM assignment_problem_rel apr
                 WHERE apr.assignment_id = #{assignmentId}

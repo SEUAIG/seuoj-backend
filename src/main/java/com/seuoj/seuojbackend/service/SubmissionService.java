@@ -228,7 +228,7 @@ public class SubmissionService {
         }
 
         // 校验记录是否属于自己
-        if (!Objects.equals(submission.getUserId(), userId) && !isAdmin(userId)) {
+        if (!Objects.equals(submission.getUserId(), userId) && !isTeacherOrAdmin(userId)) {
             throw new ForbiddenException("无权查看他人提交记录");
         }
 
@@ -243,7 +243,8 @@ public class SubmissionService {
      * @param size 每页条数
      * @return 提交记录分页
      */
-    public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict, Long assignmentId) {
+    public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict,
+                                              Long assignmentId, String pid, String language, String username) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
         }
@@ -251,9 +252,20 @@ public class SubmissionService {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
 
+        Long effectiveUserId = userId;
+        if (effectiveUserId == null) {
+            var userContext = UserContextHolder.get();
+            if (userContext != null && userContext.getUserId() != null) {
+                Long currentUserId = userContext.getUserId();
+                if (!userRoleService.isTeacherOrAdmin(currentUserId)) {
+                    effectiveUserId = currentUserId;
+                }
+            }
+        }
+
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
-                page, userId, verdict, assignmentId);
+                page, effectiveUserId, verdict, assignmentId, pid, language, username);
 
         SubmissionPageVO result = new SubmissionPageVO();
         result.setCurrent(pageResult.getCurrent());
@@ -305,7 +317,12 @@ public class SubmissionService {
             vo.setErrorDetail(detail.getErrorDetail());
         }
 
-        vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
+        try {
+            vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
+        } catch (CodeStorageException e) {
+            log.warn("代码文件缺失 submissionNo={}", submission.getSubmissionNo());
+            vo.setCode(null);
+        }
         UserInfo user = userInfoMapper.selectById(submission.getUserId());
         vo.setUsername(user != null ? user.getUsername() : null);
         return vo;
@@ -313,5 +330,9 @@ public class SubmissionService {
 
     private boolean isAdmin(Long userId) {
         return userRoleService != null && userRoleService.isAdmin(userId);
+    }
+
+    private boolean isTeacherOrAdmin(Long userId) {
+        return userRoleService != null && userRoleService.isTeacherOrAdmin(userId);
     }
 }
