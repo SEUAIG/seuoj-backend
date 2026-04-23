@@ -52,8 +52,8 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
                 .getContentAsString();
 
         List<String> pids = extractPids(responseBody);
-        assertThat(pids).contains("p-public");
-        assertThat(pids).doesNotContain("p-private");
+        assertThat(pids).contains("PPUBLIC");
+        assertThat(pids).doesNotContain("PPRIVATE");
     }
 
     /**
@@ -72,7 +72,7 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
                 .getContentAsString();
 
         List<String> pids = extractPids(responseBody);
-        assertThat(pids).contains("p-public", "p-private");
+        assertThat(pids).contains("PPUBLIC", "PPRIVATE");
     }
 
     /**
@@ -95,7 +95,7 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.pid").value("p-private"))
+                .andExpect(jsonPath("$.data.pid").value("PPRIVATE"))
                 .andExpect(jsonPath("$.data.is_public").value(false));
     }
 
@@ -116,7 +116,7 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
      */
     private ProblemContentDTO mockContent() {
         ProblemContentDTO content = new ProblemContentDTO();
-        content.setPid("p-private");
+        content.setPid("PPRIVATE");
         content.setDescription("desc");
         content.setInput("input");
         content.setOutput("output");

@@ -42,7 +42,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/problem/p-public"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.pid").value("p-public"));
+                .andExpect(jsonPath("$.data.pid").value("PPUBLIC"));
     }
 
     /**
@@ -64,7 +64,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.pid").value("p-private"));
+                .andExpect(jsonPath("$.data.pid").value("PPRIVATE"));
     }
 
     /**
@@ -73,8 +73,8 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
     @Test
     void shouldRejectWhenContestAndProblemSetContextBothProvided() throws Exception {
         mockMvc.perform(get("/api/problem/p-public")
-                        .queryParam("contest_public_id", "c-1")
-                        .queryParam("problem_set_public_id", "ps-1"))
+                        .queryParam("contest_id", "1")
+                        .queryParam("problem_set_id", "1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40000));
     }
@@ -96,7 +96,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
      */
     private ProblemContentDTO mockContent() {
         ProblemContentDTO content = new ProblemContentDTO();
-        content.setPid("p-public");
+        content.setPid("PPUBLIC");
         content.setDescription("desc");
         content.setInput("input");
         content.setOutput("output");

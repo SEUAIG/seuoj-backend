@@ -37,7 +37,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     void submitShouldReturn401WhenNoToken() throws Exception {
         String body = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "class Main{}"
                 }
@@ -67,7 +67,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     void submitShouldRejectWhenLanguageInvalid() throws Exception {
         String body = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java8",
                   "code": "class Main{}"
                 }
@@ -88,7 +88,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     void submitShouldRejectWhenCodeTooLong() throws Exception {
         String body = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "%s"
                 }
@@ -109,7 +109,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
     void submitShouldRejectWhenCodeBlank() throws Exception {
         String body = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "   "
                 }
@@ -203,7 +203,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
 
         String body = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "class Main{}"
                 }

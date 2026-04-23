@@ -40,7 +40,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
     void shouldFinishSubmissionAndQueryResult() throws Exception {
         String submitBody = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "public class Main { public static void main(String[] args){ System.out.println(3); } }"
                 }
@@ -99,7 +99,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.data.verdict").value("Accepted"))
                 .andExpect(jsonPath("$.data.score").value(100));
 
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PPUBLIC"));
         assertThat(problem).isNotNull();
         assertThat(problem.getTotalSubmit()).isEqualTo(1);
         assertThat(problem.getTotalAccept()).isEqualTo(1);
@@ -112,7 +112,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
     void shouldRejectSubmissionWhenProblemNotPublic() throws Exception {
         String submitBody = """
                 {
-                  "pid": "p-private",
+                  "pid": "PPRIVATE",
                   "language": "Java17",
                   "code": "class Main{}"
                 }
@@ -133,7 +133,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
     void shouldRejectResultQueryWhenNotOwnerOrAdmin() throws Exception {
         String submitBody = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "class Main{}"
                 }

@@ -1,8 +1,6 @@
 package com.seuoj.seuojbackend.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.seuoj.seuojbackend.entity.UserInfo;
-import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -30,22 +28,11 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected JwtUtil jwtUtil;
 
-    @Autowired
-    protected UserInfoMapper userInfoMapper;
-
     protected String bearerToken(Long userId) {
-        return "Bearer " + jwtUtil.createAccessToken(requiredPublicId(userId));
+        return "Bearer " + jwtUtil.createAccessToken(String.valueOf(userId));
     }
 
     protected String tempBearerToken(Long userId) {
-        return "Bearer " + jwtUtil.createTempToken(requiredPublicId(userId));
-    }
-
-    private String requiredPublicId(Long userId) {
-        UserInfo user = userInfoMapper.selectById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("未找到对应用户，userId=" + userId);
-        }
-        return user.getPublicId();
+        return "Bearer " + jwtUtil.createTempToken(String.valueOf(userId));
     }
 }

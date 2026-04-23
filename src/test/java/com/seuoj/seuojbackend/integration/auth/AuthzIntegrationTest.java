@@ -42,7 +42,7 @@ class AuthzIntegrationTest extends BaseIntegrationTest {
     void createProblemShouldReturn403WhenUserRoleIsInsufficient() throws Exception {
         String requestBody = """
                 {
-                  "pid": "p-authz-role-check",
+                  "pid": "TAUTHZCHECK",
                   "title": "role-check-problem",
                   "is_public": true,
                   "example": [{"in":"1 2","ans":"3"}]

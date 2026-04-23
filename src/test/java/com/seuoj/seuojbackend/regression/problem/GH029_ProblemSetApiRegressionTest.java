@@ -1,6 +1,5 @@
 package com.seuoj.seuojbackend.regression.problem;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.seuoj.seuojbackend.entity.ProblemSet;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
@@ -29,7 +28,7 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
      * 创建题单后应返回可用于后续操作的题单 ID，且题单详情应返回完整题目列表。
      */
     @Test
-    void createProblemSetShouldReturnPublicIdAndDetailShouldContainAllProblems() throws Exception {
+    void createProblemSetShouldReturnIdAndDetailShouldContainAllProblems() throws Exception {
         String createBody = """
                 {
                   "title": "GH029 回归题单",
@@ -44,43 +43,42 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
                         .content(createBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.problem_set_public_id").isString())
+                .andExpect(jsonPath("$.data.problem_set_id").isNumber())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
-        String problemSetPublicId = objectMapper.readTree(createResp)
+        Long problemSetId = objectMapper.readTree(createResp)
                 .path("data")
-                .path("problem_set_public_id")
-                .asText();
-        assertThat(problemSetPublicId).isNotBlank();
+                .path("problem_set_id")
+                .asLong();
+        assertThat(problemSetId).isPositive();
 
-        ProblemSet created = problemSetMapper.selectOne(new LambdaQueryWrapper<ProblemSet>()
-                .eq(ProblemSet::getPublicId, problemSetPublicId));
+        ProblemSet created = problemSetMapper.selectById(problemSetId);
         assertThat(created).isNotNull();
-        assertThat(created.getOwnerUserId()).isEqualTo(10002L);
+        assertThat(created.getCreatedByUserId()).isEqualTo(10002L);
         assertThat(created.getTitle()).isEqualTo("GH029 回归题单");
 
         String replaceBody = """
                 {
                   "problem_list": [
-                    {"pid": "p-public", "order_id": 1},
-                    {"pid": "p-private", "order_id": 2}
+                    {"pid": "PPUBLIC", "order_id": 1},
+                    {"pid": "PPRIVATE", "order_id": 2}
                   ]
                 }
                 """;
-        mockMvc.perform(post("/api/problem_set/{problem_set_id}/problem", problemSetPublicId)
+        mockMvc.perform(post("/api/problem_set/{problem_set_id}/problem", problemSetId)
                         .header("Authorization", bearerToken(10002L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(replaceBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        String detailResp = mockMvc.perform(get("/api/problem_set/{problem_set_public_id}", problemSetPublicId)
+        String detailResp = mockMvc.perform(get("/api/problem_set/{problem_set_id}", problemSetId)
                         .header("Authorization", bearerToken(10002L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.problem_set_id").value(problemSetPublicId))
+                .andExpect(jsonPath("$.data.problem_set_id").value(String.valueOf(problemSetId)))
                 .andExpect(jsonPath("$.data.problem_list.length()").value(2))
                 .andReturn()
                 .getResponse()
@@ -91,7 +89,7 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
         for (JsonNode item : detailData.path("problem_list")) {
             pids.add(item.path("pid").asText());
         }
-        assertThat(pids).containsExactly("p-public", "p-private");
+        assertThat(pids).containsExactly("PPUBLIC", "PPRIVATE");
         assertThat(detailData.has("current")).isFalse();
         assertThat(detailData.has("size")).isFalse();
     }

@@ -159,7 +159,7 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
     @Test
     void callbackShouldBeIdempotentWhenRepeatedSuccess() throws Exception {
         String submissionNo = createSubmission();
-        Problem before = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        Problem before = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PPUBLIC"));
         assertThat(before).isNotNull();
         int beforeAccept = before.getTotalAccept();
         String body = """
@@ -195,7 +195,7 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PPUBLIC"));
         assertThat(problem).isNotNull();
         assertThat(problem.getTotalAccept()).isEqualTo(beforeAccept + 1);
     }
@@ -251,7 +251,7 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
     private String createSubmission() throws Exception {
         String submitBody = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "language": "Java17",
                   "code": "class Main{}"
                 }

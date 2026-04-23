@@ -42,10 +42,10 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
      */
     @Test
     void adminShouldCreateProblemWithPidSuccessfully() throws Exception {
-        String pid = "p-gh033-create-1";
+        String pid = "TGH033C1";
         String requestBody = """
                 {
-                  "pid": "p-gh033-create-1",
+                  "pid": "TGH033C1",
                   "title": "GH033 Create Success",
                   "is_public": true,
                   "example": [{"in":"1 2","ans":"3"}],
@@ -74,12 +74,12 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
      */
     @Test
     void concurrentCreateWithDifferentPidShouldBothSucceed() throws Exception {
-        String pidA = "p-gh033-concurrent-a";
-        String pidB = "p-gh033-concurrent-b";
+        String pidA = "TGH033CA";
+        String pidB = "TGH033CB";
 
         String bodyA = """
                 {
-                  "pid": "p-gh033-concurrent-a",
+                  "pid": "TGH033CA",
                   "title": "Concurrent A",
                   "is_public": true,
                   "example": [{"in":"1","ans":"1"}]
@@ -87,7 +87,7 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
                 """;
         String bodyB = """
                 {
-                  "pid": "p-gh033-concurrent-b",
+                  "pid": "TGH033CB",
                   "title": "Concurrent B",
                   "is_public": true,
                   "example": [{"in":"2","ans":"2"}]
@@ -136,10 +136,10 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
      */
     @Test
     void createProblemShouldFailWhenPidAlreadyExists() throws Exception {
-        String pid = "p-gh033-dup";
+        String pid = "TGH033DUP";
         String first = """
                 {
-                  "pid": "p-gh033-dup",
+                  "pid": "TGH033DUP",
                   "title": "First Title",
                   "is_public": true,
                   "example": [{"in":"1","ans":"1"}]
@@ -147,7 +147,7 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
                 """;
         String second = """
                 {
-                  "pid": "p-gh033-dup",
+                  "pid": "TGH033DUP",
                   "title": "Second Title",
                   "is_public": false,
                   "example": [{"in":"2","ans":"2"}]
@@ -182,7 +182,7 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
     void editProblemShouldSucceedWhenOnlyPidProvidedAndOthersNull() throws Exception {
         String requestBody = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "title": null,
                   "is_public": null,
                   "tags": null,
@@ -201,7 +201,7 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PPUBLIC"));
         assertThat(problem).isNotNull();
         assertThat(problem.getTitle()).isEqualTo("Public Problem");
         assertThat(problem.getIsPublic()).isTrue();
@@ -209,7 +209,7 @@ class GH033_ProblemCreateEditRegressionTest extends BaseIntegrationTest {
         ArgumentCaptor<JudgeProblemEditRequest> captor = ArgumentCaptor.forClass(JudgeProblemEditRequest.class);
         verify(judgeClient, times(1)).updateProblem(captor.capture());
         JudgeProblemEditRequest request = captor.getValue();
-        assertThat(request.getPid()).isEqualTo("p-public");
+        assertThat(request.getPid()).isEqualTo("PPUBLIC");
         assertThat(request.getDescription()).isNull();
         assertThat(request.getInput()).isNull();
         assertThat(request.getOutput()).isNull();

@@ -33,10 +33,10 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void adminShouldCreateProblem() throws Exception {
-        String expectedPid = "p-integration-create";
+        String expectedPid = "TINTEGCREATE";
         String requestBody = """
                 {
-                  "pid": "p-integration-create",
+                  "pid": "TINTEGCREATE",
                   "title": "Integration Created Problem",
                   "is_public": true,
                   "example": [{"in":"1 2","ans":"3"}],
@@ -71,7 +71,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
     void adminShouldEditProblem() throws Exception {
         String requestBody = """
                 {
-                  "pid": "p-public",
+                  "pid": "PPUBLIC",
                   "title": "Edited Problem Title",
                   "is_public": true
                 }
@@ -84,7 +84,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        Problem edited = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-public"));
+        Problem edited = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PPUBLIC"));
         assertThat(edited).isNotNull();
         assertThat(edited.getTitle()).isEqualTo("Edited Problem Title");
     }
@@ -106,7 +106,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
     @Test
     void deleteShouldSucceedWhenProblemHasNoRelations() throws Exception {
         Problem unlinked = new Problem()
-                .setPid("p-unlinked")
+                .setPid("PUNLINKED")
                 .setTitle("Unlinked")
                 .setTotalSubmit(0)
                 .setTotalAccept(0)
@@ -118,7 +118,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        Problem deleted = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "p-unlinked"));
+        Problem deleted = problemMapper.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, "PUNLINKED"));
         assertThat(deleted).isNull();
     }
 }
