@@ -58,9 +58,11 @@ MYBATIS_PLUS_GLOBAL_CONFIG_DB_CONFIG_LOGIC_NOT_DELETE_VALUE=0
 MYBATIS_PLUS_MAPPER_LOCATIONS=classpath:/mapper/**/*.xml
 MYBATIS_PLUS_LOG_IMPL=org.apache.ibatis.logging.stdout.StdOutImpl
 
-# JWT 配置
-JWT_SECRET=<JWT_SECRET>
-JWT_EXPIRATION=86400
+# JWT 配置（Ed25519 非对称密钥对）
+JWT_PRIVATE_KEY=<base64_ed25519_private_key>
+JWT_PUBLIC_KEY=<base64_ed25519_public_key>
+JWT_ACCESS_EXPIRATION=86400
+JWT_TEMP_EXPIRATION=300
 
 # 评测服务配置
 JUDGE_SERVER_URL=http://<JUDGE_HOST>
@@ -81,7 +83,7 @@ LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE=10MB
 LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY=7
 
 # 代码存储配置
-STORAGE_USER_CODE_STORAGE_PATH: ./data/user-code
+STORAGE_USER_CODE_STORAGE_PATH=./data/user-code
 ```
 
 ## 初始化数据库
@@ -97,8 +99,7 @@ docker run -d --name seuoj-mysql -p 3306:3306 \
   --character-set-server=utf8mb4 \
   --collation-server=utf8mb4_unicode_ci
 
-# 方式2：创建配置文件并挂载
-# 参见 docs/improvement-proposals.md MySQL 字符集章节
+# 方式2：创建配置文件并挂载（参考 MySQL 官方文档）
 ```
 
 验证字符集是否正确：
@@ -108,13 +109,12 @@ docker exec -i seuoj-mysql mysql -u root -ppassword \
 # character_set_client / connection / results 必须为 utf8mb4
 ```
 
-导入表结构和初始数据：
+导入表结构：
 ```bash
-# 建表
 docker exec -i seuoj-mysql mysql -u root -ppassword < sql/database_schema.sql
-# 初始数据（含测试账号）
-docker exec -i seuoj-mysql mysql -u root -ppassword seuoj < sql/database_init_data.sql
 ```
+
+> 种子数据（测试账号等）由部署仓库（`data/init/` 和 `data/init-dev/`）管理，不在本仓库中。
 
 ## 本地运行
 ```bash
@@ -126,18 +126,36 @@ mvnw.cmd spring-boot:run
 
 ## 默认测试账号
 
-初始数据（`sql/database_init_data.sql`）中包含以下预置账号：
-
-| 用户名 | 邮箱 | 密码 | 角色 |
-|--------|------|------|------|
-| `test` | test@test.com | `123456` | ADMIN |
-| `testu` | testu@test.com | `123456` | USER |
-
-> 仅用于开发和测试环境，**切勿在生产环境中使用**。
+测试账号由部署仓库的 dev seed SQL（`data/init-dev/02-seed.sql`）管理，使用 `make dev_run` 时自动导入。详见部署仓库 README。
 
 ## 构建与测试
 - 运行测试：`./mvnw test`
 - 构建（跳过测试）：`./mvnw clean package -DskipTests`，产物位于 `target/*.jar`
+
+## API 模块概览
+
+| Controller | 业务域 |
+|-----------|--------|
+| `AuthController` | 登录、注册、邮箱验证、JWT 令牌 |
+| `MeController` | 当前用户信息、修改密码、修改资料 |
+| `UserController` | 用户查询与管理 |
+| `AdminController` | 管理员操作（用户管理、角色分配） |
+| `ProblemController` | 题目 CRUD、测试数据管理 |
+| `SubmissionController` | 提交代码、查询评测结果 |
+| `JudgeController` | 评测回调（供 judgend 调用） |
+| `ContestController` | 比赛创建、报名、排名 |
+| `ClassController` | 班级管理、成员管理 |
+| `AssignmentController` | 作业布置与提交 |
+| `ProblemSetController` | 题单管理 |
+| `AnnouncementController` | 公告发布与管理 |
+| `TagController` | 标签管理 |
+| `PermissionController` | 权限查询 |
+| `FileController` | 文件上传 |
+| `CommonController` | 公共接口（语言列表等） |
+
+## 开发工具
+
+- `tools/mock_judge.py`：模拟判题服务，用于本地独立调试后端（无需启动 judgend）。
 
 ## 注意事项
 - 不要提交包含密码/密钥的配置文件，生产环境使用环境变量或安全的配置中心。
