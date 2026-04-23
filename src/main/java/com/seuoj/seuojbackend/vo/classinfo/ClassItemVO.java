@@ -1,6 +1,7 @@
 package com.seuoj.seuojbackend.vo.classinfo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import lombok.Data;
 
 @Data
@@ -21,6 +22,17 @@ public class ClassItemVO {
      * 班级描述
      */
     private String description;
+
+    /**
+     * 班级介绍（Markdown 富文本）
+     */
+    private String introduction;
+
+    /**
+     * 班级介绍附件
+     */
+    @JsonProperty("intro_attachments")
+    private List<ClassIntroAttachmentVO> introAttachments;
 
     /**
      * 创建者 ID

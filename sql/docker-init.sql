@@ -41,6 +41,7 @@ CREATE TABLE `class_info`
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `name`            varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '班级名称',
     `description`     text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级描述',
+    `introduction`    text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT '班级介绍（Markdown 富文本）',
     `is_public`       tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否公开：0-否，1-是',
     `teacher_user_id` bigint                                                        NULL COMMENT '教师用户ID 仅教师创建班级时填写',
     `created_at`      timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

@@ -4,10 +4,12 @@ import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.dto.classinfo.ClassBatchImportDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassCreateDTO;
 import com.seuoj.seuojbackend.dto.classinfo.ClassUpdateDTO;
 import com.seuoj.seuojbackend.service.ClassService;
 import com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO;
+import com.seuoj.seuojbackend.vo.classinfo.ClassBatchImportResultVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassCreateVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.ClassMemberPageVO;
@@ -54,6 +56,11 @@ public class ClassController {
         return Result.success(classService.getClassPage(current, size));
     }
 
+    @GetMapping("/{classId}")
+    public Result<ClassItemVO> getClassDetail(@PathVariable("classId") Long classId) {
+        return Result.success(classService.getClassDetail(classId));
+    }
+
     @PutMapping("/{classId}")
     public Result<ClassItemVO> updateClass(@PathVariable("classId") Long classId,
                                            @RequestBody ClassUpdateDTO dto) {
@@ -95,6 +102,14 @@ public class ClassController {
         return Result.success();
     }
 
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @PostMapping("/{classId}/batch-import")
+    public Result<ClassBatchImportResultVO> batchImportMembers(
+            @PathVariable("classId") Long classId,
+            @Valid @RequestBody ClassBatchImportDTO dto) {
+        return Result.success(classService.batchImportMembers(classId, dto));
+    }
+
     @GetMapping("/{classId}/contest/page")
     public Result<LinkPageVO> getClassContestPage(
             @PathVariable("classId") Long classId,
@@ -115,6 +130,29 @@ public class ClassController {
     public Result<Void> unlinkContest(@PathVariable("classId") Long classId,
                                       @PathVariable("contestId") Long contestId) {
         classService.unlinkContest(classId, contestId);
+        return Result.success();
+    }
+
+    @GetMapping("/{classId}/problem_set/page")
+    public Result<LinkPageVO> getClassProblemSetPage(
+            @PathVariable("classId") Long classId,
+            @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
+            @Max(value = 100, message = "每页条数最大为 100") Integer size) {
+        return Result.success(classService.getClassProblemSetPage(classId, current, size));
+    }
+
+    @PutMapping("/{classId}/problem_set/{problemSetId}")
+    public Result<Void> linkProblemSet(@PathVariable("classId") Long classId,
+                                       @PathVariable("problemSetId") Long problemSetId) {
+        classService.linkProblemSet(classId, problemSetId);
+        return Result.success();
+    }
+
+    @DeleteMapping("/{classId}/problem_set/{problemSetId}")
+    public Result<Void> unlinkProblemSet(@PathVariable("classId") Long classId,
+                                         @PathVariable("problemSetId") Long problemSetId) {
+        classService.unlinkProblemSet(classId, problemSetId);
         return Result.success();
     }
 

@@ -42,11 +42,11 @@ public interface ClassInfoMapper extends BaseMapper<ClassInfo> {
 
     List<AssignmentOverviewVO.ProblemStatItem> selectAssignmentProblemStats(
             @Param("classId") Long classId,
-            @Param("problemSetId") Long problemSetId);
+            @Param("assignmentId") Long assignmentId);
 
     List<AssignmentOverviewVO.StudentStatItem> selectAssignmentStudentStats(
             @Param("classId") Long classId,
-            @Param("problemSetId") Long problemSetId,
+            @Param("assignmentId") Long assignmentId,
             @Param("deadline") java.time.LocalDateTime deadline);
 }
 

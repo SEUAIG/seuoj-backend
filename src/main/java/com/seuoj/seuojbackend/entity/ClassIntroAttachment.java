@@ -15,8 +15,8 @@ import lombok.experimental.Accessors;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("class_info")
-public class ClassInfo implements Serializable {
+@TableName("class_intro_attachment")
+public class ClassIntroAttachment implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,29 +24,20 @@ public class ClassInfo implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("name")
-    private String name;
+    @TableField("class_id")
+    private Long classId;
 
-    @TableField("description")
-    private String description;
+    @TableField("file_path")
+    private String filePath;
 
-    @TableField("introduction")
-    private String introduction;
+    @TableField("file_name")
+    private String fileName;
 
-    /**
-     * 班级公开标记
-     */
-    @TableField("is_public")
-    private Boolean isPublic;
-
-    @TableField("created_by_user_id")
-    private Long createdByUserId;
+    @TableField("file_size")
+    private Long fileSize;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @TableField("updated_at")
-    private LocalDateTime updatedAt;
 
     @TableField("is_del")
     @TableLogic

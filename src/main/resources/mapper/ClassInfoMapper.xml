@@ -100,10 +100,10 @@
             WHERE s.verdict = 'Accepted'
               AND s.is_del = 0
               AND s.problem_id IN (
-                SELECT pspr.problem_id
+                SELECT apr.problem_id
                 FROM assignment a
-                         JOIN problem_set_problem_rel pspr
-                              ON pspr.problem_set_id = a.problem_set_id AND pspr.is_del = 0
+                         JOIN assignment_problem_rel apr
+                              ON apr.assignment_id = a.id AND apr.is_del = 0
                 WHERE a.class_id = #{classId}
                   AND a.is_del = 0
                   AND a.status != 'DRAFT'
@@ -123,9 +123,9 @@
                a.status,
                a.deadline,
                (SELECT COUNT(*)
-                FROM problem_set_problem_rel pspr
-                WHERE pspr.problem_set_id = a.problem_set_id
-                  AND pspr.is_del = 0)                        AS problem_count,
+                FROM assignment_problem_rel apr
+                WHERE apr.assignment_id = a.id
+                  AND apr.is_del = 0)                           AS problem_count,
                COALESCE(
                        ROUND(
                                (SELECT AVG(student_ac.ac_cnt * 100.0 / NULLIF(pc.cnt, 0))
@@ -137,17 +137,17 @@
                                                LEFT JOIN submission s2
                                                          ON s2.user_id = csr2.user_id
                                                              AND s2.is_del = 0
-                                                             AND s2.problem_id IN (SELECT pspr2.problem_id
-                                                                                   FROM problem_set_problem_rel pspr2
-                                                                                   WHERE pspr2.problem_set_id = a.problem_set_id
-                                                                                     AND pspr2.is_del = 0)
+                                                             AND s2.problem_id IN (SELECT apr2.problem_id
+                                                                                   FROM assignment_problem_rel apr2
+                                                                                   WHERE apr2.assignment_id = a.id
+                                                                                     AND apr2.is_del = 0)
                                       WHERE csr2.class_id = #{classId}
                                         AND csr2.is_del = 0
                                       GROUP BY csr2.user_id) student_ac,
                                      (SELECT COUNT(*) AS cnt
-                                      FROM problem_set_problem_rel pspr3
-                                      WHERE pspr3.problem_set_id = a.problem_set_id
-                                        AND pspr3.is_del = 0) pc),
+                                      FROM assignment_problem_rel apr3
+                                      WHERE apr3.assignment_id = a.id
+                                        AND apr3.is_del = 0) pc),
                                1),
                        0)                                     AS avg_completion_rate
         FROM assignment a
@@ -159,10 +159,10 @@
 
     <!-- 学情概览：所有作业去重题目总数 -->
     <select id="selectTotalProblems" resultType="java.lang.Integer">
-        SELECT COUNT(DISTINCT pspr.problem_id)
+        SELECT COUNT(DISTINCT apr.problem_id)
         FROM assignment a
-                 JOIN problem_set_problem_rel pspr
-                      ON pspr.problem_set_id = a.problem_set_id AND pspr.is_del = 0
+                 JOIN assignment_problem_rel apr
+                      ON apr.assignment_id = a.id AND apr.is_del = 0
         WHERE a.class_id = #{classId}
           AND a.is_del = 0
           AND a.status != 'DRAFT'
@@ -173,7 +173,7 @@
             resultType="com.seuoj.seuojbackend.vo.classinfo.AssignmentOverviewVO$ProblemStatItem">
         SELECT p.pid,
                p.title,
-               pspr.weight,
+               apr.weight,
                COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.user_id END) AS ac_count,
                COUNT(DISTINCT s.user_id)                                            AS attempt_count,
                ROUND(
@@ -183,19 +183,19 @@
                                      WHERE class_id = #{classId}
                                        AND is_del = 0), 0),
                        1)                                                           AS ac_rate
-        FROM problem_set_problem_rel pspr
-                 JOIN problem p ON p.id = pspr.problem_id AND p.is_del = 0
+        FROM assignment_problem_rel apr
+                 JOIN problem p ON p.id = apr.problem_id AND p.is_del = 0
                  LEFT JOIN submission s
-                           ON s.problem_id = pspr.problem_id
+                           ON s.problem_id = apr.problem_id
                                AND s.is_del = 0
                                AND s.user_id IN (SELECT user_id
                                                   FROM class_student_rel
                                                   WHERE class_id = #{classId}
                                                     AND is_del = 0)
-        WHERE pspr.problem_set_id = #{problemSetId}
-          AND pspr.is_del = 0
-        GROUP BY pspr.problem_id
-        ORDER BY pspr.sort_order
+        WHERE apr.assignment_id = #{assignmentId}
+          AND apr.is_del = 0
+        GROUP BY apr.problem_id
+        ORDER BY ANY_VALUE(apr.sort_order)
     </select>
 
     <!-- 单次作业钻取：每个学生统计 -->
@@ -206,9 +206,9 @@
                u.nickname,
                COUNT(DISTINCT CASE WHEN s.verdict = 'Accepted' THEN s.problem_id END)        AS ac_count,
                (SELECT COUNT(*)
-                FROM problem_set_problem_rel pspr
-                WHERE pspr.problem_set_id = #{problemSetId}
-                  AND pspr.is_del = 0)                                                        AS problem_count,
+                FROM assignment_problem_rel apr
+                WHERE apr.assignment_id = #{assignmentId}
+                  AND apr.is_del = 0)                                                          AS problem_count,
                CASE
                    WHEN #{deadline} IS NULL THEN TRUE
                    WHEN MAX(CASE WHEN s.verdict = 'Accepted' THEN s.submit_time END) IS NULL THEN FALSE
@@ -220,10 +220,10 @@
                  LEFT JOIN submission s
                            ON s.user_id = csr.user_id
                                AND s.is_del = 0
-                               AND s.problem_id IN (SELECT pspr2.problem_id
-                                                    FROM problem_set_problem_rel pspr2
-                                                    WHERE pspr2.problem_set_id = #{problemSetId}
-                                                      AND pspr2.is_del = 0)
+                               AND s.problem_id IN (SELECT apr2.problem_id
+                                                    FROM assignment_problem_rel apr2
+                                                    WHERE apr2.assignment_id = #{assignmentId}
+                                                      AND apr2.is_del = 0)
         WHERE csr.class_id = #{classId}
           AND csr.is_del = 0
         GROUP BY u.id
