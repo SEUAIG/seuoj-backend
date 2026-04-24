@@ -151,21 +151,25 @@ public class AuthService {
         }
     }
 
-    /**
-     * 用户登录（使用邮箱+密码登录）
-     */
     public LoginVO login(LoginDTO dto) {
-        String normalizedEmail = normalizeEmail(dto.getEmail());
-        UserInfo user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
-                .eq(UserInfo::getEmail, normalizedEmail));
+        String identifier = dto.getIdentifier().trim();
+        UserInfo user;
+        if (identifier.contains("@")) {
+            String normalizedEmail = normalizeEmail(identifier);
+            user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                    .eq(UserInfo::getEmail, normalizedEmail));
+        } else {
+            user = userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
+                    .eq(UserInfo::getUsername, identifier));
+        }
         if (user == null) {
-            throw new AuthorizationException("密码或邮箱错误");
+            throw new AuthorizationException("用户名/邮箱或密码错误");
         }
 
         boolean isPasswordMatch = passwordEncoder.matches(dto.getPassword(), user.getPassword());
 
         if (!isPasswordMatch) {
-            throw new AuthorizationException("密码或邮箱错误");
+            throw new AuthorizationException("用户名/邮箱或密码错误");
         }
 
         String token = jwtUtil.createAccessToken(String.valueOf(user.getId()));
