@@ -3,6 +3,7 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.seuoj.seuojbackend.common.ProblemSourceType;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.client.JudgeClient;
@@ -13,12 +14,14 @@ import com.seuoj.seuojbackend.model.ProblemCommon;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
+import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
 import com.seuoj.seuojbackend.entity.Tag;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
+import com.seuoj.seuojbackend.mapper.AssignmentMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
@@ -27,6 +30,7 @@ import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.vo.problem.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,11 +58,13 @@ public class ProblemService {
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
     private final ProblemPidGenerator pidGenerator;
+    private final AssignmentMapper assignmentMapper;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
                           ProblemTagRelMapper problemTagRelMapper,
                           PermissionService permissionService, UserRoleService userRoleService,
-                          ProblemPidGenerator pidGenerator) {
+                          ProblemPidGenerator pidGenerator,
+                          AssignmentMapper assignmentMapper) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
@@ -66,6 +72,7 @@ public class ProblemService {
         this.permissionService = permissionService;
         this.userRoleService = userRoleService;
         this.pidGenerator = pidGenerator;
+        this.assignmentMapper = assignmentMapper;
     }
 
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
@@ -271,6 +278,16 @@ public class ProblemService {
 
         ProblemConfigDTO problemConfigDTO = judgeClient.fetchProblemConfig(query.pid());
         fillProblemContentByProblemConfig(problemContentDTO, problemConfigDTO);
+
+        if (query.sourceType() == ProblemSourceType.ASSIGNMENT) {
+            Assignment assignment = assignmentMapper.selectById(query.ownerId());
+            boolean open = assignment != null
+                    && (assignment.getVisibleTo() == null || !LocalDateTime.now().isAfter(assignment.getVisibleTo()));
+            problemDetail.setSubmittable(open);
+        } else {
+            problemDetail.setSubmittable(true);
+        }
+
         return problemDetail;
     }
 
@@ -538,5 +555,6 @@ public class ProblemService {
 
         info.setProblemType(problemType);
         info.setCheckerType(checkerType);
+        info.setTestCaseNumber(problemConfig.getTestcases() != null ? problemConfig.getTestcases().size() : 0);
     }
 }

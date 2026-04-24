@@ -52,5 +52,8 @@ public final class ProblemCommon {
         @JsonProperty("checker_type")
         @Pattern(regexp = "^(Standard|Special)$", message = "检查类型必须是 Standard 或 Special")
         private String checkerType;
+
+        @JsonProperty("test_case_number")
+        private Integer testCaseNumber;
     }
 }
