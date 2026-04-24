@@ -645,7 +645,7 @@ public class ClassService {
         }
 
         boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
-        if (!canWrite && !"PUBLISHED".equals(assignment.getStatus()) && !"CLOSED".equals(assignment.getStatus())) {
+        if (!canWrite && !"PUBLISHED".equals(assignment.getStatus())) {
             throw new NotFoundException("作业不存在");
         }
 

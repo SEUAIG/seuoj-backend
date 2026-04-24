@@ -48,7 +48,6 @@ public class AssignmentService {
 
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
-    private static final String STATUS_CLOSED = "CLOSED";
 
     private final AssignmentMapper assignmentMapper;
     private final ClassInfoMapper classInfoMapper;
@@ -131,9 +130,6 @@ public class AssignmentService {
             wrapper.and(w -> w
                     .isNull(Assignment::getVisibleFrom)
                     .or().le(Assignment::getVisibleFrom, now));
-            wrapper.and(w -> w
-                    .isNull(Assignment::getVisibleTo)
-                    .or().ge(Assignment::getVisibleTo, now));
         }
 
         return assignmentMapper.selectPage(new Page<>(current, size), wrapper);
@@ -151,7 +147,7 @@ public class AssignmentService {
             if (!STATUS_PUBLISHED.equals(assignment.getStatus())) {
                 throw new NotFoundException("作业不存在");
             }
-            if (!isVisibleNow(assignment)) {
+            if (assignment.getVisibleFrom() != null && LocalDateTime.now().isBefore(assignment.getVisibleFrom())) {
                 throw new NotFoundException("作业不存在");
             }
         }
@@ -465,8 +461,6 @@ public class AssignmentService {
     private void validateStatusTransition(String current, String target) {
         List<String> allowed = switch (current) {
             case STATUS_DRAFT -> List.of(STATUS_PUBLISHED);
-            case STATUS_PUBLISHED -> List.of(STATUS_CLOSED);
-            case STATUS_CLOSED -> Collections.emptyList();
             default -> Collections.emptyList();
         };
 

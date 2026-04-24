@@ -27,4 +27,6 @@ public class ProblemDetailVO {
     private List<String> tags;
     private Integer totalSubmit;
     private Integer totalAccept;
+
+    private Boolean submittable;
 }

@@ -256,9 +256,6 @@ public class PermissionService {
         if (assignment.getVisibleFrom() != null && now.isBefore(assignment.getVisibleFrom())) {
             throw new ForbiddenException("无权操作");
         }
-        if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
-            throw new ForbiddenException("无权操作");
-        }
 
         assertPermission(userId, ResourceType.CLASS, assignment.getClassId(), PermissionOp.READ);
 

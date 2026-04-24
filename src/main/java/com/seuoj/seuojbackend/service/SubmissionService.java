@@ -131,7 +131,7 @@ public class SubmissionService {
                 throw new BadRequestException("作业尚未开放");
             }
             if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
-                throw new BadRequestException("作业已结束");
+                throw new BadRequestException("作业已关闭，不可提交");
             }
         }
 

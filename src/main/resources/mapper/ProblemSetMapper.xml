@@ -43,16 +43,6 @@
                               AND rp.user_id = #{userId}
                               AND rp.is_del = 0
                         )
-                        OR EXISTS (
-                            SELECT 1
-                            FROM assignment a
-                            INNER JOIN class_student_rel csr ON a.class_id = csr.class_id
-                            WHERE a.problem_set_id = ps.id
-                              AND a.status = 'PUBLISHED'
-                              AND a.is_del = 0
-                              AND csr.user_id = #{userId}
-                              AND csr.is_del = 0
-                        )
                     </if>
                 </otherwise>
             </choose>
