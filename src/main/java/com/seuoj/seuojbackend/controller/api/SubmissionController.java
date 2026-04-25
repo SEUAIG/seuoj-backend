@@ -10,6 +10,9 @@ import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 import jakarta.validation.Valid;
+
+import javax.management.relation.Role;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +30,7 @@ public class SubmissionController {
         this.submissionService = submissionService;
     }
 
-    @RequireRole({RoleType.STUDENT})
+    @RequireRole({ RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN })
     @PostMapping("/submission")
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {
         return Result.success(submissionService.submit(dto));
@@ -50,6 +53,7 @@ public class SubmissionController {
             @RequestParam(value = "pid", required = false) String pid,
             @RequestParam(value = "language", required = false) String language,
             @RequestParam(value = "username", required = false) String username) {
-        return Result.success(submissionService.listSubmissions(current, size, userId, verdict, assignmentId, pid, language, username));
+        return Result.success(submissionService.listSubmissions(current, size, userId, verdict, assignmentId, pid,
+                language, username));
     }
 }
