@@ -5,6 +5,21 @@ FROM maven:3.9.6-eclipse-temurin-21-alpine AS build-stage
 # 设置工作目录
 WORKDIR /app
 
+# 配置 Maven 阿里云镜像
+RUN mkdir -p /root/.m2 && \
+    echo '<?xml version="1.0" encoding="UTF-8"?>\
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"\
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">\
+  <mirrors>\
+    <mirror>\
+      <id>aliyun</id>\
+      <mirrorOf>central</mirrorOf>\
+      <url>https://maven.aliyun.com/repository/central</url>\
+    </mirror>\
+  </mirrors>\
+</settings>' > /root/.m2/settings.xml
+
 # 1. 优化：先只复制 pom.xml，下载所有依赖和插件（利用 Docker 缓存）
 COPY pom.xml .
 RUN mvn dependency:go-offline -B && \
