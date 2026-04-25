@@ -1,6 +1,9 @@
 package com.seuoj.seuojbackend.controller.api;
 
+import com.seuoj.seuojbackend.annotation.AllowAnonymous;
+import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.Result;
+import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.storage.FileUploadStorage;
 import com.seuoj.seuojbackend.storage.FileUploadStorage.FileUploadResult;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +41,7 @@ public class FileController {
         ));
     }
 
+    @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/download/**")
     public ResponseEntity<Resource> download(HttpServletRequest request) {
         String fullPath = request.getRequestURI();
