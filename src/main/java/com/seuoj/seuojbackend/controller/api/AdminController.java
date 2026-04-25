@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.dto.user.UpdateProfileDTO;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.UserRole;
 import com.seuoj.seuojbackend.entity.UserRoleRel;
@@ -16,6 +17,7 @@ import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.service.UserRoleService;
+import jakarta.validation.Valid;
 import java.util.Map;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -95,6 +97,23 @@ public class AdminController {
         rel.setRoleId(targetRole.getId());
         userRoleRelMapper.insert(rel);
 
+        return Result.success();
+    }
+
+    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @PutMapping("/user/{userId}/profile")
+    public Result<Void> updateUserProfile(
+            @PathVariable("userId") Long targetUserId,
+            @Valid @RequestBody UpdateProfileDTO dto) {
+        UserInfo targetUser = userInfoMapper.selectById(targetUserId);
+        if (targetUser == null) {
+            throw new NotFoundException("用户不存在");
+        }
+        if (dto.getNickname() != null) {
+            String nickname = dto.getNickname().trim();
+            targetUser.setNickname(nickname.isEmpty() ? null : nickname);
+        }
+        userInfoMapper.updateById(targetUser);
         return Result.success();
     }
 }
