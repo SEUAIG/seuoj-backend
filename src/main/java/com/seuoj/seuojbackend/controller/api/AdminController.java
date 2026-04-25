@@ -64,6 +64,14 @@ public class AdminController {
             throw new ForbiddenException("仅 SUPER_ADMIN 可授予 ADMIN 角色");
         }
 
+        if (currentUserId.equals(targetUserId)) {
+            throw new ForbiddenException("不能修改自己的角色");
+        }
+
+        if (!userRoleService.isSuperAdmin(currentUserId) && userRoleService.isAdmin(targetUserId)) {
+            throw new ForbiddenException("仅 SUPER_ADMIN 可修改管理员或超级管理员的角色");
+        }
+
         UserInfo targetUser = userInfoMapper.selectById(targetUserId);
         if (targetUser == null) {
             throw new NotFoundException("用户不存在");
