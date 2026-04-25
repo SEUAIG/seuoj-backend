@@ -172,11 +172,26 @@ public class ContestService {
         IPage<ContestPageItemVO> pageResult = contestMapper.selectContestPage(
                 page, userId, isAdmin, isTeacher, status, titleKeyword, ruleType, startTimeFrom, endTimeTo);
 
+        List<ContestPageItemVO> records = pageResult.getRecords() == null
+                ? Collections.emptyList() : pageResult.getRecords();
+        LocalDateTime now = LocalDateTime.now();
+        for (ContestPageItemVO item : records) {
+            if (item.getStartTime() != null && item.getEndTime() != null) {
+                if (now.isBefore(item.getStartTime())) {
+                    item.setStatus(ContestStatus.NOT_STARTED.name());
+                } else if (!now.isAfter(item.getEndTime())) {
+                    item.setStatus(ContestStatus.IN_PROGRESS.name());
+                } else {
+                    item.setStatus(ContestStatus.FINISHED.name());
+                }
+            }
+        }
+
         ContestPageVO vo = new ContestPageVO();
         vo.setCurrent(pageResult.getCurrent());
         vo.setSize(pageResult.getSize());
         vo.setTotal(pageResult.getTotal());
-        vo.setRecords(pageResult.getRecords() == null ? Collections.emptyList() : pageResult.getRecords());
+        vo.setRecords(records);
         return vo;
     }
 
