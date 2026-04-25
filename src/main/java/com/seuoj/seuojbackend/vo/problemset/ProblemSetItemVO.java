@@ -35,4 +35,10 @@ public class ProblemSetItemVO {
      */
     @JsonProperty("problem_count")
     private Integer problemCount;
+
+    /**
+     * 当前用户是否有写权限
+     */
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }

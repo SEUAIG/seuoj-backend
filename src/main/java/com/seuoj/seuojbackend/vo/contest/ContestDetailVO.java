@@ -36,4 +36,7 @@ public class ContestDetailVO {
 
     @JsonProperty("problem_list")
     private List<ContestProblemOverviewVO> problemList;
+
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }

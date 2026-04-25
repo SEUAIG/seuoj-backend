@@ -120,6 +120,7 @@ public class ProblemSetService {
         vo.setDescription(problemSet.getDescription());
         vo.setIsPublic(problemSet.getIsPublic());
         vo.setProblemList(problemList == null ? Collections.emptyList() : problemList);
+        vo.setCanWrite(userId != null && permissionService.hasPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.WRITE));
         return vo;
     }
 

@@ -29,4 +29,7 @@ public class ContestPageItemVO {
 
     @JsonProperty("is_public")
     private Boolean isPublic;
+
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }

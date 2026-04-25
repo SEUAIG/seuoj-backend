@@ -65,6 +65,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
@@ -215,6 +216,7 @@ public class ContestService {
         vo.setIsPublic(contest.getIsPublic());
         vo.setHideStatistics(contest.getHideStatistics());
         vo.setProblemList(problemList);
+        vo.setCanWrite(userId != null && permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE));
         return vo;
     }
 
@@ -781,5 +783,18 @@ public class ContestService {
     }
 
     private record ProblemPlanItem(String pid, Integer sortOrder) {
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteContest(Long contestId) {
+        Contest contest = loadContestOrThrow(contestId);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
+
+        contestMapper.deleteById(contest.getId());
+
+        contestProblemRelMapper.update(null, new LambdaUpdateWrapper<ContestProblemRel>()
+                .set(ContestProblemRel::getIsDel, 1)
+                .eq(ContestProblemRel::getContestId, contest.getId()));
     }
 }

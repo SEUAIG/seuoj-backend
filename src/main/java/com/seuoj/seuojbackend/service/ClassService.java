@@ -637,6 +637,17 @@ public class ClassService {
         return vo;
     }
 
+    public List<ClassOverviewVO.AssignmentProgressItem> getAssignmentProgress(Long classId) {
+        Long userId = AuthContexts.requiredUserId();
+        ClassInfo classInfo = classInfoMapper.selectById(classId);
+        if (classInfo == null) {
+            throw new NotFoundException("班级不存在");
+        }
+        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
+        List<ClassOverviewVO.AssignmentProgressItem> assignments = classInfoMapper.selectAssignmentProgress(classInfo.getId());
+        return assignments != null ? assignments : Collections.emptyList();
+    }
+
     public AssignmentOverviewVO getAssignmentOverview(Long classId, Long assignmentId) {
         Long userId = AuthContexts.requiredUserId();
         ClassInfo classInfo = classInfoMapper.selectById(classId);

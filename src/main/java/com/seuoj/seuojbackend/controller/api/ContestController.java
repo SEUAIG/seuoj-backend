@@ -96,6 +96,13 @@ public class ContestController {
         return Result.success(contestService.getContestProblemListForEdit(id));
     }
 
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @DeleteMapping("/{id}")
+    public Result<Void> deleteContest(@PathVariable("id") Long id) {
+        contestService.deleteContest(id);
+        return Result.success();
+    }
+
     @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/register")
     public Result<Void> registerContest(@RequestParam("contest_id") Long contestId) {

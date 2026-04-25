@@ -4,7 +4,19 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.seuoj.seuojbackend.mapper.ContestMapper">
 
-    <select id="selectContestPage" resultType="com.seuoj.seuojbackend.vo.contest.ContestPageItemVO">
+    <resultMap id="ContestPageItemMap" type="com.seuoj.seuojbackend.vo.contest.ContestPageItemVO">
+        <result column="contestId" property="contestId"/>
+        <result column="title" property="title"/>
+        <result column="subtitle" property="subtitle"/>
+        <result column="description" property="description"/>
+        <result column="startTime" property="startTime"/>
+        <result column="endTime" property="endTime"/>
+        <result column="ruleType" property="ruleType"/>
+        <result column="isPublic" property="isPublic"/>
+        <result column="can_write" property="canWrite"/>
+    </resultMap>
+
+    <select id="selectContestPage" resultMap="ContestPageItemMap">
         SELECT c.id AS contestId,
                c.title,
                c.subtitle,
@@ -12,7 +24,19 @@
                c.start_time AS startTime,
                c.end_time AS endTime,
                c.rule_type AS ruleType,
-               c.is_public AS isPublic
+               c.is_public AS isPublic,
+               CASE
+                   WHEN #{isAdmin} THEN 1
+                   WHEN #{userId} IS NOT NULL AND EXISTS (
+                       SELECT 1 FROM resource_permission rp
+                       WHERE rp.resource_type = 'CONTEST'
+                         AND rp.resource_id = c.id
+                         AND rp.user_id = #{userId}
+                         AND rp.permission = 'WRITE'
+                         AND rp.is_del = 0
+                   ) THEN 1
+                   ELSE 0
+               END AS can_write
         FROM contest c
         WHERE c.is_del = 0
         <choose>

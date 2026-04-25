@@ -36,4 +36,10 @@ public class ProblemSetDetailVO {
      */
     @JsonProperty("problem_list")
     private List<ProblemSetProblemItemVO> problemList;
+
+    /**
+     * 当前用户是否有写权限
+     */
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }

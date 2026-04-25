@@ -8,6 +8,7 @@
         <result column="description" property="description"/>
         <result column="is_public" property="isPublic"/>
         <result column="problem_count" property="problemCount"/>
+        <result column="can_write" property="canWrite"/>
     </resultMap>
 
     <select id="selectProblemSetPage" resultMap="ProblemSetItemMap">
@@ -15,7 +16,19 @@
                ps.title,
                COALESCE(ps.description, '') AS description,
                ps.is_public,
-               COALESCE(pc.problem_count, 0) AS problem_count
+               COALESCE(pc.problem_count, 0) AS problem_count,
+               CASE
+                   WHEN #{isAdmin} THEN 1
+                   WHEN #{userId} IS NOT NULL AND EXISTS (
+                       SELECT 1 FROM resource_permission rp
+                       WHERE rp.resource_type = 'PROBLEM_SET'
+                         AND rp.resource_id = ps.id
+                         AND rp.user_id = #{userId}
+                         AND rp.permission = 'WRITE'
+                         AND rp.is_del = 0
+                   ) THEN 1
+                   ELSE 0
+               END AS can_write
         FROM problem_set ps
         LEFT JOIN (
             SELECT pspr.problem_set_id,

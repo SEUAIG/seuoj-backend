@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import java.util.List;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -160,6 +161,12 @@ public class ClassController {
     public Result<ClassOverviewVO> getClassOverview(
             @PathVariable("classId") Long classId) {
         return Result.success(classService.getClassOverview(classId));
+    }
+
+    @GetMapping("/{classId}/assignment/progress")
+    public Result<List<ClassOverviewVO.AssignmentProgressItem>> getAssignmentProgress(
+            @PathVariable("classId") Long classId) {
+        return Result.success(classService.getAssignmentProgress(classId));
     }
 
     @GetMapping("/{classId}/overview/assignment/{assignmentId}")
