@@ -69,8 +69,7 @@ public class ProblemService {
                           PermissionService permissionService, UserRoleService userRoleService,
                           ProblemPidGenerator pidGenerator,
                           AssignmentMapper assignmentMapper,
-                          SubmissionMapper submissionMapper) {
-                          AssignmentMapper assignmentMapper,
+                          SubmissionMapper submissionMapper,
                           ImageService imageService) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
