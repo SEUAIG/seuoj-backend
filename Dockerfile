@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # --- 第一阶段：构建阶段 ---
 # 使用官方 Maven 镜像作为构建环境 (包含 JDK 21)
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build-stage
@@ -22,12 +24,14 @@ RUN mkdir -p /root/.m2 && \
 
 # 1. 优化：先只复制 pom.xml，下载所有依赖和插件（利用 Docker 缓存）
 COPY pom.xml .
-RUN mvn dependency:go-offline -B && \
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:go-offline -B && \
     mvn dependency:resolve-plugins -B
 
 # 2. 复制源码并进行打包（依赖层已缓存，-o 离线模式避免再次检查）
 COPY src ./src
-RUN mvn package -Dmaven.test.skip=true
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -o package -Dmaven.test.skip=true
 
 # --- 第二阶段：运行阶段 ---
 # 使用轻量级的 JRE 21 镜像
