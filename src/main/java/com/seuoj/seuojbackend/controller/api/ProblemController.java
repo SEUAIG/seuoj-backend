@@ -12,6 +12,7 @@ import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemStatisticsVO;
 import com.seuoj.seuojbackend.vo.problem.NextProblemIdVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +67,12 @@ public class ProblemController {
         return Result.success(problemService.getProblemDetail(
                 ProblemDetailQuery.fromRequest(pid, contestId, problemSetId, assignmentId)
         ));
+    }
+
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @GetMapping("/{pid}/statistics")
+    public Result<ProblemStatisticsVO> getProblemStatistics(@PathVariable String pid) {
+        return Result.success(problemService.getProblemStatistics(pid));
     }
 
     /**

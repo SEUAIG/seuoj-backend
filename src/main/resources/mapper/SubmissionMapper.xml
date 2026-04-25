@@ -75,4 +75,42 @@
         GROUP BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
         ORDER BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
     </select>
+
+    <select id="selectScoreDistribution"
+            resultType="com.seuoj.seuojbackend.vo.problem.ProblemStatisticsVO$ScoreDistributionItem">
+        SELECT
+            CASE
+                WHEN s.score BETWEEN 0 AND 10 THEN '0-10'
+                WHEN s.score BETWEEN 11 AND 20 THEN '11-20'
+                WHEN s.score BETWEEN 21 AND 30 THEN '21-30'
+                WHEN s.score BETWEEN 31 AND 40 THEN '31-40'
+                WHEN s.score BETWEEN 41 AND 50 THEN '41-50'
+                WHEN s.score BETWEEN 51 AND 60 THEN '51-60'
+                WHEN s.score BETWEEN 61 AND 70 THEN '61-70'
+                WHEN s.score BETWEEN 71 AND 80 THEN '71-80'
+                WHEN s.score BETWEEN 81 AND 90 THEN '81-90'
+                WHEN s.score BETWEEN 91 AND 100 THEN '91-100'
+            END AS `range`,
+            COUNT(*) AS count
+        FROM submission s
+        WHERE s.problem_id = #{problemId}
+          AND s.is_del = 0
+          AND s.status = 'Finished'
+          AND s.score IS NOT NULL
+        GROUP BY `range`
+        HAVING `range` IS NOT NULL
+        ORDER BY MIN(s.score)
+    </select>
+
+    <select id="selectSubmissionTrend"
+            resultType="com.seuoj.seuojbackend.vo.problem.ProblemStatisticsVO$SubmissionTrendItem">
+        SELECT DATE_FORMAT(s.submit_time, '%Y-%m-%d') AS date,
+               COUNT(*) AS count
+        FROM submission s
+        WHERE s.problem_id = #{problemId}
+          AND s.is_del = 0
+          AND s.submit_time &gt;= #{startDate}
+        GROUP BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
 </mapper>

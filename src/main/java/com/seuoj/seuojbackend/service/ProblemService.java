@@ -24,12 +24,14 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.AssignmentMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.ProblemTagRelMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.TagMapper;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.vo.problem.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,12 +61,14 @@ public class ProblemService {
     private final UserRoleService userRoleService;
     private final ProblemPidGenerator pidGenerator;
     private final AssignmentMapper assignmentMapper;
+    private final SubmissionMapper submissionMapper;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
                           ProblemTagRelMapper problemTagRelMapper,
                           PermissionService permissionService, UserRoleService userRoleService,
                           ProblemPidGenerator pidGenerator,
-                          AssignmentMapper assignmentMapper) {
+                          AssignmentMapper assignmentMapper,
+                          SubmissionMapper submissionMapper) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
@@ -73,6 +77,7 @@ public class ProblemService {
         this.userRoleService = userRoleService;
         this.pidGenerator = pidGenerator;
         this.assignmentMapper = assignmentMapper;
+        this.submissionMapper = submissionMapper;
     }
 
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
@@ -556,5 +561,69 @@ public class ProblemService {
         info.setProblemType(problemType);
         info.setCheckerType(checkerType);
         info.setTestCaseNumber(problemConfig.getTestcases() != null ? problemConfig.getTestcases().size() : 0);
+    }
+
+    public ProblemStatisticsVO getProblemStatistics(String pid) {
+        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
+                .eq(Problem::getPid, pid));
+        if (problem == null) {
+            throw new NotFoundException("题目不存在");
+        }
+
+        ProblemStatisticsVO vo = new ProblemStatisticsVO();
+        vo.setTotalSubmit(problem.getTotalSubmit());
+        vo.setTotalAccept(problem.getTotalAccept());
+        vo.setAcceptRate(problem.getTotalSubmit() > 0
+                ? Math.round(problem.getTotalAccept() * 10000.0 / problem.getTotalSubmit()) / 100.0
+                : 0.0);
+
+        vo.setScoreDistribution(fillScoreDistribution(
+                submissionMapper.selectScoreDistribution(problem.getId())));
+
+        String startDate = LocalDate.now().minusDays(29).toString();
+        vo.setSubmissionTrend(fillSubmissionTrend(
+                submissionMapper.selectSubmissionTrend(problem.getId(), startDate)));
+
+        return vo;
+    }
+
+    private List<ProblemStatisticsVO.ScoreDistributionItem> fillScoreDistribution(
+            List<ProblemStatisticsVO.ScoreDistributionItem> raw) {
+        String[] ranges = {"0-10", "11-20", "21-30", "31-40", "41-50",
+                           "51-60", "61-70", "71-80", "81-90", "91-100"};
+        Map<String, Integer> countMap = new HashMap<>();
+        if (raw != null) {
+            for (var item : raw) {
+                countMap.put(item.getRange(), item.getCount());
+            }
+        }
+        List<ProblemStatisticsVO.ScoreDistributionItem> result = new ArrayList<>();
+        for (String range : ranges) {
+            ProblemStatisticsVO.ScoreDistributionItem item = new ProblemStatisticsVO.ScoreDistributionItem();
+            item.setRange(range);
+            item.setCount(countMap.getOrDefault(range, 0));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<ProblemStatisticsVO.SubmissionTrendItem> fillSubmissionTrend(
+            List<ProblemStatisticsVO.SubmissionTrendItem> raw) {
+        Map<String, Integer> countMap = new HashMap<>();
+        if (raw != null) {
+            for (var item : raw) {
+                countMap.put(item.getDate(), item.getCount());
+            }
+        }
+        List<ProblemStatisticsVO.SubmissionTrendItem> result = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        for (int i = 29; i >= 0; i--) {
+            String date = today.minusDays(i).toString();
+            ProblemStatisticsVO.SubmissionTrendItem item = new ProblemStatisticsVO.SubmissionTrendItem();
+            item.setDate(date);
+            item.setCount(countMap.getOrDefault(date, 0));
+            result.add(item);
+        }
+        return result;
     }
 }

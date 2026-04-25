@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.vo.me.HeatmapDayVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemStatisticsVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -34,4 +35,10 @@ public interface SubmissionMapper extends BaseMapper<Submission> {
                                                                @Param("classId") Long classId);
 
     List<HeatmapDayVO> selectUserHeatmapDays(@Param("userId") Long userId, @Param("year") Integer year);
+
+    List<ProblemStatisticsVO.ScoreDistributionItem> selectScoreDistribution(@Param("problemId") Long problemId);
+
+    List<ProblemStatisticsVO.SubmissionTrendItem> selectSubmissionTrend(
+            @Param("problemId") Long problemId,
+            @Param("startDate") String startDate);
 }
