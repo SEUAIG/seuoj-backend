@@ -205,6 +205,7 @@ public class PermissionService {
                 Contest ct = contestMapper.selectById(resourceId);
                 yield ct != null && Boolean.TRUE.equals(ct.getIsPublic());
             }
+            case ASSIGNMENT, ANNOUNCEMENT -> false;
         };
     }
 
@@ -212,7 +213,7 @@ public class PermissionService {
         return switch (type) {
             case PROBLEM_SET -> resourcePermissionMapper.hasProblemSetAccessViaAssignment(resourceId, userId);
             case CONTEST -> hasContestInheritedAccess(userId, resourceId);
-            case PROBLEM, CLASS -> false;
+            case PROBLEM, CLASS, ASSIGNMENT, ANNOUNCEMENT -> false;
         };
     }
 

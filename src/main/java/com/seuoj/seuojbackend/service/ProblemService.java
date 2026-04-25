@@ -62,6 +62,7 @@ public class ProblemService {
     private final ProblemPidGenerator pidGenerator;
     private final AssignmentMapper assignmentMapper;
     private final SubmissionMapper submissionMapper;
+    private final ImageService imageService;
 
     public ProblemService(ProblemMapper problemMapper, JudgeClient judgeClient, TagMapper tagMapper,
                           ProblemTagRelMapper problemTagRelMapper,
@@ -69,6 +70,8 @@ public class ProblemService {
                           ProblemPidGenerator pidGenerator,
                           AssignmentMapper assignmentMapper,
                           SubmissionMapper submissionMapper) {
+                          AssignmentMapper assignmentMapper,
+                          ImageService imageService) {
         this.problemMapper = problemMapper;
         this.judgeClient = judgeClient;
         this.tagMapper = tagMapper;
@@ -78,6 +81,7 @@ public class ProblemService {
         this.pidGenerator = pidGenerator;
         this.assignmentMapper = assignmentMapper;
         this.submissionMapper = submissionMapper;
+        this.imageService = imageService;
     }
 
     public ProblemPageVO getProblemPage(Integer current, Integer size, String title, List<Long> tagIds) {
@@ -379,6 +383,7 @@ public class ProblemService {
 
         problemTagRelMapper.markAllDeletedByProblemId(problem.getId());
         problemMapper.deleteById(problem.getId());
+        imageService.unbindResource(ResourceType.PROBLEM, problem.getId());
 
         judgeClient.deleteProblem(pid);
     }
