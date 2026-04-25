@@ -39,10 +39,10 @@ public interface ProblemMapper extends BaseMapper<Problem> {
     List<String> getProblemTags(@Param("pid") String pid);
 
     /**
-     * 分页查询题目列表（支持标题模糊搜索和标签筛选）
+     * 分页查询题目列表（支持标题/PID 搜索和标签筛选）
      */
     IPage<ProblemListItemVO> selectProblemPage(
-            Page<ProblemListItemVO> page,
+            Page<?> page,
             @Param("title") String title,
             @Param("titleLike") String titleLike,
             @Param("useFulltext") boolean useFulltext,

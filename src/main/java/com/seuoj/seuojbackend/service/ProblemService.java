@@ -86,7 +86,7 @@ public class ProblemService {
 
         SearchSpec searchSpec = SearchSpec.from(title);
 
-        Page<ProblemListItemVO> page = new Page<>(current, size);
+        Page<?> page = new Page<>(current, size);
         IPage<ProblemListItemVO> resultPage = problemMapper.selectProblemPage(
                 page,
                 searchSpec.fulltextQuery,

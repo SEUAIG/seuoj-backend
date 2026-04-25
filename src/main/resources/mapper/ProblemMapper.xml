@@ -99,7 +99,10 @@
                 FROM problem p
                 <where>
                     <include refid="ProblemBaseWhere"/>
-                    AND MATCH(p.title) AGAINST (#{title} IN BOOLEAN MODE)
+                    AND (
+                    MATCH(p.title) AGAINST (#{title} IN BOOLEAN MODE)
+                    OR p.pid LIKE CONCAT('%', #{titleLike}, '%')
+                    )
                 </where>
             </if>
             <if test="useLikeSingle">
@@ -113,6 +116,7 @@
                     AND (
                     <foreach collection="singleTokens" item="tok" separator=" OR ">
                         p.title LIKE CONCAT('%', #{tok}, '%')
+                        OR p.pid LIKE CONCAT('%', #{tok}, '%')
                     </foreach>
                     )
                 </where>
@@ -125,7 +129,10 @@
                 FROM problem p
                 <where>
                     <include refid="ProblemBaseWhere"/>
-                    AND p.title LIKE CONCAT('%', #{titleLike}, '%')
+                    AND (
+                    p.title LIKE CONCAT('%', #{titleLike}, '%')
+                    OR p.pid LIKE CONCAT('%', #{titleLike}, '%')
+                    )
                 </where>
             </if>
             <if test="!useFulltext and !useLikeSingle and !useLikeRaw">
@@ -215,5 +222,4 @@
     </select>
 
 </mapper>
-
 
