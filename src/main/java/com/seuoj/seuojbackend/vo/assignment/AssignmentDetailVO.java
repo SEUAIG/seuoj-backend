@@ -39,6 +39,9 @@ public class AssignmentDetailVO {
     @JsonProperty("avg_completion_rate")
     private Double avgCompletionRate;
 
+    @JsonProperty("can_write")
+    private Boolean canWrite;
+
     private List<ProblemItem> problems;
 
     @JsonProperty("intro_attachments")

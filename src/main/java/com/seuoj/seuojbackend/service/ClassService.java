@@ -619,7 +619,7 @@ public class ClassService {
         if (classInfo == null) {
             throw new NotFoundException("班级不存在");
         }
-        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
+        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
         Long memberCount = classStudentRelMapper.selectCount(
                 new LambdaQueryWrapper<ClassStudentRel>()
@@ -643,15 +643,10 @@ public class ClassService {
         if (classInfo == null) {
             throw new NotFoundException("班级不存在");
         }
-        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
+        permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
         Assignment assignment = assignmentMapper.selectById(assignmentId);
         if (assignment == null || !assignment.getClassId().equals(classInfo.getId())) {
-            throw new NotFoundException("作业不存在");
-        }
-
-        boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
-        if (!canWrite && !"PUBLISHED".equals(assignment.getStatus())) {
             throw new NotFoundException("作业不存在");
         }
 

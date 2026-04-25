@@ -156,7 +156,10 @@ public class AssignmentService {
     }
 
     public AssignmentDetailVO getAssignmentDetailVO(Long classId, Long assignmentId) {
+        Long userId = AuthContexts.requiredUserId();
         Assignment assignment = getAssignmentDetail(classId, assignmentId);
+        ClassInfo classInfo = requireClass(classId);
+        boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
 
         List<AssignmentDetailVO.ProblemItem> problems = buildProblemList(assignment.getId());
 
@@ -191,6 +194,7 @@ public class AssignmentService {
             item.setFileSize(att.getFileSize());
             return item;
         }).toList());
+        vo.setCanWrite(canWrite);
         return vo;
     }
 
