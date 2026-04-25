@@ -1,6 +1,5 @@
 package com.seuoj.seuojbackend.controller.api;
 
-import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
@@ -10,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -24,6 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/file")
 public class FileController {
+
+    private static final Pattern INVALID_FILENAME_CHARS = Pattern.compile("[\\\\/\\r\\n\\t\\x00]");
 
     private final FileUploadStorage fileUploadStorage;
 
@@ -43,23 +45,50 @@ public class FileController {
 
     @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/download/**")
-    public ResponseEntity<Resource> download(HttpServletRequest request) {
+    public ResponseEntity<Resource> download(HttpServletRequest request,
+                                             @RequestParam(value = "name", required = false) String name) {
         String fullPath = request.getRequestURI();
         String prefix = "/api/file/download/";
         String relativePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
 
         Resource resource = fileUploadStorage.loadAsResource(relativePath);
-        String filename = resource.getFilename();
-        if (filename == null) {
-            filename = "download";
+        String fallbackFilename = resource.getFilename();
+        if (fallbackFilename == null || fallbackFilename.isBlank()) {
+            fallbackFilename = "download";
         }
 
-        String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        String downloadFilename = sanitizeDownloadFilename(name, fallbackFilename);
+        String encodedFilename = URLEncoder.encode(downloadFilename, StandardCharsets.UTF_8).replace("+", "%20");
+        String asciiFilename = toAsciiFallback(downloadFilename);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename*=UTF-8''" + encodedFilename)
+                        "attachment; filename=\"" + asciiFilename + "\"; filename*=UTF-8''" + encodedFilename)
                 .body(resource);
+    }
+
+    private String sanitizeDownloadFilename(String name, String fallbackFilename) {
+        if (name == null || name.isBlank()) {
+            return fallbackFilename;
+        }
+        String cleaned = INVALID_FILENAME_CHARS.matcher(name.trim()).replaceAll("_");
+        if (cleaned.isBlank()) {
+            return fallbackFilename;
+        }
+        return cleaned;
+    }
+
+    private String toAsciiFallback(String filename) {
+        StringBuilder sb = new StringBuilder(filename.length());
+        for (char c : filename.toCharArray()) {
+            if (c >= 32 && c <= 126 && c != '"') {
+                sb.append(c);
+            } else {
+                sb.append('_');
+            }
+        }
+        String value = sb.toString();
+        return value.isBlank() ? "download" : value;
     }
 }
