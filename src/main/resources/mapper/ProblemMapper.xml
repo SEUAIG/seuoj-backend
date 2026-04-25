@@ -148,7 +148,12 @@
         </trim>
         ) u
         GROUP BY u.pid, u.title, u.total_submit, u.total_accept
-        ORDER BY score DESC, u.pid ASC
+        ORDER BY score DESC,
+                 CASE
+                     WHEN u.pid REGEXP '^[A-Za-z][0-9]+$' THEN CAST(SUBSTRING(u.pid, 2) AS UNSIGNED)
+                     ELSE 18446744073709551615
+                     END ASC,
+                 u.pid ASC
     </select>
 
     <!-- 批量获取题目标签 -->
