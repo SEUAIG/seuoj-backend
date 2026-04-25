@@ -21,6 +21,7 @@ public interface ContestMapper extends BaseMapper<Contest> {
             Page<?> page,
             @Param("userId") Long userId,
             @Param("isAdmin") boolean isAdmin,
+            @Param("isTeacher") boolean isTeacher,
             @Param("status") String status,
             @Param("titleKeyword") String titleKeyword,
             @Param("ruleType") String ruleType,

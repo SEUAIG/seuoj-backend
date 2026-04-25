@@ -40,7 +40,7 @@
         FROM contest c
         WHERE c.is_del = 0
         <choose>
-            <when test="isAdmin">
+            <when test="isAdmin or isTeacher">
             </when>
             <otherwise>
                 AND (
@@ -51,16 +51,28 @@
                               AND rp.resource_id = c.id
                               AND rp.user_id = #{userId}
                               AND rp.is_del = 0)
-                        OR EXISTS (SELECT 1 FROM contest_register_rel crr
-                            WHERE crr.contest_id = c.id
-                              AND crr.user_id = #{userId}
-                              AND crr.is_del = 0)
-                        OR EXISTS (SELECT 1 FROM class_contest_rel ccr
-                            INNER JOIN class_student_rel csr ON ccr.class_id = csr.class_id
-                            WHERE ccr.contest_id = c.id
-                              AND csr.user_id = #{userId}
-                              AND ccr.is_del = 0
-                              AND csr.is_del = 0)
+                        OR (
+                            NOW() &gt;= c.start_time AND NOW() &lt;= c.end_time
+                            AND EXISTS (SELECT 1 FROM contest_register_rel crr
+                                WHERE crr.contest_id = c.id
+                                  AND crr.user_id = #{userId}
+                                  AND crr.is_del = 0)
+                        )
+                        OR (
+                            NOW() &gt; c.end_time
+                            AND (
+                                EXISTS (SELECT 1 FROM contest_register_rel crr
+                                    WHERE crr.contest_id = c.id
+                                      AND crr.user_id = #{userId}
+                                      AND crr.is_del = 0)
+                                OR EXISTS (SELECT 1 FROM class_contest_rel ccr
+                                    INNER JOIN class_student_rel csr ON ccr.class_id = csr.class_id
+                                    WHERE ccr.contest_id = c.id
+                                      AND csr.user_id = #{userId}
+                                      AND ccr.is_del = 0
+                                      AND csr.is_del = 0)
+                            )
+                        )
                     </if>
                 )
             </otherwise>

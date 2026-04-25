@@ -166,10 +166,11 @@ public class ContestService {
 
         Long userId = AuthContexts.userIdOrNull();
         boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
+        boolean isTeacher = userId != null && userRoleService.isTeacher(userId);
 
         Page<ContestPageItemVO> page = new Page<>(current, size);
         IPage<ContestPageItemVO> pageResult = contestMapper.selectContestPage(
-                page, userId, isAdmin, status, titleKeyword, ruleType, startTimeFrom, endTimeTo);
+                page, userId, isAdmin, isTeacher, status, titleKeyword, ruleType, startTimeFrom, endTimeTo);
 
         ContestPageVO vo = new ContestPageVO();
         vo.setCurrent(pageResult.getCurrent());

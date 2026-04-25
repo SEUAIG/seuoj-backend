@@ -26,4 +26,7 @@ public class SubmitDTO {
 
     @JsonProperty("assignment_id")
     private Long assignmentId;
+
+    @JsonProperty("problem_set_id")
+    private Long problemSetId;
 }
