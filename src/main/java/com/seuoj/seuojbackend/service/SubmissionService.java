@@ -102,11 +102,18 @@ public class SubmissionService {
             throw new NotFoundException("题目不存在: " + dto.getPid());
         }
 
+        if (dto.getAssignmentId() != null && dto.getProblemSetId() != null) {
+            throw new BadRequestException("assignment_id 和 problem_set_id 不能同时传入");
+        }
+
         if (!Boolean.TRUE.equals(problem.getIsPublic())) {
-            if (dto.getAssignmentId() == null) {
+            if (dto.getAssignmentId() != null) {
+                permissionService.assertProblemAccessViaAssignment(userId, problem.getId(), dto.getAssignmentId());
+            } else if (dto.getProblemSetId() != null) {
+                permissionService.assertProblemAccessViaProblemSet(userId, problem.getId(), dto.getProblemSetId());
+            } else {
                 throw new NotFoundException("题目不存在: " + dto.getPid());
             }
-            permissionService.assertProblemAccessViaAssignment(userId, problem.getId(), dto.getAssignmentId());
         }
 
         int codeBytes = dto.getCode() == null ? 0 : dto.getCode().getBytes(StandardCharsets.UTF_8).length;
@@ -131,7 +138,10 @@ public class SubmissionService {
                 throw new BadRequestException("作业尚未开放");
             }
             if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
-                throw new BadRequestException("作业已关闭，不可提交");
+                throw new BadRequestException("作业已关闭");
+            }
+            if (assignment.getDeadline() != null && now.isAfter(assignment.getDeadline())) {
+                throw new BadRequestException("作业已截止，不可提交");
             }
         }
 

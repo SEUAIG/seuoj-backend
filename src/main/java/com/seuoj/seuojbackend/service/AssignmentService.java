@@ -126,10 +126,6 @@ public class AssignmentService {
 
         if (!canWrite) {
             wrapper.eq(Assignment::getStatus, STATUS_PUBLISHED);
-            LocalDateTime now = LocalDateTime.now();
-            wrapper.and(w -> w
-                    .isNull(Assignment::getVisibleFrom)
-                    .or().le(Assignment::getVisibleFrom, now));
         }
 
         return assignmentMapper.selectPage(new Page<>(current, size), wrapper);
@@ -147,8 +143,12 @@ public class AssignmentService {
             if (!STATUS_PUBLISHED.equals(assignment.getStatus())) {
                 throw new NotFoundException("作业不存在");
             }
-            if (assignment.getVisibleFrom() != null && LocalDateTime.now().isBefore(assignment.getVisibleFrom())) {
-                throw new NotFoundException("作业不存在");
+            LocalDateTime now = LocalDateTime.now();
+            if (assignment.getVisibleFrom() != null && now.isBefore(assignment.getVisibleFrom())) {
+                throw new BadRequestException("作业尚未开放");
+            }
+            if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
+                throw new BadRequestException("作业已关闭");
             }
         }
 
@@ -463,13 +463,8 @@ public class AssignmentService {
     }
 
     private void validateStatusTransition(String current, String target) {
-        List<String> allowed = switch (current) {
-            case STATUS_DRAFT -> List.of(STATUS_PUBLISHED);
-            default -> Collections.emptyList();
-        };
-
-        if (!allowed.contains(target)) {
-            throw new BadRequestException("不允许的状态变更: " + current + " → " + target);
+        if (!STATUS_DRAFT.equals(target) && !STATUS_PUBLISHED.equals(target)) {
+            throw new BadRequestException("不允许的状态值: " + target);
         }
     }
 

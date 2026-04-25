@@ -14,6 +14,7 @@ import com.seuoj.seuojbackend.entity.AnnouncementAttachment;
 import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.entity.ClassInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import java.time.LocalDateTime;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.AnnouncementAttachmentMapper;
@@ -135,8 +136,17 @@ public class AnnouncementService {
         }
 
         boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
-        if (!canWrite && !"PUBLISHED".equals(assignment.getStatus())) {
-            throw new NotFoundException("作业不存在");
+        if (!canWrite) {
+            if (!"PUBLISHED".equals(assignment.getStatus())) {
+                throw new NotFoundException("作业不存在");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (assignment.getVisibleFrom() != null && now.isBefore(assignment.getVisibleFrom())) {
+                throw new BadRequestException("作业尚未开放");
+            }
+            if (assignment.getVisibleTo() != null && now.isAfter(assignment.getVisibleTo())) {
+                throw new BadRequestException("作业已关闭");
+            }
         }
 
         IPage<AnnouncementVO> page = announcementMapper.selectAnnouncementPage(
