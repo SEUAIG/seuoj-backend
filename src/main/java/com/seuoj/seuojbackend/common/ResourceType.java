@@ -7,5 +7,7 @@ public enum ResourceType {
     PROBLEM,
     PROBLEM_SET,
     CLASS,
-    CONTEST;
+    CONTEST,
+    ASSIGNMENT,
+    ANNOUNCEMENT;
 }

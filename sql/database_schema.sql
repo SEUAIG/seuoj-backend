@@ -643,4 +643,58 @@ CREATE TABLE `user_role_rel`
   COLLATE = utf8mb4_unicode_ci COMMENT = '用户角色关联表'
   ROW_FORMAT = DYNAMIC;
 
+-- ----------------------------
+-- Table structure for image_asset
+-- ----------------------------
+DROP TABLE IF EXISTS `image_asset`;
+CREATE TABLE `image_asset`
+(
+    `id`               bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `image_key`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '图片访问 key',
+    `storage_path`     varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '图片相对存储路径',
+    `mime_type`        varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '图片 MIME',
+    `file_size`        bigint                                                        NOT NULL COMMENT '文件大小（字节）',
+    `sha256`           char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci    NOT NULL COMMENT '文件 SHA-256',
+    `uploader_user_id` bigint                                                        NOT NULL COMMENT '上传者用户ID',
+    `status`           enum ('ACTIVE','DELETED') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
+    `created_at`       timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `deleted_at`       datetime                                                      NULL COMMENT '删除时间',
+    `is_del`           tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_image_asset_key` (`image_key` ASC) USING BTREE,
+    INDEX `idx_image_asset_sha` (`sha256` ASC) USING BTREE,
+    INDEX `idx_image_asset_uploader` (`uploader_user_id` ASC) USING BTREE,
+    CONSTRAINT `fk_image_asset_uploader` FOREIGN KEY (`uploader_user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '图片资源表'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for image_binding
+-- ----------------------------
+DROP TABLE IF EXISTS `image_binding`;
+CREATE TABLE `image_binding`
+(
+    `id`            bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `image_id`      bigint                                                                                                         NOT NULL COMMENT '图片ID',
+    `resource_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci                                                   NOT NULL COMMENT '资源类型',
+    `resource_id`   bigint                                                                                                         NOT NULL COMMENT '资源ID',
+    `created_at`    timestamp                                                                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`    timestamp                                                                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`        tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+    `active_key`    varchar(192) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                            when (`is_del` = 0)
+                                                                                                                then concat(`image_id`, _utf8mb4'#', `resource_type`, _utf8mb4'#', `resource_id`)
+                                                                                                            else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_image_binding_active` (`active_key` ASC) USING BTREE,
+    INDEX `idx_image_binding_resource` (`resource_type` ASC, `resource_id` ASC) USING BTREE,
+    INDEX `idx_image_binding_image` (`image_id` ASC) USING BTREE,
+    CONSTRAINT `fk_image_binding_image` FOREIGN KEY (`image_id`) REFERENCES `image_asset` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '图片与业务资源绑定关系表'
+  ROW_FORMAT = DYNAMIC;
+
 SET FOREIGN_KEY_CHECKS = 1;
