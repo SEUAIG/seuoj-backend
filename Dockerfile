@@ -25,13 +25,13 @@ RUN mkdir -p /root/.m2 && \
 # 1. 优化：先只复制 pom.xml，下载所有依赖和插件（利用 Docker 缓存）
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn dependency:go-offline -B && \
-    mvn dependency:resolve-plugins -B
+    mvn dependency:go-offline -B
+
 
 # 2. 复制源码并进行打包（依赖层已缓存，-o 离线模式避免再次检查）
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -o package -Dmaven.test.skip=true
+    mvn package -Dmaven.test.skip=true
 
 # --- 第二阶段：运行阶段 ---
 # 使用轻量级的 JRE 21 镜像
