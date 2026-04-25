@@ -1,14 +1,13 @@
 package com.seuoj.seuojbackend.controller.api;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.Result;
-import com.seuoj.seuojbackend.entity.ResourcePermission;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ResourcePermissionMapper;
 import com.seuoj.seuojbackend.service.PermissionService;
+import com.seuoj.seuojbackend.vo.permission.ResourcePermissionVO;
 import java.util.List;
 import java.util.Map;
 import org.springframework.validation.annotation.Validated;
@@ -59,17 +58,15 @@ public class PermissionController {
     }
 
     @GetMapping("/{type}/{resourceId}")
-    public Result<List<ResourcePermission>> list(
+    public Result<List<ResourcePermissionVO>> list(
             @PathVariable("type") String type,
             @PathVariable("resourceId") Long resourceId) {
         Long userId = AuthContexts.requiredUserId();
         ResourceType rt = parseResourceType(type);
         permissionService.assertPermission(userId, rt, resourceId, PermissionOp.WRITE);
 
-        List<ResourcePermission> permissions = resourcePermissionMapper.selectList(
-                new LambdaQueryWrapper<ResourcePermission>()
-                        .eq(ResourcePermission::getResourceType, rt.name())
-                        .eq(ResourcePermission::getResourceId, resourceId));
+        List<ResourcePermissionVO> permissions = resourcePermissionMapper
+                .selectPermissionsWithUserInfo(rt.name(), resourceId);
         return Result.success(permissions);
     }
 

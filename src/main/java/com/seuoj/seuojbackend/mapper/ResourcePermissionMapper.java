@@ -2,11 +2,17 @@ package com.seuoj.seuojbackend.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.seuoj.seuojbackend.entity.ResourcePermission;
+import com.seuoj.seuojbackend.vo.permission.ResourcePermissionVO;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface ResourcePermissionMapper extends BaseMapper<ResourcePermission> {
+
+    List<ResourcePermissionVO> selectPermissionsWithUserInfo(
+            @Param("resourceType") String resourceType,
+            @Param("resourceId") Long resourceId);
 
     boolean hasPermission(@Param("resourceType") String resourceType,
                           @Param("resourceId") Long resourceId,

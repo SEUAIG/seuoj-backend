@@ -2,6 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.seuoj.seuojbackend.mapper.ResourcePermissionMapper">
 
+    <select id="selectPermissionsWithUserInfo"
+            resultType="com.seuoj.seuojbackend.vo.permission.ResourcePermissionVO">
+        SELECT rp.id,
+               rp.user_id   AS userId,
+               ui.username,
+               ui.nickname,
+               rp.permission,
+               rp.created_at AS createdAt
+        FROM resource_permission rp
+        LEFT JOIN user_info ui ON rp.user_id = ui.id AND ui.is_del = 0
+        WHERE rp.resource_type = #{resourceType}
+          AND rp.resource_id = #{resourceId}
+          AND rp.is_del = 0
+        ORDER BY rp.created_at ASC
+    </select>
+
     <select id="hasPermission" resultType="boolean">
         SELECT COUNT(1) > 0
         FROM resource_permission

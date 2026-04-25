@@ -45,4 +45,10 @@ public class ClassItemVO {
      */
     @JsonProperty("is_public")
     private Boolean isPublic;
+
+    /**
+     * 当前用户是否有写权限
+     */
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }

@@ -152,6 +152,10 @@ public class ClassService {
         vo.setSize(pageResult.getSize());
         vo.setTotal(pageResult.getTotal());
         vo.setRecords(pageResult.getRecords() == null ? Collections.emptyList() : pageResult.getRecords());
+        for (ClassItemVO record : vo.getRecords()) {
+            record.setCanWrite(isAdmin || (userId != null &&
+                    permissionService.hasPermission(userId, ResourceType.CLASS, record.getClassId(), PermissionOp.WRITE)));
+        }
         return vo;
     }
 
@@ -162,7 +166,9 @@ public class ClassService {
             throw new NotFoundException("班级不存在");
         }
         permissionService.assertPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.READ);
-        return toClassItemVO(classInfo);
+        ClassItemVO vo = toClassItemVO(classInfo);
+        vo.setCanWrite(permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE));
+        return vo;
     }
 
     @Transactional(rollbackFor = Exception.class)
