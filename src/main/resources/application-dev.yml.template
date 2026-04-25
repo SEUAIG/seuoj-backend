@@ -48,5 +48,4 @@ storage:
   image-path: ./data/images
   image-max-file-size: 10485760
   image-allowed-mime-types: image/jpeg,image/png,image/webp,image/gif
-  image-public-base-url:
 

@@ -18,7 +18,6 @@ import com.seuoj.seuojbackend.vo.image.ImageUploadVO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -248,15 +247,6 @@ public class ImageService {
                 .eq(ImageBinding::getResourceId, resourceId));
 
         recycleUnreferencedImages(imageIds);
-    }
-
-    public URI buildImageUri(String baseUrl, String imageKey) {
-        String trimmedBase = StringUtils.hasText(baseUrl) ? baseUrl.trim() : "";
-        if (!StringUtils.hasText(trimmedBase)) {
-            throw new BadRequestException("图片访问地址不能为空");
-        }
-        String finalBase = trimmedBase.endsWith("/") ? trimmedBase.substring(0, trimmedBase.length() - 1) : trimmedBase;
-        return URI.create(finalBase + "/api/image/" + imageKey);
     }
 
     private void recycleUnreferencedImages(Set<Long> candidateImageIds) {

@@ -7,11 +7,8 @@ import com.seuoj.seuojbackend.dto.image.ImageBindDTO;
 import com.seuoj.seuojbackend.service.ImageService;
 import com.seuoj.seuojbackend.service.ImageService.ImageReadPayload;
 import com.seuoj.seuojbackend.vo.image.ImageUploadVO;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.Locale;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -35,19 +32,14 @@ public class ImageController {
 
     private final ImageService imageService;
 
-    @Value("${storage.image-public-base-url:}")
-    private String imagePublicBaseUrl;
-
     public ImageController(ImageService imageService) {
         this.imageService = imageService;
     }
 
     @PostMapping("/upload")
-    public Result<ImageUploadVO> upload(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
-        String baseUrl = resolveBaseUrl(request);
+    public Result<ImageUploadVO> upload(@RequestParam("file") MultipartFile file) {
         ImageUploadVO vo = imageService.upload(file);
-        URI uri = imageService.buildImageUri(baseUrl, vo.getImageKey());
-        vo.setUrl(uri.toString());
+        vo.setUrl("/api/image/" + vo.getImageKey());
         return Result.success(vo);
     }
 
@@ -88,20 +80,5 @@ public class ImageController {
         } catch (IllegalArgumentException ex) {
             throw new com.seuoj.seuojbackend.exception.BadRequestException("resourceType 非法");
         }
-    }
-
-    private String resolveBaseUrl(HttpServletRequest request) {
-        if (imagePublicBaseUrl != null && !imagePublicBaseUrl.isBlank()) {
-            return imagePublicBaseUrl.trim();
-        }
-        String scheme = request.getScheme();
-        String host = request.getServerName();
-        int port = request.getServerPort();
-        boolean defaultPort = ("http".equalsIgnoreCase(scheme) && port == 80)
-                || ("https".equalsIgnoreCase(scheme) && port == 443);
-        if (defaultPort) {
-            return scheme + "://" + host;
-        }
-        return scheme + "://" + host + ":" + port;
     }
 }
