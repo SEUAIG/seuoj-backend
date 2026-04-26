@@ -27,6 +27,7 @@ import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
+import com.seuoj.seuojbackend.model.JudgeResultDetailItem;
 import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.vo.me.HeatmapDayVO;
 import com.seuoj.seuojbackend.vo.me.HeatmapSummaryVO;
@@ -37,6 +38,7 @@ import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -53,6 +55,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SubmissionService {
 
     private static final int MAX_CODE_BYTES = 65535;
+    private static final int MAX_JUDGE_DETAIL_LENGTH = 2000;
+    private static final String JUDGE_DETAIL_TRUNCATED_SUFFIX = "...（内容已截断）";
 
     private final SubmissionMapper submissionMapper;
     private final SubmissionDetailMapper submissionDetailMapper;
@@ -331,9 +335,9 @@ public class SubmissionService {
         vo.setFinishTime(submission.getFinishTime());
 
         if (detail != null) {
-            vo.setResultDetail(detail.getResultDetail());
+            vo.setResultDetail(truncateResultDetail(detail.getResultDetail()));
             vo.setSubtasks(detail.getSubtasks());
-            vo.setErrorDetail(detail.getErrorDetail());
+            vo.setErrorDetail(truncateJudgeDetail(detail.getErrorDetail()));
         }
 
         try {
@@ -355,5 +359,38 @@ public class SubmissionService {
 
     private boolean isTeacherOrAdmin(Long userId) {
         return userRoleService != null && userRoleService.isTeacherOrAdmin(userId);
+    }
+
+    private String truncateJudgeDetail(String raw) {
+        if (raw == null || raw.length() <= MAX_JUDGE_DETAIL_LENGTH) {
+            return raw;
+        }
+        int keepLength = MAX_JUDGE_DETAIL_LENGTH - JUDGE_DETAIL_TRUNCATED_SUFFIX.length();
+        return raw.substring(0, keepLength) + JUDGE_DETAIL_TRUNCATED_SUFFIX;
+    }
+
+    private List<JudgeResultDetailItem> truncateResultDetail(List<JudgeResultDetailItem> rawItems) {
+        if (rawItems == null || rawItems.isEmpty()) {
+            return rawItems;
+        }
+        List<JudgeResultDetailItem> result = new ArrayList<>(rawItems.size());
+        for (JudgeResultDetailItem item : rawItems) {
+            if (item == null) {
+                result.add(null);
+                continue;
+            }
+            JudgeResultDetailItem copy = new JudgeResultDetailItem();
+            copy.setId(item.getId());
+            copy.setIn(truncateJudgeDetail(item.getIn()));
+            copy.setOut(truncateJudgeDetail(item.getOut()));
+            copy.setAns(truncateJudgeDetail(item.getAns()));
+            copy.setSys(truncateJudgeDetail(item.getSys()));
+            copy.setTime(item.getTime());
+            copy.setMem(item.getMem());
+            copy.setType(item.getType());
+            copy.setScore(item.getScore());
+            result.add(copy);
+        }
+        return result;
     }
 }
