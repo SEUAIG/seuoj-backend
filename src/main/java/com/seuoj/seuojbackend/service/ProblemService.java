@@ -296,6 +296,9 @@ public class ProblemService {
             problemDetail.setSubmittable(true);
         }
 
+        // 判断是否可以编辑删除题目
+        problemDetail.setCanWrite(permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE));
+
         return problemDetail;
     }
 

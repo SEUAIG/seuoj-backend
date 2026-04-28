@@ -29,4 +29,8 @@ public class ProblemDetailVO {
     private Integer totalAccept;
 
     private Boolean submittable;
+
+    // 是否可以写题目（包括编辑和删除）
+    @JsonProperty("can_write")
+    private Boolean canWrite;
 }
