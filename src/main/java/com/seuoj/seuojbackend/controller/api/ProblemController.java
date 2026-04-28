@@ -69,6 +69,9 @@ public class ProblemController {
         ));
     }
 
+    /**
+     * 获取题目统计信息
+     */
     @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/{pid}/statistics")
     public Result<ProblemStatisticsVO> getProblemStatistics(@PathVariable String pid) {
@@ -78,7 +81,7 @@ public class ProblemController {
     /**
      * 新建题面
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping
     public Result<ProblemCreateVO> createProblem(@Valid @RequestBody ProblemCreateDTO dto) {
         return Result.success(problemService.createProblem(dto));
@@ -87,7 +90,7 @@ public class ProblemController {
     /**
      * 获取下一个最小可用题目id（待完善）
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/next_id")
     public Result<NextProblemIdVO> getNextProblemId() {
         return Result.success(problemService.getNextProblemId());
@@ -96,7 +99,7 @@ public class ProblemController {
     /**
      * 编辑题目信息
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PatchMapping("/edit")
     public Result<Void> editProblem(@Valid @RequestBody ProblemEditDTO dto) {
         problemService.editProblem(dto);
@@ -107,7 +110,7 @@ public class ProblemController {
      * 上传题目测试数据
      * 后端鉴权后直接代理到评测端
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/data/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
                                        HttpServletRequest request,
@@ -121,7 +124,7 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/config/{pid}")
     public void getProblemConfig(@PathVariable String pid,
                                  HttpServletRequest request,
@@ -135,7 +138,7 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/config/{pid}")
     public void updateProblemConfig(@PathVariable String pid,
                                     HttpServletRequest request,
@@ -160,7 +163,7 @@ public class ProblemController {
      * @param pid      题目编号
      * @param fileName 文件名（可含子目录）
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
@@ -177,7 +180,7 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/tree/{pid}")
     public Result<Object> getProblemTree(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTree(pid));
@@ -186,7 +189,7 @@ public class ProblemController {
     /**
      * 删除题目
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/{pid}")
     public Result<Void> deleteProblem(@PathVariable String pid) {
         problemService.deleteProblem(pid);
@@ -197,7 +200,7 @@ public class ProblemController {
      * 删除题目文件
      * 后端鉴权后直接代理到评测端
      */
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/file/{pid}/{file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletRequest request,
