@@ -67,6 +67,7 @@ public class SubmissionService {
     private final UserInfoMapper userInfoMapper;
     private final UserRoleService userRoleService;
     private final PermissionService permissionService;
+    private final ProblemService problemService;
     private final TransactionTemplate transactionTemplate;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
@@ -74,6 +75,7 @@ public class SubmissionService {
                              JudgeClient judgeClient,
                              CodeStorage codeStorage, UserInfoMapper userInfoMapper,
                              UserRoleService userRoleService, PermissionService permissionService,
+                             ProblemService problemService,
                              TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
@@ -84,6 +86,7 @@ public class SubmissionService {
         this.userInfoMapper = userInfoMapper;
         this.userRoleService = userRoleService;
         this.permissionService = permissionService;
+        this.problemService = problemService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -100,11 +103,7 @@ public class SubmissionService {
         }
         Long userId = userContext.getUserId();
 
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, dto.getPid()));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在: " + dto.getPid());
-        }
+        Problem problem = problemService.getProblemByPidOrThrow(dto.getPid());
 
         if (dto.getAssignmentId() != null && dto.getProblemSetId() != null) {
             throw new BadRequestException("assignment_id 和 problem_set_id 不能同时传入");

@@ -16,6 +16,8 @@ public enum ErrorCode {
     FORBIDDEN_ERROR(40300, "无权限访问"),
     JUDGE_AUTH_ERROR(40301, "测评服务身份认证失败"),
     NOT_FOUND_ERROR(40400, "请求资源不存在"),
+    PROBLEM_NOT_FOUND_ERROR(40401, "题目不存在"),
+    PROBLEM_DELETED_ERROR(40402, "题目已删除"),
     CONFLICT_ERROR(40900, "业务冲突"),
     CODE_SEND_TOO_FREQUENT(42900, "发送过于频繁"),
     CODE_TOO_MANY_TRIES(42901, "验证码尝试次数过多"),
