@@ -1,7 +1,9 @@
 package com.seuoj.seuojbackend.interceptor;
 
 import com.seuoj.seuojbackend.common.AuthStatus;
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.entity.UserInfo;
+import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.util.JwtTokenType;
 import com.seuoj.seuojbackend.util.JwtUtil;
@@ -44,14 +46,19 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String methodName = handlerMethod.getMethod().getName();
         log.debug("处理 Controller 方法: {}.{}", controllerName, methodName);
 
-        String token = resolveBearerToken(req);
-
-        // 没 token：游客
-        if (token == null) {
+        String authHeader = req.getHeader("Authorization");
+        // 没有 Authorization 头：游客
+        if (authHeader == null) {
             log.info("请求未携带 token，作为游客处理 - URI: {} {}, Controller及方法: {}.{}",
                     method, requestUri, controllerName, methodName);
             UserContextHolder.set(UserContext.guest());
             return true;
+        }
+        String token = resolveBearerToken(authHeader);
+        if (token == null) {
+            log.warn("请求携带了无效的 Authorization 请求头，拒绝访问 - URI: {} {}, Controller: {}.{}",
+                    method, requestUri, controllerName, methodName);
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "无效的访问令牌");
         }
 
         // 有令牌则进行解析与校验
@@ -60,8 +67,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         if (parsedToken == null || parsedToken.tokenType() != JwtTokenType.ACCESS) {
             log.warn("JWT 令牌无效或不是访问令牌 - URI: {} {}, Controller: {}.{}",
                     method, requestUri, controllerName, methodName);
-            UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
-            return true;
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
 
         UserInfo user;
@@ -70,14 +76,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         } catch (NumberFormatException e) {
             log.warn("JWT 令牌中的用户标识格式无效 - subject: {}, URI: {} {}, Controller: {}.{}",
                     parsedToken.subject(), method, requestUri, controllerName, methodName);
-            UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
-            return true;
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
         if (user == null) {
             log.warn("JWT 令牌中的用户标识不存在 - userId: {}, URI: {} {}, Controller: {}.{}",
                     parsedToken.subject(), method, requestUri, controllerName, methodName);
-            UserContextHolder.set(UserContext.of(null, AuthStatus.INVALID_TOKEN));
-            return true;
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
 
         log.info("JWT 鉴权成功 - userId: {}, URI: {} {}, Controller: {}.{}",
@@ -103,13 +107,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         log.debug("已清理线程上下文 - URI: {}", requestUri);
     }
 
-    private String resolveBearerToken(HttpServletRequest req) {
-        String auth = req.getHeader("Authorization");
-        if (auth == null) {
-            log.debug("请求头中未找到 Authorization 字段");
-            return null;
-        }
-
+    private String resolveBearerToken(String auth) {
         auth = auth.trim();
         if (!auth.startsWith("Bearer ")) {
             log.warn("Authorization 字段格式不正确，不是 Bearer token 格式: {}", auth.substring(0, Math.min(20, auth.length())));
