@@ -1,13 +1,9 @@
 package com.seuoj.seuojbackend.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.client.JudgeClient;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
-import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
-import com.seuoj.seuojbackend.exception.NotFoundException;
-import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,7 +34,7 @@ public class ProblemTestcaseService {
 
     private static final String SECRET_HEADER = "X-Judge-Secret";
 
-    private final ProblemMapper problemMapper;
+    private final ProblemService problemService;
     private final JudgeClient judgeClient;
     private final RestTemplate restTemplate;
 
@@ -48,8 +44,8 @@ public class ProblemTestcaseService {
     @Value("${judge.secret:}")
     private String judgeSecret;
 
-    public ProblemTestcaseService(ProblemMapper problemMapper, JudgeClient judgeClient, RestTemplate restTemplate) {
-        this.problemMapper = problemMapper;
+    public ProblemTestcaseService(ProblemService problemService, JudgeClient judgeClient, RestTemplate restTemplate) {
+        this.problemService = problemService;
         this.judgeClient = judgeClient;
         this.restTemplate = restTemplate;
     }
@@ -76,11 +72,7 @@ public class ProblemTestcaseService {
     }
 
     private void ensureProblemExists(String pid) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, pid));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在");
-        }
+        problemService.getProblemByPidOrThrow(pid);
     }
 
     /**

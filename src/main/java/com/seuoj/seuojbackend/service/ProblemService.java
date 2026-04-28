@@ -3,6 +3,7 @@ package com.seuoj.seuojbackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.common.ProblemSourceType;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
@@ -19,7 +20,6 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.ProblemTagRel;
 import com.seuoj.seuojbackend.entity.Tag;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.mapper.AssignmentMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
@@ -252,12 +252,7 @@ public class ProblemService {
     }
 
     public ProblemDetailVO getProblemDetail(ProblemDetailQuery query) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, query.pid()));
-        if (problem == null) {
-            log.warn("获取题目详情时题目不存在, pid={}", query.pid());
-            throw new NotFoundException("题目不存在");
-        }
+        Problem problem = loadActiveProblemByPidOrThrow(query.pid());
 
         Long userId = AuthContexts.userIdOrNull();
         switch (query.sourceType()) {
@@ -270,7 +265,7 @@ public class ProblemService {
         ProblemDetailVO problemDetail = problemMapper.getProblemDetail(query.pid());
         if (problemDetail == null) {
             log.warn("获取题目详情时题目详情不存在, pid={}", query.pid());
-            throw new NotFoundException("题目不存在");
+            throw new NotFoundException(ErrorCode.PROBLEM_DELETED_ERROR.getCode(), "题目已删除");
         }
 
         List<String> tags = problemMapper.getProblemTags(query.pid());
@@ -279,7 +274,7 @@ public class ProblemService {
         ProblemContentDTO problemContentDTO = judgeClient.fetchProblemContent(query.pid());
         if (problemContentDTO == null) {
             log.warn("题目 {} 的内容在评测服务中缺失", query.pid());
-            throw new NotFoundException("题目不存在");
+            throw new NotFoundException(ErrorCode.PROBLEM_NOT_FOUND_ERROR.getCode(), "题目不存在");
         }
 
         problemDetail.setContent(problemContentDTO);
@@ -352,12 +347,7 @@ public class ProblemService {
 
     @Transactional(rollbackFor = Exception.class)
     public void editProblem(ProblemEditDTO dto) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, dto.getPid()));
-        if (problem == null) {
-            log.warn("编辑题面时题目不存在, pid={}", dto.getPid());
-            throw new NotFoundException("题目不存在");
-        }
+        Problem problem = loadActiveProblemByPidOrThrow(dto.getPid());
 
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
@@ -371,51 +361,14 @@ public class ProblemService {
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteProblem(String pid) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, pid));
-        if (problem == null) {
-            log.warn("删除题目时题目不存在, pid={}", pid);
-            throw new NotFoundException("题目不存在");
-        }
+        Problem problem = loadActiveProblemByPidOrThrow(pid);
 
         Long userId = AuthContexts.requiredUserId();
         permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
 
-        validateProblemDeleteRules(problem.getId(), pid);
-
         problemTagRelMapper.markAllDeletedByProblemId(problem.getId());
         problemMapper.deleteById(problem.getId());
         imageService.unbindResource(ResourceType.PROBLEM, problem.getId());
-
-        judgeClient.deleteProblem(pid);
-    }
-
-    private void validateProblemDeleteRules(Long problemId, String pid) {
-        List<String> reasons = new ArrayList<>();
-
-        long activeSubmissionCount = problemMapper.countActiveSubmissionsByProblemId(problemId);
-        if (activeSubmissionCount > 0) {
-            reasons.add("存在提交记录（" + activeSubmissionCount + "）");
-        }
-
-        long activeContestRelationCount = problemMapper.countActiveContestRelationsByProblemId(problemId);
-        if (activeContestRelationCount > 0) {
-            reasons.add("仍在比赛中被引用（" + activeContestRelationCount + "）");
-        }
-
-        long activeContestSubmissionCount = problemMapper.countActiveContestSubmissionsByProblemId(problemId);
-        if (activeContestSubmissionCount > 0) {
-            reasons.add("存在比赛提交关联记录（" + activeContestSubmissionCount + "）");
-        }
-
-        long activeProblemSetRelationCount = problemMapper.countActiveProblemSetRelationsByProblemId(problemId);
-        if (activeProblemSetRelationCount > 0) {
-            reasons.add("仍在题单中被引用（" + activeProblemSetRelationCount + "）");
-        }
-
-        if (!reasons.isEmpty()) {
-            throw new ConflictException("题目 " + pid + " 删除校验未通过，请先清理关联数据：" + String.join("；", reasons));
-        }
     }
 
     private void updateProblemMeta(Long problemId, String title, Boolean isPublic) {
@@ -571,11 +524,7 @@ public class ProblemService {
     }
 
     public ProblemStatisticsVO getProblemStatistics(String pid) {
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, pid));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在");
-        }
+        Problem problem = loadActiveProblemByPidOrThrow(pid);
 
         ProblemStatisticsVO vo = new ProblemStatisticsVO();
         vo.setTotalSubmit(problem.getTotalSubmit());
@@ -632,5 +581,20 @@ public class ProblemService {
             result.add(item);
         }
         return result;
+    }
+
+    public Problem getProblemByPidOrThrow(String pid) {
+        return loadActiveProblemByPidOrThrow(pid);
+    }
+
+    private Problem loadActiveProblemByPidOrThrow(String pid) {
+        Problem problem = problemMapper.selectByPidIncludingDeleted(pid);
+        if (problem == null) {
+            throw new NotFoundException(ErrorCode.PROBLEM_NOT_FOUND_ERROR.getCode(), "题目不存在");
+        }
+        if (Integer.valueOf(1).equals(problem.getIsDel())) {
+            throw new NotFoundException(ErrorCode.PROBLEM_DELETED_ERROR.getCode(), "题目已删除");
+        }
+        return problem;
     }
 }

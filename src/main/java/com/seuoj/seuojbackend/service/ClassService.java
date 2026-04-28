@@ -20,6 +20,7 @@ import com.seuoj.seuojbackend.entity.ClassStudentRel;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ProblemSet;
 import com.seuoj.seuojbackend.entity.ProblemSetProblemRel;
+import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.UserRole;
 import com.seuoj.seuojbackend.entity.UserRoleRel;
@@ -36,6 +37,7 @@ import com.seuoj.seuojbackend.mapper.ClassStudentRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetMapper;
 import com.seuoj.seuojbackend.mapper.ProblemSetProblemRelMapper;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
@@ -52,7 +54,9 @@ import com.seuoj.seuojbackend.vo.classinfo.LinkPageItemVO;
 import com.seuoj.seuojbackend.vo.classinfo.LinkPageVO;
 import java.security.SecureRandom;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -76,6 +80,7 @@ public class ClassService {
     private final AssignmentProblemRelMapper assignmentProblemRelMapper;
     private final ProblemSetMapper problemSetMapper;
     private final ProblemSetProblemRelMapper problemSetProblemRelMapper;
+    private final ProblemMapper problemMapper;
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
     private final UserInfoMapper userInfoMapper;
@@ -96,6 +101,7 @@ public class ClassService {
                         AssignmentProblemRelMapper assignmentProblemRelMapper,
                         ProblemSetMapper problemSetMapper,
                         ProblemSetProblemRelMapper problemSetProblemRelMapper,
+                        ProblemMapper problemMapper,
                         PermissionService permissionService,
                         UserRoleService userRoleService,
                         UserInfoMapper userInfoMapper,
@@ -112,6 +118,7 @@ public class ClassService {
         this.assignmentProblemRelMapper = assignmentProblemRelMapper;
         this.problemSetMapper = problemSetMapper;
         this.problemSetProblemRelMapper = problemSetProblemRelMapper;
+        this.problemMapper = problemMapper;
         this.permissionService = permissionService;
         this.userRoleService = userRoleService;
         this.userInfoMapper = userInfoMapper;
@@ -597,8 +604,19 @@ public class ClassService {
                 new LambdaQueryWrapper<ProblemSetProblemRel>()
                         .eq(ProblemSetProblemRel::getProblemSetId, problemSet.getId())
                         .orderByAsc(ProblemSetProblemRel::getSortOrder));
+        Set<Long> sourceProblemIds = psRels.stream()
+                .map(ProblemSetProblemRel::getProblemId)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+        Set<Long> activeProblemIds = sourceProblemIds.isEmpty()
+                ? Collections.emptySet()
+                : problemMapper.selectBatchIds(sourceProblemIds).stream()
+                .map(Problem::getId)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
         int sortOrder = 1;
         for (ProblemSetProblemRel psRel : psRels) {
+            if (!activeProblemIds.contains(psRel.getProblemId())) {
+                continue;
+            }
             AssignmentProblemRel rel = new AssignmentProblemRel();
             rel.setAssignmentId(assignment.getId());
             rel.setProblemId(psRel.getProblemId());

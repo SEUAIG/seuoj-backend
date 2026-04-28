@@ -86,6 +86,7 @@ public class ContestService {
     private final UserInfoMapper userInfoMapper;
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
+    private final ProblemService problemService;
     private final JudgeClient judgeClient;
     private final CodeStorage codeStorage;
     private final TransactionTemplate transactionTemplate;
@@ -101,6 +102,7 @@ public class ContestService {
                           UserInfoMapper userInfoMapper,
                           PermissionService permissionService,
                           UserRoleService userRoleService,
+                          ProblemService problemService,
                           JudgeClient judgeClient,
                           CodeStorage codeStorage,
                           TransactionTemplate transactionTemplate,
@@ -115,6 +117,7 @@ public class ContestService {
         this.userInfoMapper = userInfoMapper;
         this.permissionService = permissionService;
         this.userRoleService = userRoleService;
+        this.problemService = problemService;
         this.judgeClient = judgeClient;
         this.codeStorage = codeStorage;
         this.transactionTemplate = transactionTemplate;
@@ -464,6 +467,8 @@ public class ContestService {
             throw new BadRequestException("请先报名比赛");
         }
 
+        Problem problem = problemService.getProblemByPidOrThrow(dto.getPid());
+
         List<ContestProblemOverviewVO> contestProblems = contestMapper.selectContestProblems(contest.getId());
         ContestProblemOverviewVO matchedProblem = null;
         for (ContestProblemOverviewVO p : contestProblems) {
@@ -474,12 +479,6 @@ public class ContestService {
         }
         if (matchedProblem == null) {
             throw new BadRequestException("题目不在本比赛中: " + dto.getPid());
-        }
-
-        Problem problem = problemMapper.selectOne(new LambdaQueryWrapper<Problem>()
-                .eq(Problem::getPid, dto.getPid()));
-        if (problem == null) {
-            throw new NotFoundException("题目不存在: " + dto.getPid());
         }
 
         int codeBytes = dto.getCode() == null ? 0 : dto.getCode().getBytes(StandardCharsets.UTF_8).length;

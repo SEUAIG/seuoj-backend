@@ -34,6 +34,11 @@ public interface ProblemMapper extends BaseMapper<Problem> {
     ProblemDetailVO getProblemDetail(@Param("pid") String pid);
 
     /**
+     * 按 pid 查询题目（包含逻辑删除记录）。
+     */
+    Problem selectByPidIncludingDeleted(@Param("pid") String pid);
+
+    /**
      * 获取题目标签列表
      */
     List<String> getProblemTags(@Param("pid") String pid);

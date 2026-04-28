@@ -36,8 +36,10 @@ import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -321,12 +323,24 @@ public class AssignmentService {
                         .eq(ProblemSetProblemRel::getProblemSetId, problemSet.getId())
                         .orderByAsc(ProblemSetProblemRel::getSortOrder));
 
+        Set<Long> sourceProblemIds = psRels.stream()
+                .map(ProblemSetProblemRel::getProblemId)
+                .collect(Collectors.toCollection(HashSet::new));
+        Set<Long> activeProblemIds = sourceProblemIds.isEmpty()
+                ? Collections.emptySet()
+                : problemMapper.selectBatchIds(sourceProblemIds).stream()
+                .map(Problem::getId)
+                .collect(Collectors.toCollection(HashSet::new));
+
         Long maxSort = assignmentProblemRelMapper.selectCount(
                 new LambdaQueryWrapper<AssignmentProblemRel>()
                         .eq(AssignmentProblemRel::getAssignmentId, assignment.getId()));
         int sortOrder = maxSort != null ? maxSort.intValue() + 1 : 1;
 
         for (ProblemSetProblemRel psRel : psRels) {
+            if (!activeProblemIds.contains(psRel.getProblemId())) {
+                continue;
+            }
             Long existCount = assignmentProblemRelMapper.selectCount(
                     new LambdaQueryWrapper<AssignmentProblemRel>()
                             .eq(AssignmentProblemRel::getAssignmentId, assignment.getId())
@@ -399,12 +413,13 @@ public class AssignmentService {
                 .collect(Collectors.toMap(Problem::getId, p -> p, (a, b) -> a));
 
         return rels.stream()
+                .filter(rel -> problemMap.containsKey(rel.getProblemId()))
                 .map(rel -> {
                     Problem problem = problemMap.get(rel.getProblemId());
                     AssignmentDetailVO.ProblemItem item = new AssignmentDetailVO.ProblemItem();
                     item.setProblemId(rel.getProblemId());
-                    item.setPid(problem != null ? problem.getPid() : null);
-                    item.setTitle(problem != null ? problem.getTitle() : null);
+                    item.setPid(problem.getPid());
+                    item.setTitle(problem.getTitle());
                     item.setSortOrder(rel.getSortOrder());
                     item.setWeight(rel.getWeight());
                     return item;
