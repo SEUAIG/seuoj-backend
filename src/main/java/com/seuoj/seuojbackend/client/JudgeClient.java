@@ -25,6 +25,14 @@ public interface JudgeClient {
     void submit(JudgeSubmissionRequest request);
 
     /**
+     * 同步在线评测（自定义输入）
+     *
+     * @param request online judge payload
+     * @return 同步评测结果
+     */
+    JudgeOnlineSubmissionResponseData submitOnline(JudgeOnlineSubmissionRequest request);
+
+    /**
      * 更新题面数据
      *
      * @param request problem edit payload
