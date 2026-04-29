@@ -113,6 +113,9 @@ public class AcmRankingStrategy implements ContestRankingStrategy {
                 detail.setAccepted(tracker.accepted);
                 detail.setUnacceptedCount(tracker.failedAttempts);
                 detail.setAcceptedTime(tracker.accepted ? tracker.acceptedTimeMinutes : null);
+                detail.setPenaltyTime(tracker.accepted
+                        ? tracker.acceptedTimeMinutes + (long) tracker.failedAttempts * penaltyMinutes
+                        : null);
                 detail.setScore(tracker.accepted ? 1 : 0);
                 detail.setJudgeId(tracker.submissionId);
                 scoreDetails.put(pid, detail);

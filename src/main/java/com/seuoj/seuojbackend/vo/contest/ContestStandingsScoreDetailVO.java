@@ -19,6 +19,9 @@ public class ContestStandingsScoreDetailVO {
     @JsonProperty("acceptedTime")
     private Long acceptedTime;
 
+    @JsonProperty("penaltyTime")
+    private Long penaltyTime;
+
     @JsonProperty("weighted_score")
     private Integer weightedScore;
 }
