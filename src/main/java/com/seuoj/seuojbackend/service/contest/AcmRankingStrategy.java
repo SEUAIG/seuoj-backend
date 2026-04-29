@@ -101,6 +101,7 @@ public class AcmRankingStrategy implements ContestRankingStrategy {
             record.setUsername(current.username);
             record.setNickname(current.nickname);
             record.setScore(current.solvedCount);
+            record.setPenalty(current.penalty);
 
             Map<String, ContestStandingsScoreDetailVO> scoreDetails = new LinkedHashMap<>();
             for (Map.Entry<Long, ProblemTracker> pe : current.problemTrackers.entrySet()) {

@@ -15,6 +15,8 @@ public class ContestStandingsRecordVO {
 
     private Integer score;
 
+    private Long penalty;
+
     @JsonProperty("score_details")
     private Map<String, ContestStandingsScoreDetailVO> scoreDetails;
 }
