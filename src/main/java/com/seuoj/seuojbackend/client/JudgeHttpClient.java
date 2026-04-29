@@ -88,6 +88,29 @@ public class JudgeHttpClient implements JudgeClient {
     }
 
     @Override
+    public JudgeOnlineSubmissionResponseData submitOnline(JudgeOnlineSubmissionRequest request) {
+        String url = judgeServerUrl + "/judge/submission/online";
+        log.info("发送在线评测请求: submissionId={}, pid={}", request.getSubmissionId(), request.getPid());
+        try {
+            ResponseEntity<Result<JudgeOnlineSubmissionResponseData>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<JudgeOnlineSubmissionResponseData> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode()) || body.getData() == null) {
+                throw new JudgeRemoteException("在线评测端异常: " + body);
+            }
+            return body.getData();
+        } catch (RestClientException ex) {
+            log.warn("在线评测端未返回200ok, 路径: {}", url, ex);
+            throw new JudgeRemoteException("无法向评测端提交在线评测", ex);
+        }
+    }
+
+    @Override
     public void updateProblem(JudgeProblemEditRequest request) {
         String url = judgeServerUrl + "/judge/problem/edit";
         log.info("向评测端请求更新题目信息, pid={}, url={}", request.getPid(), url);

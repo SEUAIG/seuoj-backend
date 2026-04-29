@@ -5,9 +5,14 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.client.dto.JudgeOnlineSubmissionRequest;
+import com.seuoj.seuojbackend.client.dto.JudgeOnlineSubmissionResponseData;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
 import com.seuoj.seuojbackend.common.ErrorCode;
+import com.seuoj.seuojbackend.common.PermissionOp;
+import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
+import com.seuoj.seuojbackend.dto.submission.OnlineJudgeSubmitDTO;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.entity.Problem;
@@ -32,6 +37,7 @@ import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.vo.me.HeatmapDayVO;
 import com.seuoj.seuojbackend.vo.me.HeatmapSummaryVO;
 import com.seuoj.seuojbackend.vo.me.MeHeatmapVO;
+import com.seuoj.seuojbackend.vo.submission.OnlineJudgeResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
@@ -88,6 +94,39 @@ public class SubmissionService {
         this.permissionService = permissionService;
         this.problemService = problemService;
         this.transactionTemplate = transactionTemplate;
+    }
+
+    public OnlineJudgeResultVO submitOnlineJudge(OnlineJudgeSubmitDTO dto) {
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
+        }
+        Long userId = userContext.getUserId();
+
+        Problem problem = problemService.getProblemByPidOrThrow(dto.getPid());
+        permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ);
+
+        JudgeOnlineSubmissionRequest request = new JudgeOnlineSubmissionRequest();
+        request.setSubmissionId(UUID.randomUUID().toString());
+        request.setPid(dto.getPid());
+        request.setCode(dto.getCode());
+        request.setLanguage(dto.getLanguage());
+
+        List<JudgeOnlineSubmissionRequest.TestcaseItem> testcases = new ArrayList<>();
+        for (OnlineJudgeSubmitDTO.TestcaseItem item : dto.getTestcases()) {
+            JudgeOnlineSubmissionRequest.TestcaseItem testcase = new JudgeOnlineSubmissionRequest.TestcaseItem();
+            testcase.setId(item.getId());
+            testcase.setIn(item.getIn());
+            testcases.add(testcase);
+        }
+        request.setTestcases(testcases);
+
+        JudgeOnlineSubmissionResponseData response = judgeClient.submitOnline(request);
+
+        OnlineJudgeResultVO vo = new OnlineJudgeResultVO();
+        vo.setResultDetail(response.getResultDetail());
+        vo.setStatus(response.getStatus());
+        return vo;
     }
 
     /**

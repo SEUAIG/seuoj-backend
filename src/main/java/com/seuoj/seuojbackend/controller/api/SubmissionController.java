@@ -4,14 +4,14 @@ import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.Result;
+import com.seuoj.seuojbackend.dto.submission.OnlineJudgeSubmitDTO;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
+import com.seuoj.seuojbackend.vo.submission.OnlineJudgeResultVO;
 import com.seuoj.seuojbackend.service.SubmissionService;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
 import jakarta.validation.Valid;
-
-import javax.management.relation.Role;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +34,12 @@ public class SubmissionController {
     @PostMapping("/submission")
     public Result<SubmitVO> submit(@Valid @RequestBody SubmitDTO dto) {
         return Result.success(submissionService.submit(dto));
+    }
+
+    @RequireRole({ RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN })
+    @PostMapping("/submission/online")
+    public Result<OnlineJudgeResultVO> submitOnline(@Valid @RequestBody OnlineJudgeSubmitDTO dto) {
+        return Result.success(submissionService.submitOnlineJudge(dto));
     }
 
     @AllowAnonymous
