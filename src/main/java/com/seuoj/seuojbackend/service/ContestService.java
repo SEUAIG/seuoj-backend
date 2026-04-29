@@ -660,11 +660,18 @@ public class ContestService {
 
         boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
         boolean hasWrite = userId != null && permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
-        if (Boolean.TRUE.equals(contest.getHideStatistics())
-                && computeStatus(contest) == ContestStatus.IN_PROGRESS
-                && !isAdmin && !hasWrite) {
+        if (Boolean.TRUE.equals(contest.getHideStatistics()) && !isAdmin && !hasWrite) {
+            String currentUsername = null;
+            if (userId != null) {
+                UserInfo currentUser = registeredUsers.get(userId);
+                if (currentUser != null) {
+                    currentUsername = currentUser.getUsername();
+                }
+            }
             for (ContestStandingsRecordVO r : records) {
-                r.setScoreDetails(Collections.emptyMap());
+                if (!r.getUsername().equals(currentUsername)) {
+                    r.setScoreDetails(Collections.emptyMap());
+                }
             }
         }
 
