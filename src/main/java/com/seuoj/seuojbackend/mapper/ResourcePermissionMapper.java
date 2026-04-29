@@ -28,4 +28,7 @@ public interface ResourcePermissionMapper extends BaseMapper<ResourcePermission>
 
     boolean hasContestAccessViaClass(@Param("contestId") Long contestId,
                                      @Param("userId") Long userId);
+
+    boolean hasClassAccessViaMembership(@Param("classId") Long classId,
+                                        @Param("userId") Long userId);
 }

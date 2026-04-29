@@ -213,7 +213,8 @@ public class PermissionService {
         return switch (type) {
             case PROBLEM_SET -> resourcePermissionMapper.hasProblemSetAccessViaAssignment(resourceId, userId);
             case CONTEST -> hasContestInheritedAccess(userId, resourceId);
-            case PROBLEM, CLASS, ASSIGNMENT, ANNOUNCEMENT -> false;
+            case CLASS -> resourcePermissionMapper.hasClassAccessViaMembership(resourceId, userId);
+            case PROBLEM, ASSIGNMENT, ANNOUNCEMENT -> false;
         };
     }
 
@@ -223,12 +224,16 @@ public class PermissionService {
             return false;
         }
 
+        boolean isClassMember = resourcePermissionMapper.hasContestAccessViaClass(contestId, userId);
+        if (isClassMember) {
+            return true;
+        }
+
         LocalDateTime now = LocalDateTime.now();
         boolean isRegistered = contestRegisterRelMapper.selectCount(
                 new LambdaQueryWrapper<ContestRegisterRel>()
                         .eq(ContestRegisterRel::getContestId, contestId)
                         .eq(ContestRegisterRel::getUserId, userId)) > 0;
-        boolean isClassMember = resourcePermissionMapper.hasContestAccessViaClass(contestId, userId);
 
         if (now.isBefore(contest.getStartTime())) {
             return false;
@@ -237,7 +242,7 @@ public class PermissionService {
             return isRegistered;
         }
         // After contest
-        return isRegistered || isClassMember || Boolean.TRUE.equals(contest.getIsPublic());
+        return isRegistered || Boolean.TRUE.equals(contest.getIsPublic());
     }
 
     public void assertProblemAccessViaAssignment(Long userId, Long problemId, Long assignmentId) {

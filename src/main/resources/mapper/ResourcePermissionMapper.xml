@@ -56,4 +56,12 @@
           AND csr.is_del = 0
     </select>
 
+    <select id="hasClassAccessViaMembership" resultType="boolean">
+        SELECT COUNT(1) > 0
+        FROM class_student_rel
+        WHERE class_id = #{classId}
+          AND user_id = #{userId}
+          AND is_del = 0
+    </select>
+
 </mapper>
