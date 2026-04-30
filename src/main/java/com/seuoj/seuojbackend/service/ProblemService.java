@@ -294,6 +294,20 @@ public class ProblemService {
         // 判断是否可以编辑删除题目
         problemDetail.setCanWrite(permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE));
 
+        // 计算前后题目 pid（用于题目详情页翻页）
+        ProblemNeighborsVO neighbors = null;
+        boolean includeNonPublic = canCurrentUserViewPrivateProblems();
+        switch (query.sourceType()) {
+            case DIRECT -> neighbors = problemMapper.selectNeighborsDirect(query.pid(), includeNonPublic);
+            case CONTEST -> neighbors = problemMapper.selectNeighborsInContest(query.ownerId(), query.pid());
+            case PROBLEM_SET -> neighbors = problemMapper.selectNeighborsInProblemSet(query.ownerId(), query.pid());
+            case ASSIGNMENT -> neighbors = problemMapper.selectNeighborsInAssignment(query.ownerId(), query.pid());
+        }
+        if (neighbors != null) {
+            problemDetail.setPrevPid(neighbors.getPrevPid());
+            problemDetail.setNextPid(neighbors.getNextPid());
+        }
+
         return problemDetail;
     }
 

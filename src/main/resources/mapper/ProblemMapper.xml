@@ -230,6 +230,77 @@
           AND ps.is_del = 0
     </select>
 
+    <!-- 获取题目在指定上下文中的 sort_order -->
+    <select id="selectSortOrderInContest" resultType="java.lang.Integer">
+        SELECT rel.sort_order FROM contest_problem_rel rel
+        WHERE rel.contest_id = #{contestId} AND rel.problem_id = #{problemId} AND rel.is_del = 0
+    </select>
+
+    <select id="selectSortOrderInProblemSet" resultType="java.lang.Integer">
+        SELECT rel.sort_order FROM problem_set_problem_rel rel
+        WHERE rel.problem_set_id = #{problemSetId} AND rel.problem_id = #{problemId} AND rel.is_del = 0
+    </select>
+
+    <select id="selectSortOrderInAssignment" resultType="java.lang.Integer">
+        SELECT rel.sort_order FROM assignment_problem_rel rel
+        WHERE rel.assignment_id = #{assignmentId} AND rel.problem_id = #{problemId} AND rel.is_del = 0
+    </select>
+
+    <!-- 题目详情页翻页：窗口函数一次查出前后 pid -->
+    <resultMap id="ProblemNeighborsMap" type="com.seuoj.seuojbackend.vo.problem.ProblemNeighborsVO">
+        <result column="prev_pid" property="prevPid"/>
+        <result column="next_pid" property="nextPid"/>
+    </resultMap>
+
+    <select id="selectNeighborsDirect" resultMap="ProblemNeighborsMap">
+        SELECT prev_pid, next_pid FROM (
+            SELECT p.pid,
+                   LAG(p.pid)  OVER w AS prev_pid,
+                   LEAD(p.pid) OVER w AS next_pid
+            FROM problem p
+            WHERE p.is_del = 0
+            <if test="!includeNonPublic">AND p.is_public = 1</if>
+            WINDOW w AS (ORDER BY
+                CASE WHEN p.pid REGEXP '^[A-Za-z][0-9]+$'
+                     THEN CAST(SUBSTRING(p.pid, 2) AS UNSIGNED)
+                     ELSE 18446744073709551615 END,
+                p.pid)
+        ) t WHERE t.pid = #{pid}
+    </select>
+
+    <select id="selectNeighborsInContest" resultMap="ProblemNeighborsMap">
+        SELECT prev_pid, next_pid FROM (
+            SELECT p.pid,
+                   LAG(p.pid)  OVER (ORDER BY rel.sort_order) AS prev_pid,
+                   LEAD(p.pid) OVER (ORDER BY rel.sort_order) AS next_pid
+            FROM problem p
+            JOIN contest_problem_rel rel ON p.id = rel.problem_id
+            WHERE rel.contest_id = #{contestId} AND rel.is_del = 0 AND p.is_del = 0
+        ) t WHERE t.pid = #{pid}
+    </select>
+
+    <select id="selectNeighborsInProblemSet" resultMap="ProblemNeighborsMap">
+        SELECT prev_pid, next_pid FROM (
+            SELECT p.pid,
+                   LAG(p.pid)  OVER (ORDER BY rel.sort_order) AS prev_pid,
+                   LEAD(p.pid) OVER (ORDER BY rel.sort_order) AS next_pid
+            FROM problem p
+            JOIN problem_set_problem_rel rel ON p.id = rel.problem_id
+            WHERE rel.problem_set_id = #{problemSetId} AND rel.is_del = 0 AND p.is_del = 0
+        ) t WHERE t.pid = #{pid}
+    </select>
+
+    <select id="selectNeighborsInAssignment" resultMap="ProblemNeighborsMap">
+        SELECT prev_pid, next_pid FROM (
+            SELECT p.pid,
+                   LAG(p.pid)  OVER (ORDER BY rel.sort_order) AS prev_pid,
+                   LEAD(p.pid) OVER (ORDER BY rel.sort_order) AS next_pid
+            FROM problem p
+            JOIN assignment_problem_rel rel ON p.id = rel.problem_id
+            WHERE rel.assignment_id = #{assignmentId} AND rel.is_del = 0 AND p.is_del = 0
+        ) t WHERE t.pid = #{pid}
+    </select>
+
     <!-- 删除检查：题目是否存在有效比赛提交关联 -->
     <select id="countActiveContestSubmissionsByProblemId" resultType="java.lang.Long">
         SELECT COUNT(1)
