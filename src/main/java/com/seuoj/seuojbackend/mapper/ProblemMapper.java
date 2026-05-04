@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemListItemVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemNeighborsVO;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.ibatis.annotations.Mapper;
@@ -97,4 +98,23 @@ public interface ProblemMapper extends BaseMapper<Problem> {
      * 统计题目的有效比赛提交关联数（contest_submission.is_del=0 且关联 contest/submission 未删除）。
      */
     long countActiveContestSubmissionsByProblemId(@Param("problemId") Long problemId);
+
+    /**
+     * 获取题目在指定上下文中的 sort_order
+     */
+    Integer selectSortOrderInContest(@Param("contestId") Long contestId, @Param("problemId") Long problemId);
+    Integer selectSortOrderInProblemSet(@Param("problemSetId") Long problemSetId, @Param("problemId") Long problemId);
+    Integer selectSortOrderInAssignment(@Param("assignmentId") Long assignmentId, @Param("problemId") Long problemId);
+
+    /**
+     * 按题目列表默认排序（P去前缀后数值升序），用窗口函数一次查出前后 pid
+     */
+    ProblemNeighborsVO selectNeighborsDirect(@Param("pid") String pid, @Param("includeNonPublic") boolean includeNonPublic);
+
+    /**
+     * 按 sort_order 顺序获取前后 pid
+     */
+    ProblemNeighborsVO selectNeighborsInContest(@Param("contestId") Long contestId, @Param("pid") String pid);
+    ProblemNeighborsVO selectNeighborsInProblemSet(@Param("problemSetId") Long problemSetId, @Param("pid") String pid);
+    ProblemNeighborsVO selectNeighborsInAssignment(@Param("assignmentId") Long assignmentId, @Param("pid") String pid);
 }

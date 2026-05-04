@@ -33,4 +33,10 @@ public class ProblemDetailVO {
     // 是否可以写题目（包括编辑和删除）
     @JsonProperty("can_write")
     private Boolean canWrite;
+
+    @JsonProperty("prev_pid")
+    private String prevPid;
+
+    @JsonProperty("next_pid")
+    private String nextPid;
 }
