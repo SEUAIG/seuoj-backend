@@ -21,30 +21,9 @@ function getRequiredSubmissionFields() {
 
 要求：
 - 返回值必须是字符串数组。
-- 返回的字段会与系统白名单取交集。
+- 这里声明的是 **每条 submission 需要注入的字段**。
+- 后端会把声明结果与系统白名单取交集后再构造 `input`。
 - 若函数不存在，或交集为空，后端会回退默认字段集。
-
-声明含义（重要）：
-- `getRequiredSubmissionFields()` 声明的是 **每条 submission 记录里需要注入的字段**。
-- 这些字段不会出现在 `contest` 或 `problems`，只会出现在：
-  - `input.users[<userId>].submissions[<pid>][i]`
-- 也就是说，你声明了哪些字段，脚本里就应该从每条提交对象 `s.xxx` 读取这些字段。
-
-例如声明：
-
-```js
-function getRequiredSubmissionFields() {
-  return ["id", "verdict", "error_length", "submit_time"];
-}
-```
-
-则 `computeStandings` 中每条提交对象形如：
-
-```js
-const s = user.submissions[pid][i];
-// 可访问：
-// s.id, s.verdict, s.error_length, s.submit_time
-```
 
 可选字段如下：
 
@@ -78,6 +57,8 @@ function computeStandings(input) {
 ---
 
 ## 2. input 数据结构
+
+`computeStandings(input)` 接收到的完整 `input` JSON 结构示例：
 
 ```json
 {
@@ -114,6 +95,7 @@ function computeStandings(input) {
 说明：
 - `users` 的 key 是用户 ID（字符串）。
 - `submissions` 按 `pid` 分组，值为该题提交列表。
+- 其中 `input.users[<userId>].submissions[<pid>][i]` 内容为 `getRequiredSubmissionFields()` 函数所声明的字段
 
 ---
 
