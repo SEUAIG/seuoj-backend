@@ -12,7 +12,4 @@ public class ContestScriptInputProfileVO {
 
     @JsonProperty("enabled_fields")
     private List<String> enabledFields;
-
-    @JsonProperty("profile_version")
-    private Integer profileVersion;
 }

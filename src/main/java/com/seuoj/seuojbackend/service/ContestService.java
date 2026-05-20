@@ -81,7 +81,6 @@ import org.springframework.util.StringUtils;
 public class ContestService {
 
     private static final int MAX_CODE_BYTES = 65535;
-    private static final int SCRIPT_INPUT_PROFILE_VERSION = 1;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ContestMapper contestMapper;
@@ -429,8 +428,6 @@ public class ContestService {
         ContestScriptInputProfileVO vo = new ContestScriptInputProfileVO();
         vo.setAvailableFields(contestScriptInputFieldRegistry.listAvailableFields());
         vo.setEnabledFields(parseEnabledFields(profile));
-        vo.setProfileVersion(profile != null && profile.getProfileVersion() != null
-                ? profile.getProfileVersion() : SCRIPT_INPUT_PROFILE_VERSION);
         return vo;
     }
 
@@ -456,7 +453,6 @@ public class ContestService {
             ContestScriptInputProfile insert = new ContestScriptInputProfile();
             insert.setContestId(contest.getId());
             insert.setEnabledFields(enabledFieldsJson);
-            insert.setProfileVersion(SCRIPT_INPUT_PROFILE_VERSION);
             contestScriptInputProfileMapper.insert(insert);
             return;
         }
@@ -464,7 +460,6 @@ public class ContestService {
         ContestScriptInputProfile update = new ContestScriptInputProfile();
         update.setId(existing.getId());
         update.setEnabledFields(enabledFieldsJson);
-        update.setProfileVersion(SCRIPT_INPUT_PROFILE_VERSION);
         contestScriptInputProfileMapper.updateById(update);
     }
 

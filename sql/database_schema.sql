@@ -350,7 +350,6 @@ CREATE TABLE `contest_script_input_profile`
     `id`              bigint                                                       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `contest_id`      bigint                                                       NOT NULL COMMENT '比赛ID，1:1关联contest',
     `enabled_fields`  json                                                         NOT NULL COMMENT '启用字段key白名单(JSON数组)',
-    `profile_version` int                                                          NOT NULL DEFAULT 1 COMMENT '模板版本号',
     `created_at`      timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`          tinyint(1)                                                   NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',

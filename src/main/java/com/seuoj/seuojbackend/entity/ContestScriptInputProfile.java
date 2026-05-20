@@ -30,9 +30,6 @@ public class ContestScriptInputProfile implements Serializable {
     @TableField("enabled_fields")
     private String enabledFields;
 
-    @TableField("profile_version")
-    private Integer profileVersion;
-
     @TableField("created_at")
     private LocalDateTime createdAt;
 
