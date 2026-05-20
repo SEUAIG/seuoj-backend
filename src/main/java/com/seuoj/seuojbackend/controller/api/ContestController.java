@@ -6,7 +6,6 @@ import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.contest.ContestCreateDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestProblemEditDTO;
-import com.seuoj.seuojbackend.dto.contest.ContestScriptInputProfileUpdateDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestSubmitDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestUpdateDTO;
 import com.seuoj.seuojbackend.service.ContestService;
@@ -14,7 +13,6 @@ import com.seuoj.seuojbackend.vo.contest.ContestCreateVO;
 import com.seuoj.seuojbackend.vo.contest.ContestDetailVO;
 import com.seuoj.seuojbackend.vo.contest.ContestPageVO;
 import com.seuoj.seuojbackend.vo.contest.ContestProblemListInEditVO;
-import com.seuoj.seuojbackend.vo.contest.ContestScriptInputProfileVO;
 import com.seuoj.seuojbackend.vo.contest.ContestStandingsVO;
 import com.seuoj.seuojbackend.vo.contest.ContestSubmissionDetailVO;
 import com.seuoj.seuojbackend.vo.contest.ContestSubmissionPageVO;
@@ -96,20 +94,6 @@ public class ContestController {
     @GetMapping("/{id}/problem/list")
     public Result<ContestProblemListInEditVO> getContestProblemListForEdit(@PathVariable("id") Long id) {
         return Result.success(contestService.getContestProblemListForEdit(id));
-    }
-
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @GetMapping("/{id}/script-input-profile")
-    public Result<ContestScriptInputProfileVO> getContestScriptInputProfile(@PathVariable("id") Long id) {
-        return Result.success(contestService.getContestScriptInputProfile(id));
-    }
-
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
-    @PutMapping("/{id}/script-input-profile")
-    public Result<Void> updateContestScriptInputProfile(@PathVariable("id") Long id,
-                                                        @RequestBody ContestScriptInputProfileUpdateDTO dto) {
-        contestService.updateContestScriptInputProfile(id, dto);
-        return Result.success();
     }
 
     @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})

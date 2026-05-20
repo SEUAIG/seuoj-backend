@@ -2,13 +2,11 @@ package com.seuoj.seuojbackend.service.contest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seuoj.seuojbackend.entity.Contest;
-import com.seuoj.seuojbackend.entity.ContestScriptInputProfile;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.SubmissionDetail;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.InternalServerException;
-import com.seuoj.seuojbackend.mapper.ContestScriptInputProfileMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.service.contest.custom.ContestScriptInputFieldRegistry;
 import com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO;
@@ -33,14 +31,11 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SubmissionDetailMapper submissionDetailMapper;
-    private final ContestScriptInputProfileMapper contestScriptInputProfileMapper;
     private final ContestScriptInputFieldRegistry contestScriptInputFieldRegistry;
 
     public CustomScriptRankingStrategy(SubmissionDetailMapper submissionDetailMapper,
-                                       ContestScriptInputProfileMapper contestScriptInputProfileMapper,
                                        ContestScriptInputFieldRegistry contestScriptInputFieldRegistry) {
         this.submissionDetailMapper = submissionDetailMapper;
-        this.contestScriptInputProfileMapper = contestScriptInputProfileMapper;
         this.contestScriptInputFieldRegistry = contestScriptInputFieldRegistry;
     }
 
@@ -57,10 +52,6 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
             throw new BadRequestException("自定义赛制缺少 scoring_script");
         }
 
-        Map<Long, SubmissionDetail> submissionDetailMap = buildSubmissionDetailMap(finishedSubmissions);
-        Map<String, Object> input = buildInput(
-                problems, registeredUsers, finishedSubmissions, submissionDetailMap, contest, problemIdToPid);
-
         try (Context context = Context.newBuilder("js")
                 .allowHostAccess(HostAccess.NONE)
                 .allowNativeAccess(false)
@@ -70,14 +61,18 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
                 .option("engine.WarnInterpreterOnly", "false")
                 .build()) {
 
-            String inputJson = OBJECT_MAPPER.writeValueAsString(input);
-            String wrappedScript = script + "\n\ncomputeStandings(JSON.parse(inputJson));";
+            context.eval("js", script);
+            List<String> selectedFields = resolveRequiredFields(context);
 
+            Map<Long, SubmissionDetail> submissionDetailMap = buildSubmissionDetailMap(finishedSubmissions);
+            Map<String, Object> input = buildInput(
+                    problems, registeredUsers, finishedSubmissions, submissionDetailMap, contest, problemIdToPid, selectedFields);
+            String inputJson = OBJECT_MAPPER.writeValueAsString(input);
             context.getBindings("js").putMember("inputJson", inputJson);
 
             Value result;
             try {
-                result = context.eval("js", wrappedScript);
+                result = context.eval("js", "computeStandings(JSON.parse(inputJson));");
             } catch (Exception e) {
                 throw new BadRequestException("自定义脚本执行错误: " + e.getMessage());
             }
@@ -98,7 +93,8 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
             List<Submission> finishedSubmissions,
             Map<Long, SubmissionDetail> submissionDetailMap,
             Contest contest,
-            Map<Long, String> problemIdToPid) {
+            Map<Long, String> problemIdToPid,
+            List<String> selectedFields) {
 
         Map<String, Object> input = new HashMap<>();
 
@@ -117,8 +113,6 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
         }
         input.put("problems", problemsList);
 
-        List<String> enabledFields = loadContestEnabledFields(contest.getId());
-
         // Group submissions by user and problem
         Map<Long, Map<String, List<Map<String, Object>>>> userSubmissions = new HashMap<>();
         for (Submission s : finishedSubmissions) {
@@ -129,7 +123,7 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
             userSubmissions
                     .computeIfAbsent(s.getUserId(), k -> new HashMap<>())
                     .computeIfAbsent(pid, k -> new ArrayList<>())
-                    .add(contestScriptInputFieldRegistry.buildSubmissionInput(s, detail, enabledFields));
+                    .add(contestScriptInputFieldRegistry.buildSubmissionInput(s, detail, selectedFields));
         }
 
         Map<String, Object> users = new LinkedHashMap<>();
@@ -147,25 +141,31 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
         return input;
     }
 
-    private List<String> loadContestEnabledFields(Long contestId) {
-        if (contestId == null) {
-            return List.of();
+    private List<String> resolveRequiredFields(Context context) {
+        Value fn = context.getBindings("js").getMember("getRequiredSubmissionFields");
+        if (fn == null || !fn.canExecute()) {
+            return contestScriptInputFieldRegistry.resolveRequestedFields(List.of());
         }
-        ContestScriptInputProfile profile = contestScriptInputProfileMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ContestScriptInputProfile>()
-                        .eq(ContestScriptInputProfile::getContestId, contestId));
-        if (profile == null || profile.getEnabledFields() == null || profile.getEnabledFields().isBlank()) {
-            return List.of();
-        }
+
+        Value value;
         try {
-            List<String> enabledFields = OBJECT_MAPPER.readValue(
-                    profile.getEnabledFields(),
-                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class));
-            return contestScriptInputFieldRegistry.normalizeEnabledFields(enabledFields);
+            value = fn.execute();
         } catch (Exception e) {
-            log.warn("Invalid contest script input profile, fallback to default. contestId={}", contestId, e);
-            return List.of();
+            throw new BadRequestException("字段声明函数执行错误: " + e.getMessage());
         }
+
+        if (!value.hasArrayElements()) {
+            throw new BadRequestException("getRequiredSubmissionFields 必须返回字符串数组");
+        }
+        List<String> requested = new ArrayList<>();
+        for (long i = 0; i < value.getArraySize(); i++) {
+            Value item = value.getArrayElement(i);
+            if (!item.isString()) {
+                throw new BadRequestException("getRequiredSubmissionFields 仅允许字符串字段名");
+            }
+            requested.add(item.asString());
+        }
+        return contestScriptInputFieldRegistry.resolveRequestedFields(requested);
     }
 
     private Map<Long, SubmissionDetail> buildSubmissionDetailMap(List<Submission> finishedSubmissions) {

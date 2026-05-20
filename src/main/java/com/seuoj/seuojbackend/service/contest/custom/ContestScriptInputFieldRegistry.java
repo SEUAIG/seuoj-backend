@@ -3,8 +3,8 @@ package com.seuoj.seuojbackend.service.contest.custom;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.SubmissionDetail;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.vo.contest.ContestScriptInputFieldVO;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -44,20 +44,6 @@ public class ContestScriptInputFieldRegistry {
         this.fieldDefs = defs;
     }
 
-    public List<ContestScriptInputFieldVO> listAvailableFields() {
-        List<ContestScriptInputFieldVO> fields = new ArrayList<>();
-        for (FieldDef def : fieldDefs.values()) {
-            ContestScriptInputFieldVO vo = new ContestScriptInputFieldVO();
-            vo.setKey(def.key());
-            vo.setLabelZh(def.labelZh());
-            vo.setDescriptionZh(def.descriptionZh());
-            vo.setTypeHint(def.typeHint());
-            vo.setDefaultValue(def.defaultValue());
-            fields.add(vo);
-        }
-        return fields;
-    }
-
     public List<String> normalizeEnabledFields(List<String> enabledFields) {
         if (enabledFields == null) {
             return List.of();
@@ -77,6 +63,29 @@ public class ContestScriptInputFieldRegistry {
             return DEFAULT_ENABLED_FIELDS;
         }
         return normalizeEnabledFields(enabledFields);
+    }
+
+    public List<String> resolveRequestedFields(List<String> requestedFields) {
+        if (requestedFields == null || requestedFields.isEmpty()) {
+            return DEFAULT_ENABLED_FIELDS;
+        }
+        Set<String> requestedSet = new LinkedHashSet<>();
+        for (String key : requestedFields) {
+            if (fieldDefs.containsKey(key)) {
+                requestedSet.add(key);
+            }
+        }
+        List<String> selected = new ArrayList<>();
+        for (String key : fieldDefs.keySet()) {
+            if (requestedSet.contains(key)) {
+                selected.add(key);
+            }
+        }
+        return selected.isEmpty() ? DEFAULT_ENABLED_FIELDS : selected;
+    }
+
+    public Set<String> getSystemFieldKeys() {
+        return Collections.unmodifiableSet(fieldDefs.keySet());
     }
 
     public Map<String, Object> buildSubmissionInput(Submission submission,
