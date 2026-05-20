@@ -30,7 +30,7 @@ public class UserRole implements Serializable {
      * 角色编码(STUDENT/TEACHER/ADMIN)
      * 和后端代码中的枚举类RoleType保持一致
      */
-    //TODO: 是否是合理的设计？后续可以修改，记得改鉴权相关代码
+    // 角色编码当前采用字符串持久化，与 RoleType 保持一致
     @TableField("role_code")
     private String roleCode;
 

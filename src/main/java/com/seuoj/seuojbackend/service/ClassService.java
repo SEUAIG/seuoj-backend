@@ -609,7 +609,7 @@ public class ClassService {
                 .collect(java.util.stream.Collectors.toCollection(HashSet::new));
         Set<Long> activeProblemIds = sourceProblemIds.isEmpty()
                 ? Collections.emptySet()
-                : problemMapper.selectBatchIds(sourceProblemIds).stream()
+                : problemMapper.selectByIds(sourceProblemIds).stream()
                 .map(Problem::getId)
                 .collect(java.util.stream.Collectors.toCollection(HashSet::new));
         int sortOrder = 1;

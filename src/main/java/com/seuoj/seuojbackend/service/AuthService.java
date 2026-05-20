@@ -77,7 +77,7 @@ public class AuthService {
     public void register(RegisterDTO dto) {
         String normalizedEmail = normalizeEmail(dto.getEmail());
 
-        // TODO: 是否需要考虑枚举风险？
+        // 对外返回统一提示，避免暴露邮箱是否已注册的细节
         // 检查邮箱是否已存在
         if (userInfoMapper.selectOne(new LambdaQueryWrapper<UserInfo>()
                 .eq(UserInfo::getEmail, normalizedEmail)) != null) {
