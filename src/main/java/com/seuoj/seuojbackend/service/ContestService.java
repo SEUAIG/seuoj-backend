@@ -233,6 +233,7 @@ public class ContestService {
         vo.setRuleType(contest.getRuleType());
         vo.setIsPublic(contest.getIsPublic());
         vo.setHideStatistics(contest.getHideStatistics());
+        vo.setScoringScript("CUSTOM".equals(contest.getRuleType()) ? contest.getScoringScript() : null);
         vo.setProblemList(problemList);
         vo.setCanWrite(userId != null && permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE));
         return vo;
@@ -263,7 +264,10 @@ public class ContestService {
         if (dto.getIsPublic() != null) { update.setIsPublic(dto.getIsPublic()); changed = true; }
         if (dto.getHideStatistics() != null) { update.setHideStatistics(dto.getHideStatistics()); changed = true; }
         if (dto.getScoringConfig() != null) { update.setScoringConfig(dto.getScoringConfig()); changed = true; }
-        if (dto.getScoringScript() != null) { update.setScoringScript(dto.getScoringScript()); changed = true; }
+        if (StringUtils.hasText(dto.getScoringScript())) {
+            update.setScoringScript(dto.getScoringScript());
+            changed = true;
+        }
 
         if (changed) {
             contestMapper.updateById(update);

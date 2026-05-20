@@ -34,6 +34,9 @@ public class ContestDetailVO {
     @JsonProperty("hide_statistics")
     private Boolean hideStatistics;
 
+    @JsonProperty("scoring_script")
+    private String scoringScript;
+
     @JsonProperty("problem_list")
     private List<ContestProblemOverviewVO> problemList;
 
