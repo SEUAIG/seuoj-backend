@@ -104,6 +104,27 @@ public class JudgeHttpClient implements JudgeClient {
     }
 
     @Override
+    public JudgeLanguagesResponseData fetchLanguages() {
+        String url = judgeServerUrl + "/judge/languages";
+        try {
+            ResponseEntity<Result<JudgeLanguagesResponseData>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<JudgeLanguagesResponseData> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode()) || body.getData() == null) {
+                throw new JudgeRemoteException("获取评测语言失败: " + body);
+            }
+            return body.getData();
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法从评测端获取可用语言", ex);
+        }
+    }
+
+    @Override
     public void updateProblem(JudgeProblemEditRequest request) {
         String url = judgeServerUrl + "/judge/problem/edit";
         try {

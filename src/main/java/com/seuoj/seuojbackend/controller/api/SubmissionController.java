@@ -2,6 +2,7 @@ package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
+import com.seuoj.seuojbackend.client.dto.JudgeLanguagesResponseData;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.submission.OnlineJudgeSubmitDTO;
@@ -40,6 +41,12 @@ public class SubmissionController {
     @PostMapping("/submission/online")
     public Result<OnlineJudgeResultVO> submitOnline(@Valid @RequestBody OnlineJudgeSubmitDTO dto) {
         return Result.success(submissionService.submitOnlineJudge(dto));
+    }
+
+    @AllowAnonymous
+    @GetMapping("/submission/languages")
+    public Result<JudgeLanguagesResponseData> getLanguages() {
+        return Result.success(submissionService.getSubmissionLanguages());
     }
 
     @AllowAnonymous

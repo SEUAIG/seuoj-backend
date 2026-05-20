@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.seuoj.seuojbackend.client.JudgeClient;
+import com.seuoj.seuojbackend.client.dto.JudgeLanguagesResponseData;
 import com.seuoj.seuojbackend.client.dto.JudgeOnlineSubmissionRequest;
 import com.seuoj.seuojbackend.client.dto.JudgeOnlineSubmissionResponseData;
 import com.seuoj.seuojbackend.client.dto.JudgeSubmissionRequest;
@@ -127,6 +128,10 @@ public class SubmissionService {
         vo.setResultDetail(response.getResultDetail());
         vo.setStatus(response.getStatus());
         return vo;
+    }
+
+    public JudgeLanguagesResponseData getSubmissionLanguages() {
+        return judgeClient.fetchLanguages();
     }
 
     /**

@@ -33,6 +33,13 @@ public interface JudgeClient {
     JudgeOnlineSubmissionResponseData submitOnline(JudgeOnlineSubmissionRequest request);
 
     /**
+     * 获取评测端可用语言列表
+     *
+     * @return 语言列表响应
+     */
+    JudgeLanguagesResponseData fetchLanguages();
+
+    /**
      * 更新题面数据
      *
      * @param request problem edit payload
