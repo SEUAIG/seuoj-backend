@@ -11,6 +11,7 @@ import lombok.Getter;
 public enum SubmitExecStatus {
     SUCCESS("Success"),
     COMPILE_ERROR("CompileError"),
+    CODE_TOO_LONG("CodeTooLong"),
     JUDGEND_ERROR("JudgendError");
 
     private final String status;

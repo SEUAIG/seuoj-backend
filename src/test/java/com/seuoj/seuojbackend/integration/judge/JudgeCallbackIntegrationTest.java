@@ -154,6 +154,36 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
     }
 
     /**
+     * CodeTooLong 回调后，用户查询结果应能看到对应判定与错误详情。
+     */
+    @Test
+    void callbackCodeTooLongShouldBeVisibleInResultQuery() throws Exception {
+        String submissionNo = createSubmission();
+        String body = """
+                {
+                  "status": "CodeTooLong",
+                  "errorDetail": "code length exceeds limit",
+                  "score": 0
+                }
+                """;
+
+        mockMvc.perform(put("/judge/submission/{submissionNo}", submissionNo)
+                        .header("X-Judge-Secret", "test-judge-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/api/submission/{submissionNo}", submissionNo)
+                        .header("Authorization", bearerToken(10002L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.status").value("Finished"))
+                .andExpect(jsonPath("$.data.verdict").value("CodeTooLong"))
+                .andExpect(jsonPath("$.data.errorDetail").value("code length exceeds limit"));
+    }
+
+    /**
      * 重复 Success 回调应具备幂等效果，不重复累计 AC 统计。
      */
     @Test

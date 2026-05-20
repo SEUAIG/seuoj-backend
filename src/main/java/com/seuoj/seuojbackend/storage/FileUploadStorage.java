@@ -1,7 +1,6 @@
 package com.seuoj.seuojbackend.storage;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -79,5 +78,6 @@ public class FileUploadStorage {
         }
     }
 
-    public record FileUploadResult(String path, String name, long size) {}
+    public record FileUploadResult(String path, String name, long size) {
+    }
 }

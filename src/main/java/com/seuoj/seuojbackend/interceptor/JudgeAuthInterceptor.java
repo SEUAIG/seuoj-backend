@@ -1,12 +1,9 @@
 package com.seuoj.seuojbackend.interceptor;
 
-import com.seuoj.seuojbackend.common.ErrorCode;
-import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeAuthException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -22,8 +19,8 @@ public class JudgeAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request,
-                             HttpServletResponse response,
-                             Object handler) throws Exception {
+            HttpServletResponse response,
+            Object handler) throws Exception {
 
         String secret = request.getHeader("X-Judge-Secret");
 

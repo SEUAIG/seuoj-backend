@@ -19,13 +19,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtAuthInterceptor jwtAuthInterceptor;
-    private final JudgeAuthInterceptor judgeAuthInterceptor;
     private final ObjectMapper objectMapper;
 
     public WebMvcConfig(JwtAuthInterceptor jwtAuthInterceptor, JudgeAuthInterceptor judgeAuthInterceptor,
-                        ObjectMapper objectMapper) {
+            ObjectMapper objectMapper) {
         this.jwtAuthInterceptor = jwtAuthInterceptor;
-        this.judgeAuthInterceptor = judgeAuthInterceptor;
         this.objectMapper = objectMapper;
     }
 
@@ -37,8 +35,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/api/**");
 
-//        registry.addInterceptor(judgeAuthInterceptor)
-//                .addPathPatterns("/judge/**");
+        // registry.addInterceptor(judgeAuthInterceptor)
+        // .addPathPatterns("/judge/**");
     }
 
     /**
@@ -50,8 +48,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         converter.setDefaultCharset(StandardCharsets.UTF_8);
         converter.setSupportedMediaTypes(List.of(
                 new MediaType("application", "json", StandardCharsets.UTF_8),
-                new MediaType("application", "*+json", StandardCharsets.UTF_8)
-        ));
+                new MediaType("application", "*+json", StandardCharsets.UTF_8)));
         // 添加到最前面，优先使用
         converters.addFirst(converter);
     }
