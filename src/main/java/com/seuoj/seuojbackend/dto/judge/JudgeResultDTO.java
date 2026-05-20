@@ -32,5 +32,5 @@ public class JudgeResultDTO {
 
     private Integer score;
 
-    // TODO:需要密钥验证来源
+    // 回调来源验证由接口层请求头密钥校验负责
 }

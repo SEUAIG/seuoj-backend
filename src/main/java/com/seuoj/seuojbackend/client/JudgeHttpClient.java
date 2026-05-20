@@ -52,7 +52,7 @@ public class JudgeHttpClient implements JudgeClient {
                 return body.getData();
             }
 
-            // TODO: 更具体详细的错误码处理
+            // 后续可按评测端错误码细化异常类型
             log.error("获取题目详细信息失败，异常响应详情: {}", body);
             throw new JudgeRemoteException("获取题目详细信息失败");
         } catch (RestClientException ex) {
@@ -73,7 +73,7 @@ public class JudgeHttpClient implements JudgeClient {
 
             Result<Void> body = response.getBody();
             if (body == null || !Integer.valueOf(0).equals(body.getCode())) {
-                // TODO: 更具体详细的错误码处理
+                // 后续可按评测端错误码细化异常类型
                 throw new JudgeRemoteException("评测端异常: " + body);
             }
 

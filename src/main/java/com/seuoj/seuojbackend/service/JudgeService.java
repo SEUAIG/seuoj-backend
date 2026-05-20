@@ -44,7 +44,7 @@ public class JudgeService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void handleJudgeResult(JudgeResultDTO dto, String submissionNo) {
-        // TODO: 校验请求来源
+        // 回调来源校验由控制器层密钥校验中间逻辑保障
 
         Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()

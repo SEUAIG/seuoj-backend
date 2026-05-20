@@ -328,7 +328,7 @@ public class AssignmentService {
                 .collect(Collectors.toCollection(HashSet::new));
         Set<Long> activeProblemIds = sourceProblemIds.isEmpty()
                 ? Collections.emptySet()
-                : problemMapper.selectBatchIds(sourceProblemIds).stream()
+                : problemMapper.selectByIds(sourceProblemIds).stream()
                 .map(Problem::getId)
                 .collect(Collectors.toCollection(HashSet::new));
 
@@ -408,7 +408,7 @@ public class AssignmentService {
         }
 
         List<Long> problemIds = rels.stream().map(AssignmentProblemRel::getProblemId).toList();
-        Map<Long, Problem> problemMap = problemMapper.selectBatchIds(problemIds)
+        Map<Long, Problem> problemMap = problemMapper.selectByIds(problemIds)
                 .stream()
                 .collect(Collectors.toMap(Problem::getId, p -> p, (a, b) -> a));
 
