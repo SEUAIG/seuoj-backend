@@ -342,6 +342,32 @@ CREATE TABLE `contest_submission`
   ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
+-- Table structure for contest_script_input_profile
+-- ----------------------------
+DROP TABLE IF EXISTS `contest_script_input_profile`;
+CREATE TABLE `contest_script_input_profile`
+(
+    `id`              bigint                                                       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `contest_id`      bigint                                                       NOT NULL COMMENT '比赛ID，1:1关联contest',
+    `enabled_fields`  json                                                         NOT NULL COMMENT '启用字段key白名单(JSON数组)',
+    `profile_version` int                                                          NOT NULL DEFAULT 1 COMMENT '模板版本号',
+    `created_at`      timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`      timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_del`          tinyint(1)                                                   NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    `active_key`      varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
+                                                                                                             when (`is_del` = 0)
+                                                                                                                 then cast(`contest_id` as char(64))
+                                                                                                             else NULL end)) STORED NULL,
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_contest_script_input_profile_active` (`active_key` ASC) USING BTREE,
+    INDEX `idx_contest_script_input_profile_contest` (`contest_id` ASC) USING BTREE,
+    CONSTRAINT `fk_contest_script_input_profile_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '比赛自定义赛制脚本输入字段模板'
+  ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for problem
 -- ----------------------------
 DROP TABLE IF EXISTS `problem`;

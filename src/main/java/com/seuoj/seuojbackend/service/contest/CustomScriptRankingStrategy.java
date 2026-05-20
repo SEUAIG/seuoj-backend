@@ -2,13 +2,19 @@ package com.seuoj.seuojbackend.service.contest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seuoj.seuojbackend.entity.Contest;
+import com.seuoj.seuojbackend.entity.ContestScriptInputProfile;
 import com.seuoj.seuojbackend.entity.Submission;
+import com.seuoj.seuojbackend.entity.SubmissionDetail;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.InternalServerException;
+import com.seuoj.seuojbackend.mapper.ContestScriptInputProfileMapper;
+import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
+import com.seuoj.seuojbackend.service.contest.custom.ContestScriptInputFieldRegistry;
 import com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO;
 import com.seuoj.seuojbackend.vo.contest.ContestStandingsRecordVO;
 import com.seuoj.seuojbackend.vo.contest.ContestStandingsScoreDetailVO;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -26,6 +32,17 @@ import org.springframework.stereotype.Component;
 public class CustomScriptRankingStrategy implements ContestRankingStrategy {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final SubmissionDetailMapper submissionDetailMapper;
+    private final ContestScriptInputProfileMapper contestScriptInputProfileMapper;
+    private final ContestScriptInputFieldRegistry contestScriptInputFieldRegistry;
+
+    public CustomScriptRankingStrategy(SubmissionDetailMapper submissionDetailMapper,
+                                       ContestScriptInputProfileMapper contestScriptInputProfileMapper,
+                                       ContestScriptInputFieldRegistry contestScriptInputFieldRegistry) {
+        this.submissionDetailMapper = submissionDetailMapper;
+        this.contestScriptInputProfileMapper = contestScriptInputProfileMapper;
+        this.contestScriptInputFieldRegistry = contestScriptInputFieldRegistry;
+    }
 
     @Override
     public List<ContestStandingsRecordVO> computeStandings(
@@ -40,7 +57,9 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
             throw new BadRequestException("自定义赛制缺少 scoring_script");
         }
 
-        Map<String, Object> input = buildInput(problems, registeredUsers, finishedSubmissions, contest, problemIdToPid);
+        Map<Long, SubmissionDetail> submissionDetailMap = buildSubmissionDetailMap(finishedSubmissions);
+        Map<String, Object> input = buildInput(
+                problems, registeredUsers, finishedSubmissions, submissionDetailMap, contest, problemIdToPid);
 
         try (Context context = Context.newBuilder("js")
                 .allowHostAccess(HostAccess.NONE)
@@ -77,6 +96,7 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
             List<ContestProblemOverviewVO> problems,
             Map<Long, UserInfo> registeredUsers,
             List<Submission> finishedSubmissions,
+            Map<Long, SubmissionDetail> submissionDetailMap,
             Contest contest,
             Map<Long, String> problemIdToPid) {
 
@@ -97,21 +117,19 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
         }
         input.put("problems", problemsList);
 
+        List<String> enabledFields = loadContestEnabledFields(contest.getId());
+
         // Group submissions by user and problem
         Map<Long, Map<String, List<Map<String, Object>>>> userSubmissions = new HashMap<>();
         for (Submission s : finishedSubmissions) {
             String pid = problemIdToPid.get(s.getProblemId());
             if (pid == null) continue;
+            SubmissionDetail detail = submissionDetailMap.get(s.getId());
 
             userSubmissions
                     .computeIfAbsent(s.getUserId(), k -> new HashMap<>())
                     .computeIfAbsent(pid, k -> new ArrayList<>())
-                    .add(Map.of(
-                            "id", s.getId(),
-                            "score", s.getScore() != null ? s.getScore() : 0,
-                            "verdict", s.getVerdict() != null ? s.getVerdict() : "",
-                            "submit_time", s.getSubmitTime().toString()
-                    ));
+                    .add(contestScriptInputFieldRegistry.buildSubmissionInput(s, detail, enabledFields));
         }
 
         Map<String, Object> users = new LinkedHashMap<>();
@@ -127,6 +145,51 @@ public class CustomScriptRankingStrategy implements ContestRankingStrategy {
         input.put("users", users);
 
         return input;
+    }
+
+    private List<String> loadContestEnabledFields(Long contestId) {
+        if (contestId == null) {
+            return List.of();
+        }
+        ContestScriptInputProfile profile = contestScriptInputProfileMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ContestScriptInputProfile>()
+                        .eq(ContestScriptInputProfile::getContestId, contestId));
+        if (profile == null || profile.getEnabledFields() == null || profile.getEnabledFields().isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> enabledFields = OBJECT_MAPPER.readValue(
+                    profile.getEnabledFields(),
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class));
+            return contestScriptInputFieldRegistry.normalizeEnabledFields(enabledFields);
+        } catch (Exception e) {
+            log.warn("Invalid contest script input profile, fallback to default. contestId={}", contestId, e);
+            return List.of();
+        }
+    }
+
+    private Map<Long, SubmissionDetail> buildSubmissionDetailMap(List<Submission> finishedSubmissions) {
+        if (finishedSubmissions == null || finishedSubmissions.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> submissionIds = finishedSubmissions.stream()
+                .map(Submission::getId)
+                .filter(id -> id != null)
+                .toList();
+        if (submissionIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<SubmissionDetail> details = submissionDetailMapper.selectList(
+                new LambdaQueryWrapper<SubmissionDetail>()
+                        .in(SubmissionDetail::getSubmissionId, submissionIds));
+        Map<Long, SubmissionDetail> map = new HashMap<>();
+        for (SubmissionDetail detail : details) {
+            if (detail == null || detail.getSubmissionId() == null) continue;
+            map.put(detail.getSubmissionId(), detail);
+        }
+        return map;
     }
 
     private List<ContestStandingsRecordVO> parseScriptResult(Value result) {

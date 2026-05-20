@@ -149,7 +149,7 @@
     </select>
 
     <select id="selectContestFinishedSubmissions" resultType="com.seuoj.seuojbackend.entity.Submission">
-        SELECT s.id, s.user_id, s.problem_id, s.score, s.verdict, s.submit_time
+        SELECT s.id, s.user_id, s.problem_id, s.language, s.score, s.verdict, s.submit_time
         FROM contest_submission cs
         INNER JOIN submission s ON cs.submission_id = s.id
         WHERE cs.contest_id = #{contestId}

@@ -42,3 +42,5 @@ application-*.yml
 data/
 
 AGENT.md
+
+/tmp/

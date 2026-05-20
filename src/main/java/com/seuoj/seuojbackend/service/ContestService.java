@@ -12,11 +12,13 @@ import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.contest.ContestCreateDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestProblemEditDTO;
+import com.seuoj.seuojbackend.dto.contest.ContestScriptInputProfileUpdateDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestSubmitDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestUpdateDTO;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ContestProblemRel;
 import com.seuoj.seuojbackend.entity.ContestRegisterRel;
+import com.seuoj.seuojbackend.entity.ContestScriptInputProfile;
 import com.seuoj.seuojbackend.entity.ContestSubmission;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
@@ -32,12 +34,14 @@ import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
 import com.seuoj.seuojbackend.mapper.ContestRegisterRelMapper;
+import com.seuoj.seuojbackend.mapper.ContestScriptInputProfileMapper;
 import com.seuoj.seuojbackend.mapper.ContestSubmissionMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionDetailMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.service.contest.ContestRankingStrategyFactory;
+import com.seuoj.seuojbackend.service.contest.custom.ContestScriptInputFieldRegistry;
 import com.seuoj.seuojbackend.storage.CodeStorage;
 import com.seuoj.seuojbackend.vo.contest.ContestCreateVO;
 import com.seuoj.seuojbackend.vo.contest.ContestDetailVO;
@@ -47,6 +51,7 @@ import com.seuoj.seuojbackend.vo.contest.ContestProblemListInEditVO;
 import com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO;
 import com.seuoj.seuojbackend.vo.contest.ContestStandingsRecordVO;
 import com.seuoj.seuojbackend.vo.contest.ContestStandingsVO;
+import com.seuoj.seuojbackend.vo.contest.ContestScriptInputProfileVO;
 import com.seuoj.seuojbackend.vo.contest.ContestSubmissionDetailVO;
 import com.seuoj.seuojbackend.vo.contest.ContestSubmissionPageVO;
 import com.seuoj.seuojbackend.vo.contest.ContestSubmissionRecordVO;
@@ -63,6 +68,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,10 +81,13 @@ import org.springframework.util.StringUtils;
 public class ContestService {
 
     private static final int MAX_CODE_BYTES = 65535;
+    private static final int SCRIPT_INPUT_PROFILE_VERSION = 1;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ContestMapper contestMapper;
     private final ContestProblemRelMapper contestProblemRelMapper;
     private final ContestRegisterRelMapper contestRegisterRelMapper;
+    private final ContestScriptInputProfileMapper contestScriptInputProfileMapper;
     private final ContestSubmissionMapper contestSubmissionMapper;
     private final SubmissionMapper submissionMapper;
     private final SubmissionDetailMapper submissionDetailMapper;
@@ -91,10 +100,12 @@ public class ContestService {
     private final CodeStorage codeStorage;
     private final TransactionTemplate transactionTemplate;
     private final ContestRankingStrategyFactory rankingStrategyFactory;
+    private final ContestScriptInputFieldRegistry contestScriptInputFieldRegistry;
 
     public ContestService(ContestMapper contestMapper,
                           ContestProblemRelMapper contestProblemRelMapper,
                           ContestRegisterRelMapper contestRegisterRelMapper,
+                          ContestScriptInputProfileMapper contestScriptInputProfileMapper,
                           ContestSubmissionMapper contestSubmissionMapper,
                           SubmissionMapper submissionMapper,
                           SubmissionDetailMapper submissionDetailMapper,
@@ -106,10 +117,12 @@ public class ContestService {
                           JudgeClient judgeClient,
                           CodeStorage codeStorage,
                           TransactionTemplate transactionTemplate,
-                          ContestRankingStrategyFactory rankingStrategyFactory) {
+                          ContestRankingStrategyFactory rankingStrategyFactory,
+                          ContestScriptInputFieldRegistry contestScriptInputFieldRegistry) {
         this.contestMapper = contestMapper;
         this.contestProblemRelMapper = contestProblemRelMapper;
         this.contestRegisterRelMapper = contestRegisterRelMapper;
+        this.contestScriptInputProfileMapper = contestScriptInputProfileMapper;
         this.contestSubmissionMapper = contestSubmissionMapper;
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
@@ -122,6 +135,7 @@ public class ContestService {
         this.codeStorage = codeStorage;
         this.transactionTemplate = transactionTemplate;
         this.rankingStrategyFactory = rankingStrategyFactory;
+        this.contestScriptInputFieldRegistry = contestScriptInputFieldRegistry;
     }
 
     // ───────────────────────── CRUD ─────────────────────────
@@ -400,6 +414,58 @@ public class ContestService {
         ContestProblemListInEditVO vo = new ContestProblemListInEditVO();
         vo.setProblemList(problems == null ? Collections.emptyList() : problems);
         return vo;
+    }
+
+    public ContestScriptInputProfileVO getContestScriptInputProfile(Long contestId) {
+        Contest contest = loadContestOrThrow(contestId);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
+        ensureCustomRuleType(contest);
+
+        ContestScriptInputProfile profile = contestScriptInputProfileMapper.selectOne(
+                new LambdaQueryWrapper<ContestScriptInputProfile>()
+                        .eq(ContestScriptInputProfile::getContestId, contest.getId()));
+
+        ContestScriptInputProfileVO vo = new ContestScriptInputProfileVO();
+        vo.setAvailableFields(contestScriptInputFieldRegistry.listAvailableFields());
+        vo.setEnabledFields(parseEnabledFields(profile));
+        vo.setProfileVersion(profile != null && profile.getProfileVersion() != null
+                ? profile.getProfileVersion() : SCRIPT_INPUT_PROFILE_VERSION);
+        return vo;
+    }
+
+    public void updateContestScriptInputProfile(Long contestId, ContestScriptInputProfileUpdateDTO dto) {
+        Contest contest = loadContestOrThrow(contestId);
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
+        ensureCustomRuleType(contest);
+
+        List<String> enabledFields = contestScriptInputFieldRegistry.normalizeEnabledFields(
+                dto == null ? null : dto.getEnabledFields());
+        String enabledFieldsJson;
+        try {
+            enabledFieldsJson = OBJECT_MAPPER.writeValueAsString(enabledFields);
+        } catch (Exception e) {
+            throw new InternalServerException("字段配置序列化失败");
+        }
+
+        ContestScriptInputProfile existing = contestScriptInputProfileMapper.selectOne(
+                new LambdaQueryWrapper<ContestScriptInputProfile>()
+                        .eq(ContestScriptInputProfile::getContestId, contest.getId()));
+        if (existing == null) {
+            ContestScriptInputProfile insert = new ContestScriptInputProfile();
+            insert.setContestId(contest.getId());
+            insert.setEnabledFields(enabledFieldsJson);
+            insert.setProfileVersion(SCRIPT_INPUT_PROFILE_VERSION);
+            contestScriptInputProfileMapper.insert(insert);
+            return;
+        }
+
+        ContestScriptInputProfile update = new ContestScriptInputProfile();
+        update.setId(existing.getId());
+        update.setEnabledFields(enabledFieldsJson);
+        update.setProfileVersion(SCRIPT_INPUT_PROFILE_VERSION);
+        contestScriptInputProfileMapper.updateById(update);
     }
 
     // ───────────────────────── Registration ─────────────────────────
@@ -721,6 +787,27 @@ public class ContestService {
         if (!"ACM".equals(ruleType) && !"NOI".equals(ruleType)
                 && !"IOI".equals(ruleType) && !"CUSTOM".equals(ruleType)) {
             throw new BadRequestException("未知赛制: " + ruleType);
+        }
+    }
+
+    private void ensureCustomRuleType(Contest contest) {
+        if (!"CUSTOM".equals(contest.getRuleType())) {
+            throw new BadRequestException("仅 CUSTOM 赛制支持脚本输入字段模板配置");
+        }
+    }
+
+    private List<String> parseEnabledFields(ContestScriptInputProfile profile) {
+        if (profile == null || !StringUtils.hasText(profile.getEnabledFields())) {
+            return Collections.emptyList();
+        }
+        try {
+            List<String> fields = OBJECT_MAPPER.readValue(
+                    profile.getEnabledFields(),
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class));
+            return contestScriptInputFieldRegistry.normalizeEnabledFields(fields);
+        } catch (Exception e) {
+            log.warn("Invalid stored script input profile, contestId={}", profile.getContestId(), e);
+            return Collections.emptyList();
         }
     }
 
