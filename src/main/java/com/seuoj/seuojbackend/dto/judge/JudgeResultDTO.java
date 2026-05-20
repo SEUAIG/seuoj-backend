@@ -11,7 +11,7 @@ import lombok.Data;
 @Data
 public class JudgeResultDTO {
     /**
-     * 评测状态string，Success、CompileError、JudgendError
+     * 评测状态string，Success、CompileError、CodeTooLong、JudgendError
      */
     @NotNull(message = "status 不可为空")
     private SubmitExecStatus status;

@@ -23,7 +23,6 @@ import com.seuoj.seuojbackend.mapper.AssignmentMapper;
 import com.seuoj.seuojbackend.mapper.ClassInfoMapper;
 import com.seuoj.seuojbackend.vo.announcement.AnnouncementVO;
 import com.seuoj.seuojbackend.vo.announcement.AttachmentVO;
-import java.util.Collections;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,10 +38,10 @@ public class AnnouncementService {
     private final PermissionService permissionService;
 
     public AnnouncementService(AnnouncementMapper announcementMapper,
-                               AnnouncementAttachmentMapper attachmentMapper,
-                               ClassInfoMapper classInfoMapper,
-                               AssignmentMapper assignmentMapper,
-                               PermissionService permissionService) {
+            AnnouncementAttachmentMapper attachmentMapper,
+            ClassInfoMapper classInfoMapper,
+            AssignmentMapper assignmentMapper,
+            PermissionService permissionService) {
         this.announcementMapper = announcementMapper;
         this.attachmentMapper = attachmentMapper;
         this.classInfoMapper = classInfoMapper;
@@ -67,7 +66,7 @@ public class AnnouncementService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long createAssignmentAnnouncement(Long classId, Long assignmentId,
-                                             AnnouncementCreateDTO dto) {
+            AnnouncementCreateDTO dto) {
         Long userId = AuthContexts.requiredUserId();
         if (classId == null) {
             throw new BadRequestException("class_id 不能为空");
@@ -113,7 +112,7 @@ public class AnnouncementService {
     }
 
     public IPage<AnnouncementVO> getAssignmentAnnouncementPage(Long classId, Long assignmentId,
-                                                                Integer current, Integer size) {
+            Integer current, Integer size) {
         Long userId = AuthContexts.requiredUserId();
         if (classId == null) {
             throw new BadRequestException("class_id 不能为空");
@@ -135,7 +134,8 @@ public class AnnouncementService {
             throw new NotFoundException("作业不存在");
         }
 
-        boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE);
+        boolean canWrite = permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(),
+                PermissionOp.WRITE);
         if (!canWrite) {
             if (!"PUBLISHED".equals(assignment.getStatus())) {
                 throw new NotFoundException("作业不存在");
@@ -278,7 +278,8 @@ public class AnnouncementService {
 
     private void fillAttachments(List<AnnouncementVO> records) {
         for (AnnouncementVO vo : records) {
-            if (vo.getAnnouncementId() == null) continue;
+            if (vo.getAnnouncementId() == null)
+                continue;
 
             List<AnnouncementAttachment> atts = attachmentMapper.selectList(
                     new LambdaQueryWrapper<AnnouncementAttachment>()

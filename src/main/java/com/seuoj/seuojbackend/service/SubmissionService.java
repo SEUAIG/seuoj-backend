@@ -77,12 +77,12 @@ public class SubmissionService {
     private final TransactionTemplate transactionTemplate;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
-                             ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
-                             JudgeClient judgeClient,
-                             CodeStorage codeStorage, UserInfoMapper userInfoMapper,
-                             UserRoleService userRoleService, PermissionService permissionService,
-                             ProblemService problemService,
-                             TransactionTemplate transactionTemplate) {
+            ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
+            JudgeClient judgeClient,
+            CodeStorage codeStorage, UserInfoMapper userInfoMapper,
+            UserRoleService userRoleService, PermissionService permissionService,
+            ProblemService problemService,
+            TransactionTemplate transactionTemplate) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
@@ -301,11 +301,11 @@ public class SubmissionService {
      * 分页查询当前用户的提交记录
      *
      * @param current 当前页（从 1 开始）
-     * @param size 每页条数
+     * @param size    每页条数
      * @return 提交记录分页
      */
     public SubmissionPageVO listSubmissions(Integer current, Integer size, Long userId, String verdict,
-                                              Long assignmentId, String pid, String language, String username) {
+            Long assignmentId, String pid, String language, String username) {
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
         }
@@ -389,10 +389,6 @@ public class SubmissionService {
         vo.setUsername(user != null ? user.getUsername() : null);
         vo.setNickname(user != null ? user.getNickname() : null);
         return vo;
-    }
-
-    private boolean isAdmin(Long userId) {
-        return userRoleService != null && userRoleService.isAdmin(userId);
     }
 
     private boolean isTeacherOrAdmin(Long userId) {
