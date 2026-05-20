@@ -282,7 +282,7 @@ class JudgeCallbackIntegrationTest extends BaseIntegrationTest {
         String submitBody = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;

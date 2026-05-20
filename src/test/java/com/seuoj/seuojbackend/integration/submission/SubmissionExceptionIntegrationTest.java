@@ -38,7 +38,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         String body = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;
@@ -89,7 +89,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         String body = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "%s"
                 }
                 """.formatted("a".repeat(65536));
@@ -110,7 +110,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         String body = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "   "
                 }
                 """;
@@ -131,7 +131,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         String body = """
                 {
                   "pid": "  ",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;
@@ -204,7 +204,7 @@ class SubmissionExceptionIntegrationTest extends BaseIntegrationTest {
         String body = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;

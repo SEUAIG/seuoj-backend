@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import lombok.Data;
 
@@ -16,6 +17,10 @@ public class OnlineJudgeSubmitDTO {
     private String code;
 
     @NotBlank(message = "language 不能为空")
+    @Pattern(
+            regexp = "^(C|Cpp|Cpp20|Python|Nodejs|Go|Java)$",
+            message = "language 不支持"
+    )
     private String language;
 
     @Valid

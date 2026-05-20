@@ -41,7 +41,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
         String submitBody = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "public class Main { public static void main(String[] args){ System.out.println(3); } }"
                 }
                 """;
@@ -113,7 +113,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
         String submitBody = """
                 {
                   "pid": "PPRIVATE",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;
@@ -134,7 +134,7 @@ class SubmissionFlowIntegrationTest extends BaseIntegrationTest {
         String submitBody = """
                 {
                   "pid": "PPUBLIC",
-                  "language": "Java17",
+                  "language": "Java",
                   "code": "class Main{}"
                 }
                 """;
