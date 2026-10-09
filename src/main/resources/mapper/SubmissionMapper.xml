@@ -58,8 +58,27 @@
             <foreach collection="problemIds" item="pid" open="(" separator="," close=")">
                 #{pid}
             </foreach>
+          AND p.id IS NOT NULL
           AND s.user_id IN (SELECT user_id FROM class_student_rel
                             WHERE class_id = #{classId} AND is_del = 0)
+        <if test="linkedAssignmentId != null">
+          AND s.assignment_id = #{linkedAssignmentId}
+        </if>
+        <if test="userId != null">
+          AND s.user_id = #{userId}
+        </if>
+        <if test="pid != null and pid != ''">
+          AND p.pid = #{pid}
+        </if>
+        <if test="verdict != null and verdict != ''">
+          AND s.verdict = #{verdict}
+        </if>
+        <if test="language != null and language != ''">
+          AND s.language = #{language}
+        </if>
+        <if test="username != null and username != ''">
+          AND u.username LIKE CONCAT('%', #{username}, '%')
+        </if>
         ORDER BY s.submit_time DESC, s.id DESC
     </select>
 

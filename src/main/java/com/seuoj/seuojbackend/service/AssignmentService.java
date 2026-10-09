@@ -358,8 +358,17 @@ public class AssignmentService {
     }
 
     public SubmissionPageVO getAssignmentSubmissionPage(Long classId, Long assignmentId,
-                                                         Integer current, Integer size) {
+                                                         Integer current, Integer size, String scope,
+                                                         String pid, String verdict, String language, String username) {
+        if (current == null || current < 1 || size == null || size < 1 || size > 100) {
+            throw new BadRequestException("分页参数无效");
+        }
+        if (!"learning".equals(scope) && !"linked".equals(scope)) {
+            throw new BadRequestException("提交范围应为 learning 或 linked");
+        }
         Assignment assignment = getAssignmentDetail(classId, assignmentId);
+        Long requester = AuthContexts.requiredUserId();
+        boolean canWrite = permissionService.hasPermission(requester, ResourceType.CLASS, classId, PermissionOp.WRITE);
 
         List<AssignmentProblemRel> rels = assignmentProblemRelMapper.selectList(
                 new LambdaQueryWrapper<AssignmentProblemRel>()
@@ -377,7 +386,8 @@ public class AssignmentService {
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectAssignmentSubmissionPage(
-                page, problemIds, classId);
+                page, problemIds, classId, "linked".equals(scope) ? assignmentId : null,
+                canWrite ? null : requester, pid, verdict, language, canWrite ? username : null);
 
         result.setCurrent(pageResult.getCurrent());
         result.setSize(pageResult.getSize());

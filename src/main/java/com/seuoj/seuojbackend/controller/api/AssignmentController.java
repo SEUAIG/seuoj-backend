@@ -95,8 +95,14 @@ public class AssignmentController {
             @PathVariable("assignmentId") Long assignmentId,
             @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
             @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页条数最小为 1")
-            @Max(value = 100, message = "每页条数最大为 100") Integer size) {
-        return Result.success(assignmentService.getAssignmentSubmissionPage(classId, assignmentId, current, size));
+            @Max(value = 100, message = "每页条数最大为 100") Integer size,
+            @RequestParam(defaultValue = "learning") String scope,
+            @RequestParam(required = false) String pid,
+            @RequestParam(required = false) String verdict,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String username) {
+        return Result.success(assignmentService.getAssignmentSubmissionPage(classId, assignmentId, current, size,
+                scope, pid, verdict, language, username));
     }
 
     @PutMapping("/{assignmentId}")

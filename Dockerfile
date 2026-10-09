@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 
 # --- 第一阶段：构建阶段 ---
 # 使用官方 Maven 镜像作为构建环境 (包含 JDK 21)
@@ -31,7 +30,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 # 2. 复制源码并进行打包（依赖层已缓存，-o 离线模式避免再次检查）
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn package -Dmaven.test.skip=true
+    mvn package -Dtest=AssignmentSubmissionScopeTest
 
 # --- 第二阶段：运行阶段 ---
 # 使用轻量级的 JRE 21 镜像
