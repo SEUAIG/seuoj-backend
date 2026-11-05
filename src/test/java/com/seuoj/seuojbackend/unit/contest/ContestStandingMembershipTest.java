@@ -28,6 +28,7 @@ class ContestStandingMembershipTest {
         ContestStandingMembership.apply(records, members, users);
         assertEquals(Arrays.asList(null, 1, null, 1, null, 3), records.stream().map(ContestStandingsRecordVO::getRank).toList());
         assertEquals("姓名2", records.get(1).getDisplayName());
+        assertEquals(2L, records.get(1).getUserId());
         assertEquals("nickname", users.get(2L).getNickname());
         assertTrue(records.get(0).getIsStarred());
         assertEquals(5, records.get(0).getScore());

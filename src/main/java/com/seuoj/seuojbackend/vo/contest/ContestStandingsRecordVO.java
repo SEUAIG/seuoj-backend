@@ -11,6 +11,9 @@ public class ContestStandingsRecordVO {
 
     private String username;
 
+    @JsonProperty("user_id")
+    private Long userId;
+
     private String nickname;
 
     @JsonProperty("display_name")
