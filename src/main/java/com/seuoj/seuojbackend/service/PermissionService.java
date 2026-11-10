@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.common.Capability;
 import com.seuoj.seuojbackend.entity.Assignment;
 import com.seuoj.seuojbackend.entity.AssignmentProblemRel;
 import com.seuoj.seuojbackend.entity.ClassInfo;
@@ -95,6 +96,9 @@ public class PermissionService {
             return true;
         }
 
+        if (type == ResourceType.PROBLEM && userRoleService.hasCapability(userId, Capability.PROBLEM_MANAGE)) return true;
+        if (type == ResourceType.CONTEST && userRoleService.hasCapability(userId, Capability.CONTEST_MANAGE)) return true;
+
         // 3. Explicit grant
         if (op == PermissionOp.WRITE) {
             if (resourcePermissionMapper.hasPermission(type.name(), resourceId, userId, PermissionOp.WRITE.name())) {
@@ -126,7 +130,17 @@ public class PermissionService {
         }
     }
 
+    /** Adding a private problem to another resource extends its audience and requires WRITE. */
+    public void assertCanReferenceProblem(Long userId, Problem problem) {
+        if (problem == null) throw new NotFoundException("题目不存在");
+        if (!Boolean.TRUE.equals(problem.getIsPublic())) {
+            assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
+        }
+    }
+
     public boolean canCreate(Long userId, ResourceType type) {
+        if (type == ResourceType.PROBLEM) return userRoleService.hasCapability(userId, Capability.PROBLEM_CREATE);
+        if (type == ResourceType.CONTEST) return userRoleService.hasCapability(userId, Capability.CONTEST_CREATE);
         if (userId == null) {
             return false;
         }
@@ -236,7 +250,7 @@ public class PermissionService {
                         .eq(ContestRegisterRel::getUserId, userId)) > 0;
 
         if (now.isBefore(contest.getStartTime())) {
-            return false;
+            return isRegistered;
         }
         if (!now.isAfter(contest.getEndTime())) {
             return isRegistered;
@@ -278,16 +292,17 @@ public class PermissionService {
     }
 
     public void assertProblemAccessViaContest(Long userId, Long problemId, Long contestId) {
-        if (userId != null && userRoleService.isTeacherOrAdmin(userId)) {
-            return;
-        }
-
         Contest contest = contestMapper.selectById(contestId);
         if (contest == null) {
             throw new NotFoundException("比赛不存在");
         }
 
         assertPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.READ);
+
+        if (LocalDateTime.now().isBefore(contest.getStartTime())
+                && !hasPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.WRITE)) {
+            throw new ForbiddenException("比赛尚未开始，无法查看题目");
+        }
 
         Long count = contestProblemRelMapper.selectCount(
                 new LambdaQueryWrapper<ContestProblemRel>()

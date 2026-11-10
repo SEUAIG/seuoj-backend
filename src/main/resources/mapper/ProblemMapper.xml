@@ -14,6 +14,14 @@
         WHERE id = #{problemId}
     </update>
 
+    <!-- skip / 取消 skip 时修正计数，不让计数变成负数 -->
+    <update id="adjustTotalCounts">
+        UPDATE problem
+        SET total_submit = GREATEST(CAST(total_submit AS SIGNED) + #{submitDelta}, 0),
+            total_accept = GREATEST(CAST(total_accept AS SIGNED) + #{acceptDelta}, 0)
+        WHERE id = #{problemId}
+    </update>
+
     <resultMap id="ProblemDetailMap" type="com.seuoj.seuojbackend.vo.problem.ProblemDetailVO">
         <id column="pid" property="pid"/>
         <result column="title" property="title"/>
@@ -78,7 +86,8 @@
     <sql id="ProblemBaseWhere">
         p.is_del = 0
         <if test="!includeNonPublic">
-            AND p.is_public = 1
+            AND (p.is_public = 1 OR EXISTS (SELECT 1 FROM resource_permission rp
+                WHERE rp.resource_type='PROBLEM' AND rp.resource_id=p.id AND rp.user_id=#{viewerId} AND rp.is_del=0))
         </if>
         <if test="tagIdsSize > 0">
             <!-- 子查询：找出同时包含所有指定标签的题目ID -->

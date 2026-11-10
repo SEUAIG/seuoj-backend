@@ -72,7 +72,7 @@ public class ProblemTestcaseService {
     }
 
     private void ensureProblemExists(String pid) {
-        problemService.getProblemByPidOrThrow(pid);
+        problemService.assertCanManageProblem(pid);
     }
 
     /**

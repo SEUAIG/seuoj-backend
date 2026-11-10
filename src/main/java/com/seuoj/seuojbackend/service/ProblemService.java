@@ -104,6 +104,7 @@ public class ProblemService {
                 searchSpec.useLikeSingle,
                 searchSpec.useLikeRaw,
                 canCurrentUserViewPrivateProblems(),
+                AuthContexts.userIdOrNull(),
                 tagIds,
                 tagIdsSize
         );
@@ -141,7 +142,8 @@ public class ProblemService {
         if (ctx == null || ctx.isGuest()) {
             return false;
         }
-        return userRoleService.isTeacherOrAdmin(ctx.getUserId());
+        return userRoleService.isTeacherOrAdmin(ctx.getUserId())
+                || userRoleService.hasCapability(ctx.getUserId(), com.seuoj.seuojbackend.common.Capability.PROBLEM_MANAGE);
     }
 
     private static String buildFulltextQuery(List<String> tokens) {
@@ -537,7 +539,13 @@ public class ProblemService {
         info.setTestCaseNumber(problemConfig.getTestcases() != null ? problemConfig.getTestcases().size() : 0);
     }
 
+    public void assertCanManageProblem(String pid) {
+        Problem problem = getProblemByPidOrThrow(pid);
+        permissionService.assertPermission(AuthContexts.requiredUserId(), ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE);
+    }
+
     public ProblemStatisticsVO getProblemStatistics(String pid) {
+        assertCanManageProblem(pid);
         Problem problem = loadActiveProblemByPidOrThrow(pid);
 
         ProblemStatisticsVO vo = new ProblemStatisticsVO();

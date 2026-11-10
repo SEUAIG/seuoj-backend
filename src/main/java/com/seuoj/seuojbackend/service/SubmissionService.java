@@ -16,6 +16,9 @@ import com.seuoj.seuojbackend.common.SubmissionStatus;
 import com.seuoj.seuojbackend.dto.submission.OnlineJudgeSubmitDTO;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.entity.Assignment;
+import com.seuoj.seuojbackend.entity.Contest;
+import com.seuoj.seuojbackend.mapper.ContestMapper;
+import com.seuoj.seuojbackend.mapper.ContestSubmissionMapper;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.entity.SubmissionDetail;
@@ -76,6 +79,9 @@ public class SubmissionService {
     private final PermissionService permissionService;
     private final ProblemService problemService;
     private final TransactionTemplate transactionTemplate;
+    private final ContestMapper contestMapper;
+    private final ContestSubmissionMapper contestSubmissionMapper;
+    private final ContestSubmissionPolicy contestSubmissionPolicy;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
             ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
@@ -83,7 +89,8 @@ public class SubmissionService {
             CodeStorage codeStorage, UserInfoMapper userInfoMapper,
             UserRoleService userRoleService, PermissionService permissionService,
             ProblemService problemService,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate, ContestMapper contestMapper,
+            ContestSubmissionMapper contestSubmissionMapper, ContestSubmissionPolicy contestSubmissionPolicy) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
@@ -95,6 +102,9 @@ public class SubmissionService {
         this.permissionService = permissionService;
         this.problemService = problemService;
         this.transactionTemplate = transactionTemplate;
+        this.contestMapper = contestMapper;
+        this.contestSubmissionMapper = contestSubmissionMapper;
+        this.contestSubmissionPolicy = contestSubmissionPolicy;
     }
 
     public OnlineJudgeResultVO submitOnlineJudge(OnlineJudgeSubmitDTO dto) {
@@ -158,7 +168,8 @@ public class SubmissionService {
                 permissionService.assertProblemAccessViaAssignment(userId, problem.getId(), dto.getAssignmentId());
             } else if (dto.getProblemSetId() != null) {
                 permissionService.assertProblemAccessViaProblemSet(userId, problem.getId(), dto.getProblemSetId());
-            } else {
+            } else if (!permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE)) {
+                // 有题目管理权限的人可以直接交非公开题（验题）
                 throw new NotFoundException("题目不存在: " + dto.getPid());
             }
         }
@@ -293,13 +304,30 @@ public class SubmissionService {
             throw new NotFoundException("题目不存在: " + submission.getProblemId());
         }
 
-        // 校验记录是否属于自己
-        if (!Objects.equals(submission.getUserId(), userId) && !isTeacherOrAdmin(userId)) {
+        Long contestId = contestSubmissionMapper.findContestIdBySubmissionId(submission.getId());
+        Contest contest = null;
+        if (contestId != null) {
+            contest = contestMapper.selectById(contestId);
+            if (contest == null) throw new NotFoundException("比赛不存在");
+            contestSubmissionPolicy.assertCanView(userId, contest, submission);
+        } else if (!Objects.equals(submission.getUserId(), userId) && !isTeacherOrAdmin(userId)) {
             throw new ForbiddenException("无权查看他人提交记录");
         }
-
         SubmissionDetail detail = submissionDetailMapper.selectById(submission.getId());
-        return convertToResultVO(submission, problem, detail);
+        SubmissionResultVO vo = convertToResultVO(submission, problem, contest == null ? detail : null);
+        if (contest != null) {
+            ContestSubmissionPolicy.Result visible = contestSubmissionPolicy.project(userId, contest, submission, detail);
+            vo.setContestId(contestId);
+            vo.setResultDetail(visible.cases());
+            vo.setSubtasks(visible.subtasks());
+            vo.setErrorDetail(visible.error());
+            vo.setScore(visible.score());
+            vo.setMaxTime(visible.maxTime());
+            vo.setMaxMemory(visible.maxMemory());
+            vo.setTestDataVisible(visible.testDataVisible());
+            if (!visible.testDataVisible()) vo.setFinishTime(null);
+        }
+        return vo;
     }
 
     /**
@@ -318,16 +346,12 @@ public class SubmissionService {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
 
-        Long effectiveUserId = userId;
-        if (effectiveUserId == null) {
-            var userContext = UserContextHolder.get();
-            if (userContext != null && userContext.getUserId() != null) {
-                Long currentUserId = userContext.getUserId();
-                if (!userRoleService.isTeacherOrAdmin(currentUserId)) {
-                    effectiveUserId = currentUserId;
-                }
-            }
+        var userContext = UserContextHolder.get();
+        if (userContext == null || userContext.getUserId() == null) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
         }
+        Long currentUserId = userContext.getUserId();
+        Long effectiveUserId = userRoleService.isTeacherOrAdmin(currentUserId) ? userId : currentUserId;
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
@@ -370,12 +394,19 @@ public class SubmissionService {
         SubmissionResultVO vo = new SubmissionResultVO();
         vo.setSubmissionNo(submission.getSubmissionNo());
         vo.setPid(problem != null ? problem.getPid() : null);
+        vo.setAssignmentId(submission.getAssignmentId());
         vo.setLanguage(submission.getLanguage());
         vo.setStatus(submission.getStatus());
         vo.setVerdict(submission.getVerdict());
         vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
         vo.setFinishTime(submission.getFinishTime());
+        if (Boolean.TRUE.equals(submission.getIsSkipped())) {
+            vo.setSkipped(true);
+            vo.setOriginalVerdict(submission.getVerdict());
+            vo.setSkipReason(submission.getSkipReason());
+            vo.setVerdict(com.seuoj.seuojbackend.common.SubmissionVerdict.SKIPPED.getVerdict());
+        }
 
         if (detail != null) {
             vo.setResultDetail(truncateResultDetail(detail.getResultDetail()));

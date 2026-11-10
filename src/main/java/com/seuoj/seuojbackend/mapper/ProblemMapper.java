@@ -29,6 +29,10 @@ public interface ProblemMapper extends BaseMapper<Problem> {
      */
     void atomicallyIncreaseTotalAcceptCount(@Param("problemId") Long problemId);
 
+    void adjustTotalCounts(@Param("problemId") Long problemId,
+                           @Param("submitDelta") int submitDelta,
+                           @Param("acceptDelta") int acceptDelta);
+
     /**
      * 获取题目详情（不含标签，标签单独查询）
      */
@@ -56,6 +60,7 @@ public interface ProblemMapper extends BaseMapper<Problem> {
             @Param("useLikeSingle") boolean useLikeSingle,
             @Param("useLikeRaw") boolean useLikeRaw,
             @Param("includeNonPublic") boolean includeNonPublic,
+            @Param("viewerId") Long viewerId,
             @Param("tagIds") List<Long> tagIds,
             @Param("tagIdsSize") int tagIdsSize);
 

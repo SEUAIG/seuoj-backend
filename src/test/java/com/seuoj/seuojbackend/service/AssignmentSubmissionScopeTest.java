@@ -20,7 +20,8 @@ class AssignmentSubmissionScopeTest {
     private final PermissionService permissions=mock(PermissionService.class);
     private final AssignmentService service=new AssignmentService(assignments,classes,relations,
         mock(AssignmentIntroAttachmentMapper.class),mock(ClassStudentRelMapper.class),mock(ProblemMapper.class),
-        mock(ProblemSetMapper.class),mock(ProblemSetProblemRelMapper.class),submissions,permissions);
+        mock(ProblemSetMapper.class),mock(ProblemSetProblemRelMapper.class),submissions,permissions,
+        mock(FileAccessService.class));
     @BeforeEach void setup(){
         UserContextHolder.set(UserContext.of(10L,AuthStatus.AUTHENTICATED));
         var c=new ClassInfo();c.setId(1L);when(classes.selectById(1L)).thenReturn(c);

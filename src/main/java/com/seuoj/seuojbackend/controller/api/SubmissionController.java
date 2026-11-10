@@ -49,10 +49,11 @@ public class SubmissionController {
         return Result.success(submissionService.getSubmissionLanguages());
     }
 
-    @AllowAnonymous
+
     @GetMapping("/submission/{submissionNo}")
     public Result<SubmissionResultVO> getResult(@PathVariable String submissionNo) {
-        return Result.success(submissionService.getResult(submissionNo));
+        SubmissionResultVO vo = submissionService.getResult(submissionNo);
+        return Result.success(vo);
     }
 
     @AllowAnonymous

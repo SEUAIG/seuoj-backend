@@ -100,6 +100,7 @@
             FROM submission s
             WHERE s.verdict = 'Accepted'
               AND s.is_del = 0
+              AND s.is_skipped = 0
               AND s.problem_id IN (
                 SELECT apr.problem_id
                 FROM assignment a
@@ -114,6 +115,7 @@
             SELECT s2.user_id, COUNT(*) AS cnt
             FROM submission s2
             WHERE s2.is_del = 0
+              AND s2.is_skipped = 0
               AND s2.problem_id IN (
                 SELECT apr2.problem_id
                 FROM assignment a2
@@ -153,6 +155,7 @@
                                                LEFT JOIN submission s2
                                                          ON s2.user_id = csr2.user_id
                                                              AND s2.is_del = 0
+                                                             AND s2.is_skipped = 0
                                                              AND s2.problem_id IN (SELECT apr2.problem_id
                                                                                    FROM assignment_problem_rel apr2
                                                                                    WHERE apr2.assignment_id = a.id
@@ -201,13 +204,13 @@
                        1)                                                           AS ac_rate
         FROM assignment_problem_rel apr
                  JOIN problem p ON p.id = apr.problem_id AND p.is_del = 0
-                 LEFT JOIN submission s
-                           ON s.problem_id = apr.problem_id
-                               AND s.is_del = 0
-                               AND s.user_id IN (SELECT user_id
-                                                  FROM class_student_rel
-                                                  WHERE class_id = #{classId}
-                                                    AND is_del = 0)
+                 <!-- Explicit membership join avoids MySQL's incorrect semijoin rewrite of IN here. -->
+                 LEFT JOIN (submission s
+                     INNER JOIN class_student_rel csr
+                         ON csr.user_id = s.user_id
+                             AND csr.class_id = #{classId}
+                             AND csr.is_del = 0)
+                     ON s.problem_id = apr.problem_id AND s.is_del = 0 AND s.is_skipped = 0
         WHERE apr.assignment_id = #{assignmentId}
           AND apr.is_del = 0
         GROUP BY apr.problem_id
@@ -237,6 +240,7 @@
                  LEFT JOIN submission s
                            ON s.user_id = csr.user_id
                                AND s.is_del = 0
+                               AND s.is_skipped = 0
                                AND s.problem_id IN (SELECT apr2.problem_id
                                                     FROM assignment_problem_rel apr2
                                                     WHERE apr2.assignment_id = #{assignmentId}

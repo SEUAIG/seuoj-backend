@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -90,6 +91,7 @@ public class ContestService {
     private final CodeStorage codeStorage;
     private final TransactionTemplate transactionTemplate;
     private final ContestRankingStrategyFactory rankingStrategyFactory;
+    private final ContestSubmissionPolicy contestSubmissionPolicy;
 
     public ContestService(ContestMapper contestMapper,
                           ContestProblemRelMapper contestProblemRelMapper,
@@ -105,7 +107,8 @@ public class ContestService {
                           JudgeClient judgeClient,
                           CodeStorage codeStorage,
                           TransactionTemplate transactionTemplate,
-                          ContestRankingStrategyFactory rankingStrategyFactory) {
+                          ContestRankingStrategyFactory rankingStrategyFactory,
+                          ContestSubmissionPolicy contestSubmissionPolicy) {
         this.contestMapper = contestMapper;
         this.contestProblemRelMapper = contestProblemRelMapper;
         this.contestRegisterRelMapper = contestRegisterRelMapper;
@@ -121,6 +124,7 @@ public class ContestService {
         this.codeStorage = codeStorage;
         this.transactionTemplate = transactionTemplate;
         this.rankingStrategyFactory = rankingStrategyFactory;
+        this.contestSubmissionPolicy = contestSubmissionPolicy;
     }
 
     // ───────────────────────── CRUD ─────────────────────────
@@ -167,7 +171,7 @@ public class ContestService {
         }
 
         Long userId = AuthContexts.userIdOrNull();
-        boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
+        boolean isAdmin = userId != null && userRoleService.hasCapability(userId, com.seuoj.seuojbackend.common.Capability.CONTEST_MANAGE);
         boolean isTeacher = userId != null && userRoleService.isTeacher(userId);
 
         Page<ContestPageItemVO> page = new Page<>(current, size);
@@ -203,7 +207,7 @@ public class ContestService {
         permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.READ);
 
         ContestStatus contestStatus = computeStatus(contest);
-        boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
+        boolean isAdmin = userId != null && userRoleService.hasCapability(userId, com.seuoj.seuojbackend.common.Capability.CONTEST_MANAGE);
 
         List<ContestProblemOverviewVO> problemList;
         if (contestStatus == ContestStatus.NOT_STARTED && !isAdmin
@@ -215,11 +219,14 @@ public class ContestService {
         }
 
         boolean isRegistered = false;
+        boolean isManaged = false;
         if (userId != null) {
-            isRegistered = contestRegisterRelMapper.selectCount(
+            ContestRegisterRel registration = contestRegisterRelMapper.selectOne(
                     new LambdaQueryWrapper<ContestRegisterRel>()
                             .eq(ContestRegisterRel::getContestId, contest.getId())
-                            .eq(ContestRegisterRel::getUserId, userId)) > 0;
+                            .eq(ContestRegisterRel::getUserId, userId));
+            isRegistered = registration != null;
+            isManaged = registration != null && Boolean.TRUE.equals(registration.getIsManaged());
         }
 
         ContestDetailVO vo = new ContestDetailVO();
@@ -230,6 +237,7 @@ public class ContestService {
         vo.setEndTime(contest.getEndTime());
         vo.setStatus(contestStatus.name());
         vo.setIsRegistered(isRegistered);
+        vo.setCanUnregister(isRegistered && !isManaged && contestStatus == ContestStatus.NOT_STARTED);
         vo.setRuleType(contest.getRuleType());
         vo.setIsPublic(contest.getIsPublic());
         vo.setHideStatistics(contest.getHideStatistics());
@@ -283,14 +291,17 @@ public class ContestService {
 
         List<ProblemPlanItem> planItems = buildProblemPlan(dto.getProblemList());
         Map<String, Problem> problemByPid = loadProblemMapByPid(planItems);
+        List<ContestProblemRel> existingRels = contestProblemRelMapper.selectByContestId(contest.getId());
+        Set<Long> alreadyIncluded = existingRels.stream().filter(r -> Integer.valueOf(0).equals(r.getIsDel()))
+                .map(ContestProblemRel::getProblemId).collect(Collectors.toSet());
 
         Map<Long, Integer> desiredOrderByProblemId = new HashMap<>();
         for (ProblemPlanItem item : planItems) {
             Problem problem = problemByPid.get(item.pid);
+            if (!alreadyIncluded.contains(problem.getId())) permissionService.assertCanReferenceProblem(userId, problem);
             desiredOrderByProblemId.put(problem.getId(), item.sortOrder);
         }
 
-        List<ContestProblemRel> existingRels = contestProblemRelMapper.selectByContestId(contest.getId());
         Map<Long, ContestProblemRel> activeByProblemId = new HashMap<>();
         Map<Long, ContestProblemRel> deletedByProblemId = new HashMap<>();
         for (ContestProblemRel rel : existingRels) {
@@ -411,6 +422,7 @@ public class ContestService {
         Contest contest = loadContestOrThrow(contestId);
         Long userId = AuthContexts.requiredUserId();
 
+        permissionService.assertPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.READ);
         ContestStatus status = computeStatus(contest);
         if (status == ContestStatus.FINISHED) {
             throw new BadRequestException("比赛已结束，无法报名");
@@ -448,6 +460,9 @@ public class ContestService {
             throw new BadRequestException("尚未报名该比赛");
         }
 
+        if (Boolean.TRUE.equals(reg.getIsManaged())) {
+            throw new BadRequestException("本场参赛信息由比赛管理员维护，请联系管理员移除");
+        }
         contestRegisterRelMapper.deleteById(reg.getId());
     }
 
@@ -457,17 +472,26 @@ public class ContestService {
         Contest contest = loadContestOrThrow(contestId);
         Long userId = AuthContexts.requiredUserId();
 
+        // 比赛管理者随时可交（验题），不需要报名，榜单本来就排除管理者；
+        // 赛后能看比赛的人都可以补题，榜单只统计比赛时间内的提交；
+        // 比赛进行中仍需报名，开赛前选手不能交。
         ContestStatus status = computeStatus(contest);
-        if (status != ContestStatus.IN_PROGRESS) {
-            throw new BadRequestException("只能在比赛进行中提交");
-        }
-
-        long regCount = contestRegisterRelMapper.selectCount(
-                new LambdaQueryWrapper<ContestRegisterRel>()
-                        .eq(ContestRegisterRel::getContestId, contest.getId())
-                        .eq(ContestRegisterRel::getUserId, userId));
-        if (regCount == 0) {
-            throw new BadRequestException("请先报名比赛");
+        boolean canManage = permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
+        if (!canManage) {
+            if (status == ContestStatus.NOT_STARTED) {
+                throw new BadRequestException("比赛尚未开始");
+            }
+            if (status == ContestStatus.FINISHED) {
+                permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.READ);
+            } else {
+                long regCount = contestRegisterRelMapper.selectCount(
+                        new LambdaQueryWrapper<ContestRegisterRel>()
+                                .eq(ContestRegisterRel::getContestId, contest.getId())
+                                .eq(ContestRegisterRel::getUserId, userId));
+                if (regCount == 0) {
+                    throw new BadRequestException("请先报名比赛");
+                }
+            }
         }
 
         Problem problem = problemService.getProblemByPidOrThrow(dto.getPid());
@@ -562,9 +586,23 @@ public class ContestService {
     }
 
     public ContestSubmissionPageVO getContestSubmissionPage(Long contestId, Integer current, Integer size) {
+        return getContestSubmissionPage(contestId, current, size, null, null, null);
+    }
+
+    /**
+     * @param pid      只看这道题，可空
+     * @param result   accepted 只看通过；rejected 只看已评完未通过；可空
+     * @param username 只看这个账号，可空；只对比赛管理者生效，选手永远只看到自己的
+     */
+    public ContestSubmissionPageVO getContestSubmissionPage(Long contestId, Integer current, Integer size,
+                                                            String pid, String result, String username) {
         Contest contest = loadContestOrThrow(contestId);
         Long userId = AuthContexts.userIdOrNull();
         permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.READ);
+        boolean canManage = permissionService.hasPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.WRITE);
+        if (computeStatus(contest) == ContestStatus.NOT_STARTED && !canManage) {
+            throw new ForbiddenException("比赛尚未开始，无法查看提交记录");
+        }
 
         if (current == null || current < 1) {
             throw new BadRequestException("页码必须大于等于 1");
@@ -572,9 +610,26 @@ public class ContestService {
         if (size == null || size < 1 || size > 100) {
             throw new BadRequestException("每页条数必须在 1 到 100 之间");
         }
+        String pidFilter = pid == null || pid.isBlank() ? null : pid.trim();
+        String resultFilter = result == null || result.isBlank() ? null : result.trim();
+        if (resultFilter != null && !"accepted".equals(resultFilter) && !"rejected".equals(resultFilter)
+                && !"skipped".equals(resultFilter)) {
+            throw new BadRequestException("result 只能是 accepted、rejected 或 skipped");
+        }
+        String usernameFilter = !canManage || username == null || username.isBlank() ? null : username.trim();
 
         Page<ContestSubmissionRecordVO> page = new Page<>(current, size);
-        IPage<ContestSubmissionRecordVO> pageResult = contestMapper.selectContestSubmissionPage(page, contest.getId());
+        // 比赛管理者看全部提交；其他人只看自己的，未登录看不到任何提交
+        if (!canManage && userId == null) {
+            ContestSubmissionPageVO empty = new ContestSubmissionPageVO();
+            empty.setCurrent((long) current);
+            empty.setSize((long) size);
+            empty.setTotal(0L);
+            empty.setRecords(Collections.emptyList());
+            return empty;
+        }
+        IPage<ContestSubmissionRecordVO> pageResult = contestMapper.selectContestSubmissionPage(
+                page, contest.getId(), canManage ? null : userId, pidFilter, resultFilter, usernameFilter);
 
         ContestSubmissionPageVO vo = new ContestSubmissionPageVO();
         vo.setCurrent(pageResult.getCurrent());
@@ -603,12 +658,7 @@ public class ContestService {
             throw new NotFoundException("提交不属于本比赛");
         }
 
-        boolean isOwner = userId.equals(submission.getUserId());
-        boolean isAdmin = userRoleService.isAdmin(userId);
-        boolean hasWrite = permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
-        if (!isOwner && !isAdmin && !hasWrite) {
-            throw new ForbiddenException("无权查看他人提交记录");
-        }
+        contestSubmissionPolicy.assertCanView(userId, contest, submission);
 
         Problem problem = problemMapper.selectById(submission.getProblemId());
         SubmissionDetail detail = submissionDetailMapper.selectById(submission.getId());
@@ -621,12 +671,22 @@ public class ContestService {
         vo.setVerdict(submission.getVerdict());
         vo.setScore(submission.getScore());
         vo.setSubmitTime(submission.getSubmitTime());
+        if (Boolean.TRUE.equals(submission.getIsSkipped())) {
+            vo.setSkipped(true);
+            vo.setOriginalVerdict(submission.getVerdict());
+            vo.setSkipReason(submission.getSkipReason());
+            vo.setVerdict(com.seuoj.seuojbackend.common.SubmissionVerdict.SKIPPED.getVerdict());
+        }
         vo.setCode(codeStorage.getCode(submission.getSubmissionNo()));
         vo.setUsername(user != null ? user.getUsername() : null);
-        if (detail != null) {
-            vo.setResultDetail(detail.getResultDetail());
-            vo.setErrorDetail(detail.getErrorDetail());
-        }
+        ContestSubmissionPolicy.Result visible = contestSubmissionPolicy.project(userId, contest, submission, detail);
+        vo.setResultDetail(visible.cases());
+        vo.setSubtasks(visible.subtasks());
+        vo.setErrorDetail(visible.error());
+        vo.setScore(visible.score());
+        vo.setMaxTime(visible.maxTime());
+        vo.setMaxMemory(visible.maxMemory());
+        vo.setTestDataVisible(visible.testDataVisible());
         if (problem != null) {
             ContestProblemOverviewVO pvo = new ContestProblemOverviewVO();
             pvo.setPid(problem.getPid());
@@ -643,6 +703,15 @@ public class ContestService {
         Long userId = AuthContexts.userIdOrNull();
         permissionService.assertPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.READ);
 
+        boolean canManage = permissionService.hasPermission(userId, ResourceType.CONTEST, contestId, PermissionOp.WRITE);
+        ContestStatus status = computeStatus(contest);
+        if (status == ContestStatus.NOT_STARTED && !canManage) {
+            throw new ForbiddenException("比赛尚未开始，无法查看榜单");
+        }
+        // 隐藏统计：比赛结束前只有比赛管理者能看榜单，结束后完整公开
+        if (Boolean.TRUE.equals(contest.getHideStatistics()) && status != ContestStatus.FINISHED && !canManage) {
+            throw new ForbiddenException("本场比赛结束前不公开排名");
+        }
         List<ContestProblemOverviewVO> problems = contestMapper.selectContestProblems(contest.getId());
         if (problems == null) problems = Collections.emptyList();
 
@@ -654,29 +723,22 @@ public class ContestService {
 
         List<Submission> finishedSubmissions = contestMapper.selectContestFinishedSubmissions(contest.getId());
         if (finishedSubmissions == null) finishedSubmissions = Collections.emptyList();
+        // 只统计比赛时间内的提交：赛前验题、赛后补题都不改变榜单
+        finishedSubmissions = finishedSubmissions.stream()
+                .filter(s -> s.getSubmitTime() != null
+                        && !s.getSubmitTime().isBefore(contest.getStartTime())
+                        && !s.getSubmitTime().isAfter(contest.getEndTime()))
+                .toList();
 
         Map<Long, String> problemIdToPid = buildProblemIdToPidMap(problems);
 
         List<ContestStandingsRecordVO> records = rankingStrategyFactory
                 .getStrategy(contest.getRuleType())
                 .computeStandings(problems, registeredUsers, finishedSubmissions, contest, problemIdToPid);
+        com.seuoj.seuojbackend.service.contest.ContestStandingMembership.apply(records,
+                contestRegisterRelMapper.selectList(new LambdaQueryWrapper<ContestRegisterRel>()
+                        .eq(ContestRegisterRel::getContestId, contestId)), registeredUsers);
 
-        boolean isAdmin = userId != null && userRoleService.isAdmin(userId);
-        boolean hasWrite = userId != null && permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE);
-        if (Boolean.TRUE.equals(contest.getHideStatistics()) && !isAdmin && !hasWrite) {
-            String currentUsername = null;
-            if (userId != null) {
-                UserInfo currentUser = registeredUsers.get(userId);
-                if (currentUser != null) {
-                    currentUsername = currentUser.getUsername();
-                }
-            }
-            for (ContestStandingsRecordVO r : records) {
-                if (!r.getUsername().equals(currentUsername)) {
-                    r.setScoreDetails(Collections.emptyMap());
-                }
-            }
-        }
 
         ContestStandingsVO vo = new ContestStandingsVO();
         vo.setContestId(contest.getId());

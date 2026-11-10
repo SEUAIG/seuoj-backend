@@ -27,7 +27,8 @@ public class FileUploadStorage {
     @Value("${storage.upload-max-file-size:20971520}")
     private long maxFileSize;
 
-    public FileUploadResult store(MultipartFile file) {
+    public FileUploadResult store(MultipartFile file, Long userId) {
+        if (userId==null || userId<=0) throw new BadRequestException("上传需要有效账号");
         if (file.isEmpty()) {
             throw new BadRequestException("文件不能为空");
         }
@@ -45,9 +46,10 @@ public class FileUploadStorage {
         if (dotIdx >= 0) {
             ext = originalName.substring(dotIdx);
         }
+        if (!ext.matches("\\.[A-Za-z0-9]{1,20}")) ext="";
 
         LocalDate now = LocalDate.now();
-        String relativePath = now.getYear() + "/" + String.format("%02d", now.getMonthValue())
+        String relativePath = "u" + userId + "/" + now.getYear() + "/" + String.format("%02d", now.getMonthValue())
                 + "/" + UUID.randomUUID() + ext;
         Path fullPath = Paths.get(uploadPath, relativePath);
 

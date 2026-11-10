@@ -4,10 +4,13 @@
     <select id="selectSubmissionPage"
             resultType="com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO">
         SELECT s.submission_no,
+               s.assignment_id,
                p.pid,
                s.language,
                s.status,
-               s.verdict,
+               CASE WHEN s.is_skipped = 1 THEN 'Skipped' ELSE s.verdict END AS verdict,
+               s.verdict AS original_verdict,
+               s.is_skipped AS skipped,
                s.submit_time,
                s.finish_time,
                u.id AS user_id,
@@ -17,11 +20,15 @@
                  LEFT JOIN problem p ON s.problem_id = p.id AND p.is_del = 0
                  LEFT JOIN user_info u ON s.user_id = u.id AND u.is_del = 0
         WHERE s.is_del = 0
+          <!-- Keep historical contest submissions excluded even when the association is soft-deleted. -->
+          AND NOT EXISTS (
+              SELECT 1 FROM contest_submission cs WHERE cs.submission_id = s.id
+          )
         <if test="userId != null">
           AND s.user_id = #{userId}
         </if>
         <if test="verdict != null and verdict != ''">
-          AND s.verdict = #{verdict}
+          AND CASE WHEN s.is_skipped = 1 THEN 'Skipped' ELSE s.verdict END = #{verdict}
         </if>
         <if test="assignmentId != null">
           AND s.assignment_id = #{assignmentId}
@@ -41,10 +48,13 @@
     <select id="selectAssignmentSubmissionPage"
             resultType="com.seuoj.seuojbackend.vo.submission.SubmissionListItemVO">
         SELECT s.submission_no,
+               s.assignment_id,
                p.pid,
                s.language,
                s.status,
-               s.verdict,
+               CASE WHEN s.is_skipped = 1 THEN 'Skipped' ELSE s.verdict END AS verdict,
+               s.verdict AS original_verdict,
+               s.is_skipped AS skipped,
                s.submit_time,
                s.finish_time,
                u.id AS user_id,
@@ -71,7 +81,7 @@
           AND p.pid = #{pid}
         </if>
         <if test="verdict != null and verdict != ''">
-          AND s.verdict = #{verdict}
+          AND CASE WHEN s.is_skipped = 1 THEN 'Skipped' ELSE s.verdict END = #{verdict}
         </if>
         <if test="language != null and language != ''">
           AND s.language = #{language}
@@ -89,6 +99,7 @@
         FROM submission s
         WHERE s.user_id = #{userId}
           AND s.is_del = 0
+          AND s.is_skipped = 0
           AND s.submit_time >= STR_TO_DATE(CONCAT(#{year}, '-01-01'), '%Y-%m-%d')
           AND s.submit_time &lt; DATE_ADD(STR_TO_DATE(CONCAT(#{year}, '-01-01'), '%Y-%m-%d'), INTERVAL 1 YEAR)
         GROUP BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
@@ -114,6 +125,7 @@
         FROM submission s
         WHERE s.problem_id = #{problemId}
           AND s.is_del = 0
+          AND s.is_skipped = 0
           AND s.status = 'Finished'
           AND s.score IS NOT NULL
         GROUP BY `range`
@@ -128,6 +140,7 @@
         FROM submission s
         WHERE s.problem_id = #{problemId}
           AND s.is_del = 0
+          AND s.is_skipped = 0
           AND s.submit_time &gt;= #{startDate}
         GROUP BY DATE_FORMAT(s.submit_time, '%Y-%m-%d')
         ORDER BY date

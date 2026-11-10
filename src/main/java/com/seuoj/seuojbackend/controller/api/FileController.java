@@ -4,6 +4,8 @@ import com.seuoj.seuojbackend.annotation.RequireRole;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.storage.FileUploadStorage;
+import com.seuoj.seuojbackend.interceptor.AuthContexts;
+import com.seuoj.seuojbackend.service.FileAccessService;
 import com.seuoj.seuojbackend.storage.FileUploadStorage.FileUploadResult;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
@@ -28,14 +30,16 @@ public class FileController {
     private static final Pattern INVALID_FILENAME_CHARS = Pattern.compile("[\\\\/\\r\\n\\t\\x00]");
 
     private final FileUploadStorage fileUploadStorage;
+    private final FileAccessService fileAccess;
 
-    public FileController(FileUploadStorage fileUploadStorage) {
+    public FileController(FileUploadStorage fileUploadStorage, FileAccessService fileAccess) {
         this.fileUploadStorage = fileUploadStorage;
+        this.fileAccess = fileAccess;
     }
 
     @PostMapping("/upload")
     public Result<Map<String, Object>> upload(@RequestParam("file") MultipartFile file) {
-        FileUploadResult result = fileUploadStorage.store(file);
+        FileUploadResult result = fileUploadStorage.store(file, AuthContexts.requiredUserId());
         return Result.success(Map.of(
                 "path", result.path(),
                 "name", result.name(),
@@ -50,6 +54,7 @@ public class FileController {
         String fullPath = request.getRequestURI();
         String prefix = "/api/file/download/";
         String relativePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+        fileAccess.assertDownload(AuthContexts.requiredUserId(), relativePath);
 
         Resource resource = fileUploadStorage.loadAsResource(relativePath);
         String fallbackFilename = resource.getFilename();

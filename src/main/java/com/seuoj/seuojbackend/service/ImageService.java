@@ -54,6 +54,7 @@ public class ImageService {
 
     private final ImageAssetMapper imageAssetMapper;
     private final ImageBindingMapper imageBindingMapper;
+    private final PermissionService permissionService;
 
     @Value("${storage.image-path:./data/images}")
     private String imagePath;
@@ -64,9 +65,11 @@ public class ImageService {
     @Value("${storage.image-allowed-mime-types:image/jpeg,image/png,image/webp,image/gif}")
     private String allowedMimeTypesRaw;
 
-    public ImageService(ImageAssetMapper imageAssetMapper, ImageBindingMapper imageBindingMapper) {
+    public ImageService(ImageAssetMapper imageAssetMapper, ImageBindingMapper imageBindingMapper,
+            PermissionService permissionService) {
         this.imageAssetMapper = imageAssetMapper;
         this.imageBindingMapper = imageBindingMapper;
+        this.permissionService = permissionService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -156,6 +159,7 @@ public class ImageService {
     @Transactional(rollbackFor = Exception.class)
     public void replaceBindings(ResourceType resourceType, Long resourceId, ImageBindDTO dto) {
         validateBindingTarget(resourceType, resourceId);
+        assertCanManageBindingTarget(resourceType, resourceId);
 
         Set<String> normalizedKeys = new LinkedHashSet<>();
         if (dto != null && dto.getImageKeys() != null) {
@@ -229,6 +233,7 @@ public class ImageService {
     @Transactional(rollbackFor = Exception.class)
     public void unbindResource(ResourceType resourceType, Long resourceId) {
         validateBindingTarget(resourceType, resourceId);
+        assertCanManageBindingTarget(resourceType, resourceId);
 
         List<ImageBinding> oldBindings = imageBindingMapper.selectList(new LambdaQueryWrapper<ImageBinding>()
                 .eq(ImageBinding::getResourceType, resourceType.name())
@@ -283,6 +288,15 @@ public class ImageService {
             log.error("删除图片文件失败, path={}", storagePath, ex);
             return false;
         }
+    }
+
+    /**
+     * 图片绑定挂在具体资源（题面/比赛/题单/班级）上，改绑或解绑必须先拥有该资源的写权限，
+     * 否则任何登录用户都能改写他人资源的题面图片（越权写 + 触发图片回收删除文件）。
+     */
+    private void assertCanManageBindingTarget(ResourceType resourceType, Long resourceId) {
+        Long userId = AuthContexts.requiredUserId();
+        permissionService.assertPermission(userId, resourceType, resourceId, com.seuoj.seuojbackend.common.PermissionOp.WRITE);
     }
 
     private void validateBindingTarget(ResourceType resourceType, Long resourceId) {

@@ -17,6 +17,9 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface ContestMapper extends BaseMapper<Contest> {
 
+    @org.apache.ibatis.annotations.Select("SELECT * FROM contest WHERE id=#{id} AND is_del=0 FOR UPDATE")
+    Contest lockById(@Param("id") Long id);
+
     IPage<ContestPageItemVO> selectContestPage(
             Page<?> page,
             @Param("userId") Long userId,
@@ -30,8 +33,10 @@ public interface ContestMapper extends BaseMapper<Contest> {
 
     List<ContestProblemOverviewVO> selectContestProblems(@Param("contestId") Long contestId);
 
+    /** 各条件为空表示不限：userId 限定提交者；pid 限定题目；result 为 accepted/rejected；username 按账号名 */
     IPage<ContestSubmissionRecordVO> selectContestSubmissionPage(
-            Page<?> page, @Param("contestId") Long contestId);
+            Page<?> page, @Param("contestId") Long contestId, @Param("userId") Long userId,
+            @Param("pid") String pid, @Param("result") String result, @Param("username") String username);
 
     List<Submission> selectContestFinishedSubmissions(@Param("contestId") Long contestId);
 

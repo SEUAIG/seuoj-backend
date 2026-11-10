@@ -61,6 +61,7 @@ public class AssignmentService {
     private final ProblemSetProblemRelMapper problemSetProblemRelMapper;
     private final SubmissionMapper submissionMapper;
     private final PermissionService permissionService;
+    private final FileAccessService fileAccess;
 
     public AssignmentService(AssignmentMapper assignmentMapper,
                              ClassInfoMapper classInfoMapper,
@@ -71,7 +72,7 @@ public class AssignmentService {
                              ProblemSetMapper problemSetMapper,
                              ProblemSetProblemRelMapper problemSetProblemRelMapper,
                              SubmissionMapper submissionMapper,
-                             PermissionService permissionService) {
+                             PermissionService permissionService, FileAccessService fileAccess) {
         this.assignmentMapper = assignmentMapper;
         this.classInfoMapper = classInfoMapper;
         this.assignmentProblemRelMapper = assignmentProblemRelMapper;
@@ -82,6 +83,7 @@ public class AssignmentService {
         this.problemSetProblemRelMapper = problemSetProblemRelMapper;
         this.submissionMapper = submissionMapper;
         this.permissionService = permissionService;
+        this.fileAccess = fileAccess;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -284,6 +286,17 @@ public class AssignmentService {
 
         Assignment assignment = requireAssignment(assignmentId, classInfo.getId());
 
+        Set<Long> alreadyIncluded = assignmentProblemRelMapper.selectList(new LambdaQueryWrapper<AssignmentProblemRel>()
+                .eq(AssignmentProblemRel::getAssignmentId, assignment.getId())).stream()
+                .map(AssignmentProblemRel::getProblemId).collect(Collectors.toSet());
+        if (dto.getProblems() != null) {
+            for (AssignmentProblemEditDTO.ProblemItem item : dto.getProblems()) {
+                Problem problem = problemMapper.selectById(item.getProblemId());
+                if (problem == null) throw new NotFoundException("题目 " + item.getProblemId() + " 不存在");
+                if (!alreadyIncluded.contains(problem.getId())) permissionService.assertCanReferenceProblem(userId, problem);
+            }
+        }
+
         assignmentProblemRelMapper.update(null, new LambdaUpdateWrapper<AssignmentProblemRel>()
                 .set(AssignmentProblemRel::getIsDel, 1)
                 .eq(AssignmentProblemRel::getAssignmentId, assignment.getId()));
@@ -317,6 +330,7 @@ public class AssignmentService {
         if (problemSet == null) {
             throw new NotFoundException("题单不存在");
         }
+        permissionService.assertPermission(userId, ResourceType.PROBLEM_SET, problemSet.getId(), PermissionOp.READ);
 
         List<ProblemSetProblemRel> psRels = problemSetProblemRelMapper.selectList(
                 new LambdaQueryWrapper<ProblemSetProblemRel>()
@@ -348,6 +362,7 @@ public class AssignmentService {
             if (existCount != null && existCount > 0) {
                 continue;
             }
+            permissionService.assertCanReferenceProblem(userId, problemMapper.selectById(psRel.getProblemId()));
             AssignmentProblemRel rel = new AssignmentProblemRel();
             rel.setAssignmentId(assignment.getId());
             rel.setProblemId(psRel.getProblemId());
@@ -444,6 +459,7 @@ public class AssignmentService {
             if (problem == null) {
                 throw new NotFoundException("题目 " + problemId + " 不存在");
             }
+            permissionService.assertCanReferenceProblem(AuthContexts.requiredUserId(), problem);
             AssignmentProblemRel rel = new AssignmentProblemRel();
             rel.setAssignmentId(assignmentId);
             rel.setProblemId(problemId);
@@ -454,6 +470,7 @@ public class AssignmentService {
     }
 
     private void insertIntroAttachment(Long assignmentId, AttachmentDTO att) {
+        fileAccess.assertAttach(AuthContexts.requiredUserId(), att.getFilePath());
         AssignmentIntroAttachment entity = new AssignmentIntroAttachment();
         entity.setAssignmentId(assignmentId);
         entity.setFilePath(att.getFilePath());

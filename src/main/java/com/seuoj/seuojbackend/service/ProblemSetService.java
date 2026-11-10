@@ -191,14 +191,17 @@ public class ProblemSetService {
 
         List<ProblemPlanItem> planItems = buildProblemPlan(dto.getProblemList());
         Map<String, Problem> problemByPid = loadProblemMapByPid(planItems);
+        List<ProblemSetProblemRel> existingRels = problemSetProblemRelMapper.selectByProblemSetId(problemSet.getId());
+        Set<Long> alreadyIncluded = existingRels.stream().filter(r -> Integer.valueOf(0).equals(r.getIsDel()))
+                .map(ProblemSetProblemRel::getProblemId).collect(Collectors.toSet());
 
         Map<Long, Integer> desiredOrderByProblemId = new HashMap<>();
         for (ProblemPlanItem item : planItems) {
             Problem problem = problemByPid.get(item.pid());
+            if (!alreadyIncluded.contains(problem.getId())) permissionService.assertCanReferenceProblem(userId, problem);
             desiredOrderByProblemId.put(problem.getId(), item.sortOrder());
         }
 
-        List<ProblemSetProblemRel> existingRels = problemSetProblemRelMapper.selectByProblemSetId(problemSet.getId());
         Map<Long, ProblemSetProblemRel> activeByProblemId = new HashMap<>();
         Map<Long, ProblemSetProblemRel> deletedByProblemId = new HashMap<>();
         for (ProblemSetProblemRel rel : existingRels) {

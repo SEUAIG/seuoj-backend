@@ -2,6 +2,8 @@ package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.annotation.RequireRole;
+import com.seuoj.seuojbackend.annotation.RequireCapability;
+import com.seuoj.seuojbackend.common.Capability;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.contest.ContestCreateDTO;
@@ -44,7 +46,7 @@ public class ContestController {
         this.contestService = contestService;
     }
 
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireCapability(Capability.CONTEST_CREATE)
     @PostMapping
     public Result<ContestCreateVO> createContest(@Valid @RequestBody ContestCreateDTO dto) {
         return Result.success(contestService.createContest(dto));
@@ -74,7 +76,6 @@ public class ContestController {
         return Result.success(contestService.getContestDetail(id));
     }
 
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/{id}")
     public Result<Void> updateContest(@PathVariable("id") Long id,
                                       @Valid @RequestBody ContestUpdateDTO dto) {
@@ -82,7 +83,6 @@ public class ContestController {
         return Result.success();
     }
 
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/{id}/problem")
     public Result<Void> replaceContestProblems(@PathVariable("id") Long id,
                                                @Valid @RequestBody ContestProblemEditDTO dto) {
@@ -90,13 +90,11 @@ public class ContestController {
         return Result.success();
     }
 
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/{id}/problem/list")
     public Result<ContestProblemListInEditVO> getContestProblemListForEdit(@PathVariable("id") Long id) {
         return Result.success(contestService.getContestProblemListForEdit(id));
     }
 
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/{id}")
     public Result<Void> deleteContest(@PathVariable("id") Long id) {
         contestService.deleteContest(id);
@@ -131,8 +129,11 @@ public class ContestController {
             @RequestParam(defaultValue = "1") @Min(value = 1, message = "页码最小为 1") Integer current,
             @RequestParam(defaultValue = "10")
             @Min(value = 1, message = "每页条数最小为 1")
-            @Max(value = 100, message = "每页条数最大为 100") Integer size) {
-        return Result.success(contestService.getContestSubmissionPage(id, current, size));
+            @Max(value = 100, message = "每页条数最大为 100") Integer size,
+            @RequestParam(required = false) String pid,
+            @RequestParam(required = false) String result,
+            @RequestParam(required = false) String username) {
+        return Result.success(contestService.getContestSubmissionPage(id, current, size, pid, result, username));
     }
 
     @RequireRole({RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
@@ -140,10 +141,12 @@ public class ContestController {
     public Result<ContestSubmissionDetailVO> getContestSubmissionDetail(
             @PathVariable("id") Long id,
             @PathVariable("submissionNo") String submissionNo) {
-        return Result.success(contestService.getContestSubmissionDetail(id, submissionNo));
+        ContestSubmissionDetailVO vo = contestService.getContestSubmissionDetail(id, submissionNo);
+        return Result.success(vo);
     }
 
     @AllowAnonymous
+
     @GetMapping("/{id}/standings")
     public Result<ContestStandingsVO> getContestStandings(@PathVariable("id") Long id) {
         return Result.success(contestService.getContestStandings(id));

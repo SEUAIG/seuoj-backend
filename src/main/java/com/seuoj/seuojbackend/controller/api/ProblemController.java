@@ -1,7 +1,8 @@
 package com.seuoj.seuojbackend.controller.api;
 
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
-import com.seuoj.seuojbackend.annotation.RequireRole;
+import com.seuoj.seuojbackend.annotation.RequireCapability;
+import com.seuoj.seuojbackend.common.Capability;
 import com.seuoj.seuojbackend.client.dto.JudgeProblemDataResponse;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.common.RoleType;
@@ -26,6 +27,7 @@ import java.util.List;
 
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @Validated
@@ -72,7 +74,6 @@ public class ProblemController {
     /**
      * 获取题目统计信息
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/{pid}/statistics")
     public Result<ProblemStatisticsVO> getProblemStatistics(@PathVariable String pid) {
         return Result.success(problemService.getProblemStatistics(pid));
@@ -81,7 +82,7 @@ public class ProblemController {
     /**
      * 新建题面
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireCapability(Capability.PROBLEM_CREATE)
     @PostMapping
     public Result<ProblemCreateVO> createProblem(@Valid @RequestBody ProblemCreateDTO dto) {
         return Result.success(problemService.createProblem(dto));
@@ -90,7 +91,7 @@ public class ProblemController {
     /**
      * 获取下一个最小可用题目id（待完善）
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    @RequireCapability(Capability.PROBLEM_CREATE)
     @GetMapping("/next_id")
     public Result<NextProblemIdVO> getNextProblemId() {
         return Result.success(problemService.getNextProblemId());
@@ -99,7 +100,6 @@ public class ProblemController {
     /**
      * 编辑题目信息
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PatchMapping("/edit")
     public Result<Void> editProblem(@Valid @RequestBody ProblemEditDTO dto) {
         problemService.editProblem(dto);
@@ -110,7 +110,6 @@ public class ProblemController {
      * 上传题目测试数据
      * 后端鉴权后直接代理到评测端
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PostMapping("/data/{pid}")
     public void uploadProblemTestcases(@PathVariable String pid,
                                        HttpServletRequest request,
@@ -124,7 +123,6 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/config/{pid}")
     public void getProblemConfig(@PathVariable String pid,
                                  HttpServletRequest request,
@@ -138,7 +136,6 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/config/{pid}")
     public void updateProblemConfig(@PathVariable String pid,
                                     HttpServletRequest request,
@@ -150,7 +147,6 @@ public class ProblemController {
      * 获取题目测试点元数据（已废弃）
      */
     @Deprecated
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/data/{pid}")
     public Result<JudgeProblemDataResponse> getProblemData(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTestcaseMeta(pid));
@@ -163,7 +159,6 @@ public class ProblemController {
      * @param pid      题目编号
      * @param fileName 文件名（可含子目录）
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/file/{pid}/{file_name}")
     public void getProblemFile(@PathVariable String pid,
                                @PathVariable("file_name") String fileName,
@@ -180,7 +175,6 @@ public class ProblemController {
      *
      * @param pid 题目编号
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @GetMapping("/tree/{pid}")
     public Result<Object> getProblemTree(@PathVariable String pid) {
         return Result.success(problemTestcaseService.getProblemTree(pid));
@@ -189,7 +183,6 @@ public class ProblemController {
     /**
      * 删除题目
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/{pid}")
     public Result<Void> deleteProblem(@PathVariable String pid) {
         problemService.deleteProblem(pid);
@@ -200,7 +193,6 @@ public class ProblemController {
      * 删除题目文件
      * 后端鉴权后直接代理到评测端
      */
-    @RequireRole({RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @DeleteMapping("/file/{pid}/{file_name}")
     public void deleteProblemFile(@PathVariable String pid, @PathVariable("file_name") String fileName,
                                   HttpServletRequest request,

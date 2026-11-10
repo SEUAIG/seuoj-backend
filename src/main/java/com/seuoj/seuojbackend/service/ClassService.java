@@ -88,6 +88,8 @@ public class ClassService {
     private final UserRoleRelMapper userRoleRelMapper;
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender mailSender;
+    private final AccountCreationService accountCreationService;
+    private final FileAccessService fileAccess;
 
     @Value("${spring.mail.username:}")
     private String fromEmail;
@@ -108,7 +110,7 @@ public class ClassService {
                         UserRoleMapper userRoleMapper,
                         UserRoleRelMapper userRoleRelMapper,
                         PasswordEncoder passwordEncoder,
-                        JavaMailSender mailSender) {
+                        JavaMailSender mailSender, AccountCreationService accountCreationService, FileAccessService fileAccess) {
         this.classInfoMapper = classInfoMapper;
         this.classIntroAttachmentMapper = classIntroAttachmentMapper;
         this.classStudentRelMapper = classStudentRelMapper;
@@ -126,6 +128,8 @@ public class ClassService {
         this.userRoleRelMapper = userRoleRelMapper;
         this.passwordEncoder = passwordEncoder;
         this.mailSender = mailSender;
+        this.accountCreationService = accountCreationService;
+        this.fileAccess = fileAccess;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -223,6 +227,7 @@ public class ClassService {
         }
         if (dto.getAddIntroAttachments() != null && !dto.getAddIntroAttachments().isEmpty()) {
             for (AttachmentDTO attDto : dto.getAddIntroAttachments()) {
+                fileAccess.assertAttach(userId, attDto.getFilePath());
                 ClassIntroAttachment att = new ClassIntroAttachment();
                 att.setClassId(classInfo.getId());
                 att.setFilePath(attDto.getFilePath());
@@ -267,6 +272,13 @@ public class ClassService {
             throw new NotFoundException("班级不存在");
         }
         Long userId = AuthContexts.requiredUserId();
+
+        // 私有班级不在班级列表展示，也不允许凭 id 自行加入；
+        // 成员应由班级管理者通过 addMember（WRITE 权限校验）添加。
+        if (!Boolean.TRUE.equals(classInfo.getIsPublic())
+                && !permissionService.hasPermission(userId, ResourceType.CLASS, classInfo.getId(), PermissionOp.WRITE)) {
+            throw new NotFoundException("班级不存在");
+        }
 
         int restored = classStudentRelMapper.restoreDeletedStudent(classInfo.getId(), userId);
         if (restored > 0) {
@@ -433,7 +445,7 @@ public class ClassService {
                     newUser.setPassword(passwordEncoder.encode(rawPassword));
 
                     try {
-                        userInfoMapper.insert(newUser);
+                        accountCreationService.insert(newUser);
                     } catch (DuplicateKeyException e) {
                         ClassBatchImportResultVO.RowResult rowResult = new ClassBatchImportResultVO.RowResult(
                                 i + 1, username, name, "忽略: 用户名或邮箱已存在");
@@ -536,6 +548,8 @@ public class ClassService {
         if (contest == null) {
             throw new NotFoundException("比赛不存在");
         }
+        if (!Boolean.TRUE.equals(contest.getIsPublic()))
+            permissionService.assertPermission(userId,ResourceType.CONTEST,contestId,PermissionOp.WRITE);
 
         int restored = classContestRelMapper.restoreDeletedContestLink(classInfo.getId(), contest.getId());
         if (restored > 0) {
@@ -592,6 +606,7 @@ public class ClassService {
         if (problemSet == null) {
             throw new NotFoundException("题单不存在");
         }
+        permissionService.assertPermission(userId,ResourceType.PROBLEM_SET,problemSetId,PermissionOp.READ);
 
         Assignment assignment = new Assignment();
         assignment.setClassId(classInfo.getId());
@@ -617,6 +632,7 @@ public class ClassService {
             if (!activeProblemIds.contains(psRel.getProblemId())) {
                 continue;
             }
+            permissionService.assertCanReferenceProblem(userId,problemMapper.selectById(psRel.getProblemId()));
             AssignmentProblemRel rel = new AssignmentProblemRel();
             rel.setAssignmentId(assignment.getId());
             rel.setProblemId(psRel.getProblemId());
