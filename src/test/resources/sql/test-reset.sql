@@ -67,5 +67,5 @@ VALUES (40001, 'Linked ProblemSet', 'for delete conflict', 10001, 1, 0);
 INSERT INTO resource_permission (id, resource_type, resource_id, user_id, permission, granted_by, is_del)
 VALUES (2, 'PROBLEM_SET', 40001, 10001, 'WRITE', 10001, 0);
 
-INSERT INTO problem_set_problem_rel (id, problem_set_id, problem_id, sort_order, weight, is_del)
-VALUES (1, 40001, 20001, 1, 100, 0);
+INSERT INTO problem_set_problem_rel (id, problem_set_id, problem_id, sort_order, is_del)
+VALUES (1, 40001, 20001, 1, 0);
