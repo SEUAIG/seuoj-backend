@@ -1,6 +1,7 @@
 package com.seuoj.seuojbackend.interceptor;
 
 import com.seuoj.seuojbackend.common.AuthStatus;
+import com.seuoj.seuojbackend.controller.api.AuthController;
 import com.seuoj.seuojbackend.common.ErrorCode;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
@@ -60,6 +61,13 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             log.warn("请求携带了无效的 Authorization 请求头，拒绝访问 - URI: {} {}, Controller: {}.{}",
                     method, requestUri, controllerName, methodName);
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "无效的访问令牌");
+        }
+
+        // This endpoint validates both token types in AuthService. A TEMP token
+        // must never establish an authenticated context for ordinary endpoints.
+        if (handlerMethod.getBeanType() == AuthController.class && "exchangeToken".equals(methodName)) {
+            UserContextHolder.set(UserContext.guest());
+            return true;
         }
 
         // 有令牌则进行解析与校验
