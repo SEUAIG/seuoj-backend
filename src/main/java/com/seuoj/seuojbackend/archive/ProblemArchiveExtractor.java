@@ -130,6 +130,13 @@ public class ProblemArchiveExtractor {
         return entryReader.readExpectedEntries(file, format, expectedNames);
     }
 
+    /**
+     * 读取压缩包中 prefix 目录下的全部条目, key 为去掉 prefix 后的相对路径。
+     */
+    public java.util.Map<String, byte[]> readEntriesUnderPrefix(MultipartFile file, String format, String prefix) {
+        return entryReader.readEntriesUnderPrefix(file, format, prefix);
+    }
+
     private String normalizeZipName(String name, String errorMessage) {
         if (!StringUtils.hasText(name)) {
             throw new BadRequestException(errorMessage);

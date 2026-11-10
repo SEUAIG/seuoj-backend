@@ -9,10 +9,12 @@ import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
+import com.seuoj.seuojbackend.service.ProblemImportService;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
 import com.seuoj.seuojbackend.vo.problem.ProblemCreateVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemDetailVO;
+import com.seuoj.seuojbackend.vo.problem.ProblemImportVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemStatisticsVO;
 import com.seuoj.seuojbackend.vo.problem.NextProblemIdVO;
 import com.seuoj.seuojbackend.vo.problem.ProblemPageVO;
@@ -35,10 +37,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProblemController {
     private final ProblemService problemService;
     private final ProblemTestcaseService problemTestcaseService;
+    private final ProblemImportService problemImportService;
 
-    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService) {
+    public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService,
+                             ProblemImportService problemImportService) {
         this.problemService = problemService;
         this.problemTestcaseService = problemTestcaseService;
+        this.problemImportService = problemImportService;
     }
 
     /**
@@ -86,6 +91,20 @@ public class ProblemController {
     @PostMapping
     public Result<ProblemCreateVO> createProblem(@Valid @RequestBody ProblemCreateDTO dto) {
         return Result.success(problemService.createProblem(dto));
+    }
+
+    /**
+     * 通过题目包（Hydro 目录结构）一键导入题目
+     * 题目包不含题号与公开状态，由表单提供
+     */
+    @RequireCapability(Capability.PROBLEM_CREATE)
+    @PostMapping("/import")
+    public Result<ProblemImportVO> importProblemPack(@RequestParam("file") MultipartFile file,
+                                                     @RequestParam("pid") String pid,
+                                                     @RequestParam(value = "is_public", required = false,
+                                                             defaultValue = "false") Boolean isPublic,
+                                                     @RequestParam(value = "format", required = false) String format) {
+        return Result.success(problemImportService.importPack(file, format, pid, isPublic));
     }
 
     /**

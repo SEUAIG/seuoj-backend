@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -42,11 +43,35 @@ class ArchiveEntryReader {
         if (expectedNames == null || expectedNames.isEmpty()) {
             throw new BadRequestException("测试数据命名规则不能为空");
         }
+        return readEntries(file, format, entryName -> shouldKeepEntry(entryName, expectedNames), true);
+    }
+
+    /**
+     * 读取压缩包中位于 prefix 目录下的全部条目, 返回值的 key 为去掉 prefix 后的相对路径。
+     * 允许压缩包整体多包一层顶层目录, 也允许 prefix 下存在多级子目录。
+     */
+    public Map<String, byte[]> readEntriesUnderPrefix(MultipartFile file, String format, String prefix) {
+        if (!StringUtils.hasText(prefix) || !prefix.endsWith("/")) {
+            throw new InternalServerException("压缩包目录前缀不合法");
+        }
+        Map<String, byte[]> entries = readEntries(file, format, entryName -> prefixOffset(entryName, prefix) >= 0, false);
+        Map<String, byte[]> relativeEntries = new HashMap<>();
+        for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+            String entryName = entry.getKey();
+            String relativeName = entryName.substring(prefixOffset(entryName, prefix) + prefix.length());
+            ensureNoDuplicate(relativeEntries, relativeName);
+            relativeEntries.put(relativeName, entry.getValue());
+        }
+        return relativeEntries;
+    }
+
+    private Map<String, byte[]> readEntries(MultipartFile file, String format,
+                                            Predicate<String> keepPredicate, boolean normalizeRootDir) {
         return switch (format) {
-            case "zip" -> readZipEntries(file, expectedNames);
-            case "tar" -> readTarEntries(file, expectedNames);
-            case "tar.gz", "tgz" -> readTarGzEntries(file, expectedNames);
-            case "7z" -> readSevenZEntries(file, expectedNames);
+            case "zip" -> readZipEntries(file, keepPredicate, normalizeRootDir);
+            case "tar" -> readTarEntries(file, keepPredicate, normalizeRootDir);
+            case "tar.gz", "tgz" -> readTarGzEntries(file, keepPredicate, normalizeRootDir);
+            case "7z" -> readSevenZEntries(file, keepPredicate, normalizeRootDir);
             default -> throw new BadRequestException("不支持的文件格式");
         };
     }
@@ -64,7 +89,8 @@ class ArchiveEntryReader {
         }
     }
 
-    private Map<String, byte[]> readZipEntries(MultipartFile file, Set<String> expectedNames) {
+    private Map<String, byte[]> readZipEntries(MultipartFile file, Predicate<String> keepPredicate,
+                                               boolean normalizeRootDir) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
@@ -75,7 +101,7 @@ class ArchiveEntryReader {
                     continue;
                 }
                 String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-                boolean keep = shouldKeepEntry(entryName, expectedNames);
+                boolean keep = keepPredicate.test(entryName);
                 validateEntryCount(state);
                 byte[] content = readEntryBytes(zipInputStream::read, entryName, state, keep);
                 if (keep) {
@@ -89,43 +115,45 @@ class ArchiveEntryReader {
             throw new InternalServerException("读取测试数据压缩包失败");
         }
 
-        return finalizeEntries(entries, entryNames);
+        return finalizeEntries(entries, entryNames, normalizeRootDir);
     }
 
-    private Map<String, byte[]> readTarEntries(MultipartFile file, Set<String> expectedNames) {
+    private Map<String, byte[]> readTarEntries(MultipartFile file, Predicate<String> keepPredicate,
+                                               boolean normalizeRootDir) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
         try (TarArchiveInputStream tarInputStream = createTarInputStream(file.getInputStream())) {
-            readTarStreamEntries(tarInputStream, entries, entryNames, state, expectedNames);
+            readTarStreamEntries(tarInputStream, entries, entryNames, state, keepPredicate);
         } catch (IOException ex) {
             log.warn("读取测试数据压缩包失败", ex);
             throw new BadRequestException("压缩包格式错误");
         }
 
-        return finalizeEntries(entries, entryNames);
+        return finalizeEntries(entries, entryNames, normalizeRootDir);
     }
 
-    private Map<String, byte[]> readTarGzEntries(MultipartFile file, Set<String> expectedNames) {
+    private Map<String, byte[]> readTarGzEntries(MultipartFile file, Predicate<String> keepPredicate,
+                                                 boolean normalizeRootDir) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(file.getInputStream());
              TarArchiveInputStream tarInputStream = createTarInputStream(gzipInputStream)) {
-            readTarStreamEntries(tarInputStream, entries, entryNames, state, expectedNames);
+            readTarStreamEntries(tarInputStream, entries, entryNames, state, keepPredicate);
         } catch (IOException ex) {
             log.warn("读取测试数据压缩包失败", ex);
             throw new BadRequestException("压缩包格式错误");
         }
 
-        return finalizeEntries(entries, entryNames);
+        return finalizeEntries(entries, entryNames, normalizeRootDir);
     }
 
     private void readTarStreamEntries(TarArchiveInputStream tarInputStream,
                                       Map<String, byte[]> entries,
                                       List<String> entryNames,
                                       ArchiveReadState state,
-                                      Set<String> expectedNames) throws IOException {
+                                      Predicate<String> keepPredicate) throws IOException {
         while (true) {
             var entry = tarInputStream.getNextEntry();
             if (entry == null) {
@@ -138,7 +166,7 @@ class ArchiveEntryReader {
                 throw new BadRequestException("压缩包包含非法链接文件");
             }
             String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-            boolean keep = shouldKeepEntry(entryName, expectedNames);
+            boolean keep = keepPredicate.test(entryName);
             validateEntryCount(state);
             byte[] content = readEntryBytes(tarInputStream::read, entryName, state, keep);
             if (keep) {
@@ -149,7 +177,8 @@ class ArchiveEntryReader {
         }
     }
 
-    private Map<String, byte[]> readSevenZEntries(MultipartFile file, Set<String> expectedNames) {
+    private Map<String, byte[]> readSevenZEntries(MultipartFile file, Predicate<String> keepPredicate,
+                                                  boolean normalizeRootDir) {
         Map<String, byte[]> entries = new HashMap<>();
         List<String> entryNames = new ArrayList<>();
         ArchiveReadState state = new ArchiveReadState(testcaseProperties, file.getSize());
@@ -167,7 +196,7 @@ class ArchiveEntryReader {
                         continue;
                     }
                     String entryName = normalizeZipEntryName(entry.getName(), "压缩包包含非法文件名");
-                    boolean keep = shouldKeepEntry(entryName, expectedNames);
+                    boolean keep = keepPredicate.test(entryName);
                     validateEntryCount(state);
                     byte[] content = readEntryBytes(sevenZFile::read, entryName, state, keep);
                     if (keep) {
@@ -186,7 +215,7 @@ class ArchiveEntryReader {
             }
         }
 
-        return finalizeEntries(entries, entryNames);
+        return finalizeEntries(entries, entryNames, normalizeRootDir);
     }
 
     private byte[] readEntryBytes(BufferReader reader, String entryName, ArchiveReadState state, boolean keep)
@@ -319,6 +348,20 @@ class ArchiveEntryReader {
         return expectedNames.contains(leaf);
     }
 
+    /**
+     * 返回 prefix 在条目名中的起始下标, 允许压缩包整体多包一层顶层目录; 不在 prefix 下时返回 -1。
+     */
+    private int prefixOffset(String entryName, String prefix) {
+        if (entryName.startsWith(prefix)) {
+            return 0;
+        }
+        int slashIndex = entryName.indexOf('/');
+        if (slashIndex > 0 && entryName.startsWith(prefix, slashIndex + 1)) {
+            return slashIndex + 1;
+        }
+        return -1;
+    }
+
     private void validateEntryCount(ArchiveReadState state) {
         state.incrementEntryCount();
         if (state.getEntryCount() > testcaseProperties.getMaxEntryCount()) {
@@ -326,7 +369,11 @@ class ArchiveEntryReader {
         }
     }
 
-    private Map<String, byte[]> finalizeEntries(Map<String, byte[]> entries, List<String> entryNames) {
+    private Map<String, byte[]> finalizeEntries(Map<String, byte[]> entries, List<String> entryNames,
+                                                boolean normalizeRootDir) {
+        if (!normalizeRootDir) {
+            return entries;
+        }
         if (entries.isEmpty()) {
             throw new BadRequestException("压缩包中未找到有效文件");
         }
