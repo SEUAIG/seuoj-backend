@@ -148,7 +148,7 @@ DROP TABLE IF EXISTS `announcement`;
 CREATE TABLE `announcement`
 (
     `id`                 bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `target_type`        varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '目标类型：CLASS/ASSIGNMENT',
+    `target_type`        varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '目标类型：CLASS/ASSIGNMENT/CONTEST',
     `target_id`          bigint                                                        NOT NULL COMMENT '目标内部ID',
     `title`              varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '公告标题',
     `content`            text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci         NULL COMMENT 'Markdown正文',
@@ -297,13 +297,23 @@ CREATE TABLE `contest_register_rel`
 (
     `id`         bigint                                                                                                         NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `contest_id` bigint                                                                                                         NOT NULL COMMENT '比赛ID',
-    `user_id`    bigint                                                                                                         NOT NULL COMMENT '用户ID',
+    `user_id`    bigint                                                                                                         NULL COMMENT '用户ID',
+    `display_name` varchar(100) NOT NULL DEFAULT '' COMMENT '本场比赛榜单姓名',
+    `is_starred` tinyint(1) NOT NULL DEFAULT 0 COMMENT '打星，不占正式名次',
+    `is_managed` tinyint(1) NOT NULL DEFAULT 0 COMMENT '由比赛管理员维护',
+    `student_no` varchar(100) NOT NULL DEFAULT '',
+    `college` varchar(100) NOT NULL DEFAULT '',
+    `class_name` varchar(100) NOT NULL DEFAULT '',
+    `contact_email` varchar(254) NOT NULL DEFAULT '',
+    `notes` varchar(1000) NOT NULL DEFAULT '',
     `joined_at`  datetime                                                                                                       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报名时间',
     `is_del`     tinyint(1)                                                                                                     NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
     `active_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS ((case
                                                                                                          when (`is_del` = 0)
                                                                                                              then concat(`contest_id`, _utf8mb4'#', `user_id`)
                                                                                                          else NULL end)) STORED NULL,
+    `active_student_key` varchar(140) GENERATED ALWAYS AS (CASE WHEN is_del=0 AND student_no<>'' THEN concat(contest_id,'#',student_no) ELSE NULL END) STORED,
+    UNIQUE INDEX `uk_contest_student_active` (`active_student_key`),
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_contest_user_active` (`active_key` ASC) USING BTREE,
     INDEX `idx_contest_register_contest` (`contest_id` ASC) USING BTREE,
@@ -500,6 +510,10 @@ CREATE TABLE `submission`
     `created_at`    timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`    timestamp                                                    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `is_del`        tinyint(1)                                                   NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
+    `is_skipped`    tinyint(1)                                                   NOT NULL DEFAULT 0 COMMENT '是否被管理者跳过，跳过后不计入任何统计',
+    `skipped_at`    datetime                                                     NULL     DEFAULT NULL COMMENT '跳过时间',
+    `skipped_by`    bigint                                                       NULL     DEFAULT NULL COMMENT '操作者',
+    `skip_reason`   varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '跳过原因',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_submission_no` (`submission_no` ASC) USING BTREE,
     INDEX `idx_user` (`user_id` ASC) USING BTREE,
@@ -588,6 +602,15 @@ CREATE TABLE `user_info`
     `nickname`   varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '昵称/显示名',
     `email`      varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邮箱',
     `password`   varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '加密密码',
+    `allow_nickname_change` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否允许自主修改昵称',
+    `temporary_contest_id` bigint NULL,
+    `is_enabled` tinyint(1) NOT NULL DEFAULT 1,
+    `banned_at` datetime NULL DEFAULT NULL COMMENT '封禁时间，空表示未封禁',
+    `banned_until` datetime NULL DEFAULT NULL COMMENT '解封时间，空表示永久',
+    `ban_reason` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '封禁原因',
+    `banned_by` bigint NULL DEFAULT NULL COMMENT '操作者',
+    `temporary_username` varchar(64) GENERATED ALWAYS AS (CASE WHEN is_del=0 AND temporary_contest_id IS NOT NULL THEN username ELSE NULL END) STORED,
+    UNIQUE INDEX `uk_user_temporary_username` (`temporary_username`),
     `created_at` timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` timestamp                                                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `is_del`     tinyint(1)                                                    NOT NULL DEFAULT 0 COMMENT '是否删除，0-未删除，1-已删除',
@@ -696,5 +719,58 @@ CREATE TABLE `image_binding`
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_unicode_ci COMMENT = '图片与业务资源绑定关系表'
   ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for contest_clarification
+-- ----------------------------
+DROP TABLE IF EXISTS `contest_clarification`;
+CREATE TABLE contest_clarification
+(
+    id                  bigint     NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    contest_id          bigint     NOT NULL COMMENT '比赛ID',
+    problem_id          bigint     NULL COMMENT '关联题目ID，空表示整场比赛',
+    asker_user_id       bigint     NOT NULL COMMENT '提问者',
+    question            text       NOT NULL COMMENT '问题',
+    answer              text       NULL COMMENT '回复，空表示未回复',
+    answered_by_user_id bigint     NULL COMMENT '回复者',
+    answered_at         datetime   NULL COMMENT '回复时间',
+    is_public           tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否对所有人公开',
+    created_at          datetime   NOT NULL COMMENT '提问时间',
+    is_del              tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除',
+    PRIMARY KEY (id),
+    INDEX idx_clarification_contest (contest_id, created_at),
+    INDEX idx_clarification_asker (contest_id, asker_user_id),
+    CONSTRAINT fk_clarification_contest FOREIGN KEY (contest_id) REFERENCES contest (id),
+    CONSTRAINT fk_clarification_problem FOREIGN KEY (problem_id) REFERENCES problem (id),
+    CONSTRAINT fk_clarification_asker FOREIGN KEY (asker_user_id) REFERENCES user_info (id),
+    CONSTRAINT fk_clarification_answerer FOREIGN KEY (answered_by_user_id) REFERENCES user_info (id)
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '比赛答疑';
+
+-- ----------------------------
+-- Table structure for system_setting
+-- ----------------------------
+DROP TABLE IF EXISTS `system_setting`;
+CREATE TABLE system_setting
+(
+    setting_key   varchar(64)  NOT NULL COMMENT '设置项',
+    setting_value varchar(255) NOT NULL COMMENT '值',
+    updated_by    bigint       NULL COMMENT '最后修改者',
+    updated_at    datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+    PRIMARY KEY (setting_key)
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT = '全站运行时设置';
+
+-- Explicit per-user capabilities supplement the existing role grants.
+DROP TABLE IF EXISTS `user_capability`;
+CREATE TABLE user_capability (
+    user_id bigint NOT NULL,
+    capability varchar(32) NOT NULL,
+    PRIMARY KEY(user_id, capability),
+    CONSTRAINT fk_user_capability_user FOREIGN KEY(user_id) REFERENCES user_info(id),
+    CONSTRAINT chk_user_capability CHECK (capability IN ('PROBLEM_CREATE','PROBLEM_MANAGE','CONTEST_CREATE','CONTEST_MANAGE','USER_MANAGE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;
