@@ -315,8 +315,8 @@ public class VerificationCodeService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(to);
-            message.setSubject("【SEUOJ】注册验证码");
-            message.setText("您的注册验证码是：" + code + "，有效期" + (codeExpireSeconds / 60) + "分钟。如非本人操作，请忽略此邮件。");
+            message.setSubject("【SEUOJ】邮箱验证码");
+            message.setText("您的邮箱验证码是：" + code + "，有效期" + (codeExpireSeconds / 60) + "分钟。如非本人操作，请忽略此邮件。");
             mailSender.send(message);
             log.info("验证码邮件发送成功: {}", to);
         } catch (Exception e) {

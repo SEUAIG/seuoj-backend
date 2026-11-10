@@ -7,13 +7,19 @@
         <result column="username" property="username"/>
         <result column="nickname" property="nickname"/>
         <result column="email" property="email"/>
+        <result column="banned_at" property="bannedAt"/>
+        <result column="banned_until" property="bannedUntil"/>
+        <result column="ban_reason" property="banReason"/>
     </resultMap>
 
     <select id="selectUserPageBasic" resultMap="UserPageItemMap">
         SELECT ui.id AS user_id,
                ui.username,
                ui.nickname,
-               ui.email
+               ui.email,
+               ui.banned_at,
+               ui.banned_until,
+               ui.ban_reason
         FROM user_info ui
         WHERE ui.is_del = 0
           <if test="roleCodes != null and roleCodes.size() > 0">
@@ -34,6 +40,12 @@
           </if>
           <if test="email != null and email != ''">
               AND ui.email LIKE CONCAT('%', #{email}, '%')
+          </if>
+          <if test="banned != null and banned">
+              AND ui.banned_at IS NOT NULL AND (ui.banned_until IS NULL OR ui.banned_until &gt; #{now})
+          </if>
+          <if test="banned != null and !banned">
+              AND (ui.banned_at IS NULL OR ui.banned_until &lt;= #{now})
           </if>
         ORDER BY ui.id DESC
     </select>

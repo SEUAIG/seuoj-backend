@@ -1,119 +1,43 @@
 package com.seuoj.seuojbackend.controller.api;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.seuoj.seuojbackend.annotation.RequireRole;
-import com.seuoj.seuojbackend.common.Result;
-import com.seuoj.seuojbackend.common.RoleType;
+import com.seuoj.seuojbackend.common.*;
 import com.seuoj.seuojbackend.dto.user.UpdateProfileDTO;
-import com.seuoj.seuojbackend.entity.UserInfo;
-import com.seuoj.seuojbackend.entity.UserRole;
-import com.seuoj.seuojbackend.entity.UserRoleRel;
 import com.seuoj.seuojbackend.exception.BadRequestException;
-import com.seuoj.seuojbackend.exception.ForbiddenException;
-import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
-import com.seuoj.seuojbackend.mapper.UserInfoMapper;
-import com.seuoj.seuojbackend.mapper.UserRoleMapper;
-import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
-import com.seuoj.seuojbackend.service.UserRoleService;
+import com.seuoj.seuojbackend.service.UserBanService;
+import com.seuoj.seuojbackend.service.UserSettingsService;
 import jakarta.validation.Valid;
-import java.util.Map;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import java.util.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 
-@RestController
-@Validated
-@RequestMapping("/api/admin")
+@RestController @RequestMapping("/api/admin") @RequiredArgsConstructor
 public class AdminController {
-
-    private final UserInfoMapper userInfoMapper;
-    private final UserRoleMapper userRoleMapper;
-    private final UserRoleRelMapper userRoleRelMapper;
-    private final UserRoleService userRoleService;
-
-    public AdminController(UserInfoMapper userInfoMapper,
-                           UserRoleMapper userRoleMapper,
-                           UserRoleRelMapper userRoleRelMapper,
-                           UserRoleService userRoleService) {
-        this.userInfoMapper = userInfoMapper;
-        this.userRoleMapper = userRoleMapper;
-        this.userRoleRelMapper = userRoleRelMapper;
-        this.userRoleService = userRoleService;
-    }
-
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
+    private final UserSettingsService settings;
+    private final UserBanService bans;
     @PutMapping("/user/{userId}/role")
-    public Result<Void> setUserRole(
-            @PathVariable("userId") Long targetUserId,
-            @RequestBody Map<String, String> body) {
-        Long currentUserId = AuthContexts.requiredUserId();
-        String targetRoleCode = body.get("role");
-        if (targetRoleCode == null || targetRoleCode.isBlank()) {
-            throw new BadRequestException("role 不能为空");
-        }
-        targetRoleCode = targetRoleCode.trim().toUpperCase();
-
-        if (RoleType.SUPER_ADMIN.getCode().equals(targetRoleCode)) {
-            throw new ForbiddenException("SUPER_ADMIN 角色仅可通过数据库操作授予");
-        }
-
-        if (RoleType.ADMIN.getCode().equals(targetRoleCode) && !userRoleService.isSuperAdmin(currentUserId)) {
-            throw new ForbiddenException("仅 SUPER_ADMIN 可授予 ADMIN 角色");
-        }
-
-        if (currentUserId.equals(targetUserId)) {
-            throw new ForbiddenException("不能修改自己的角色");
-        }
-
-        if (!userRoleService.isSuperAdmin(currentUserId) && userRoleService.isAdmin(targetUserId)) {
-            throw new ForbiddenException("仅 SUPER_ADMIN 可修改管理员或超级管理员的角色");
-        }
-
-        UserInfo targetUser = userInfoMapper.selectById(targetUserId);
-        if (targetUser == null) {
-            throw new NotFoundException("用户不存在");
-        }
-
-        UserRole targetRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
-                .eq(UserRole::getRoleCode, targetRoleCode)
-                .eq(UserRole::getIsDel, 0));
-        if (targetRole == null) {
-            throw new BadRequestException("角色不存在: " + targetRoleCode);
-        }
-
-        // Soft-delete all existing role associations
-        userRoleRelMapper.update(null, new LambdaUpdateWrapper<UserRoleRel>()
-                .set(UserRoleRel::getIsDel, 1)
-                .eq(UserRoleRel::getUserId, targetUser.getId()));
-
-        // Insert new role
-        UserRoleRel rel = new UserRoleRel();
-        rel.setUserId(targetUser.getId());
-        rel.setRoleId(targetRole.getId());
-        userRoleRelMapper.insert(rel);
-
+    public Result<Void> setUserRole(@PathVariable Long userId,@RequestBody Map<String,String> body) {
+        Set<Capability> assigned=switch(Objects.toString(body.get("role"), "").toUpperCase(Locale.ROOT)) {
+            case "STUDENT" -> Set.of();
+            case "TEACHER" -> Set.of(Capability.TEACHER);
+            case "ADMIN" -> Set.of(Capability.ACCOUNT_ADMIN);
+            default -> throw new BadRequestException("不支持的角色");
+        };
+        settings.updatePermissions(AuthContexts.requiredUserId(),userId,assigned);
         return Result.success();
     }
-
-    @RequireRole({RoleType.ADMIN, RoleType.SUPER_ADMIN})
     @PutMapping("/user/{userId}/profile")
-    public Result<Void> updateUserProfile(
-            @PathVariable("userId") Long targetUserId,
-            @Valid @RequestBody UpdateProfileDTO dto) {
-        UserInfo targetUser = userInfoMapper.selectById(targetUserId);
-        if (targetUser == null) {
-            throw new NotFoundException("用户不存在");
-        }
-        if (dto.getNickname() != null) {
-            String nickname = dto.getNickname().trim();
-            targetUser.setNickname(nickname.isEmpty() ? null : nickname);
-        }
-        userInfoMapper.updateById(targetUser);
+    public Result<Void> updateUserProfile(@PathVariable Long userId,@Valid @RequestBody UpdateProfileDTO dto) {
+        settings.updateProfile(AuthContexts.requiredUserId(),userId,new UserSettingsService.ProfileUpdate(dto.getNickname(),null,null));
         return Result.success();
+    }
+    /** 封禁：userIds 与 usernames 可同时给出，任一账号不合格则整批不生效。until 为空表示永久。 */
+    @PostMapping("/users/ban")
+    public Result<UserBanService.Outcome> ban(@Valid @RequestBody UserBanService.BanRequest dto) {
+        return Result.success(bans.ban(AuthContexts.requiredUserId(),dto));
+    }
+    @PostMapping("/users/unban")
+    public Result<UserBanService.Outcome> unban(@RequestBody UserBanService.UnbanRequest dto) {
+        return Result.success(bans.unban(AuthContexts.requiredUserId(),dto));
     }
 }

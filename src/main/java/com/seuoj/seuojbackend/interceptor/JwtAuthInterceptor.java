@@ -7,6 +7,7 @@ import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.util.JwtTokenType;
 import com.seuoj.seuojbackend.util.JwtUtil;
+import com.seuoj.seuojbackend.util.UserBans;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
@@ -86,6 +87,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         log.info("JWT 鉴权成功 - userId: {}, URI: {} {}, Controller: {}.{}",
                 user.getId(), method, requestUri, controllerName, methodName);
+        if (Boolean.FALSE.equals(user.getIsEnabled())) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "账号已停用");
+        }
+        if (UserBans.isBanned(user)) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), UserBans.message(user));
+        }
         UserContextHolder.set(UserContext.of(user.getId(), AuthStatus.AUTHENTICATED));
         return true;
     }

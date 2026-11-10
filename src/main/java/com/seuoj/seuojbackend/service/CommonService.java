@@ -11,6 +11,7 @@ import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.vo.common.UserPageItemVO;
 import com.seuoj.seuojbackend.vo.common.UserPageVO;
 import com.seuoj.seuojbackend.vo.common.UserRoleRowVO;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,29 +30,50 @@ public class CommonService {
     private final UserInfoMapper userInfoMapper;
     private final UserRoleRelMapper userRoleRelMapper;
     private final UserRoleService userRoleService;
+    private final UserSettingsService settings;
 
     public CommonService(UserInfoMapper userInfoMapper,
                          UserRoleRelMapper userRoleRelMapper,
-                         UserRoleService userRoleService) {
+                         UserRoleService userRoleService, UserSettingsService settings) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleRelMapper = userRoleRelMapper;
         this.userRoleService = userRoleService;
+        this.settings = settings;
     }
 
     public UserPageVO getUserPage(Integer current, Integer size, String username, String email, List<String> roles) {
+        return getUserPage(current, size, username, email, roles, null);
+    }
+
+    /** banned：null 不过滤，true 只看封禁中，false 只看未封禁 */
+    public UserPageVO getUserPage(Integer current, Integer size, String username, String email, List<String> roles, Boolean banned) {
         Long currentUserId = AuthContexts.userIdOrNull();
-        boolean isAdmin = userRoleService.isAdmin(currentUserId);
+        boolean isAdmin = userRoleService.hasCapability(currentUserId, com.seuoj.seuojbackend.common.Capability.USER_MANAGE);
 
         List<String> roleFilterCodes = resolveAccessibleRoleCodes(roles, isAdmin);
         List<String> visibleRoleCodes = visibleRoleCodes(isAdmin);
         String usernameKeyword = normalizeKeyword(username);
         String emailKeyword = normalizeKeyword(email);
 
+        LocalDateTime now = LocalDateTime.now();
+        if (!isAdmin) banned = null;
         IPage<UserPageItemVO> pageResult = userInfoMapper.selectUserPageBasic(
-                new Page<>(current, size), usernameKeyword, emailKeyword, roleFilterCodes);
+                new Page<>(current, size), usernameKeyword, emailKeyword, roleFilterCodes, banned, now);
 
         List<UserPageItemVO> records = pageResult.getRecords() == null ? Collections.emptyList() : pageResult.getRecords();
         fillRoles(records, visibleRoleCodes);
+        for (UserPageItemVO item : records) {
+            item.setCanManageProfile(settings.canManageProfile(currentUserId, item.getUserId()));
+            boolean active = item.getBannedAt() != null && (item.getBannedUntil() == null || item.getBannedUntil().isAfter(now));
+            item.setBanned(active);
+            if (!active || !isAdmin) {
+                // 到期的封禁不再展示；只有用户管理者能看到封禁详情
+                item.setBannedAt(null);
+                item.setBannedUntil(null);
+                item.setBanReason(null);
+                if (!isAdmin) item.setBanned(false);
+            }
+        }
 
         UserPageVO vo = new UserPageVO();
         vo.setCurrent(pageResult.getCurrent());

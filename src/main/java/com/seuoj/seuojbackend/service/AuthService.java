@@ -19,6 +19,7 @@ import com.seuoj.seuojbackend.mapper.UserRoleMapper;
 import com.seuoj.seuojbackend.mapper.UserRoleRelMapper;
 import com.seuoj.seuojbackend.util.JwtTokenType;
 import com.seuoj.seuojbackend.util.JwtUtil;
+import com.seuoj.seuojbackend.util.UserBans;
 import com.seuoj.seuojbackend.vo.admin.BatchImportResultVO;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
 import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
@@ -53,13 +54,14 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final VerificationCodeService verificationCodeService;
     private final JavaMailSender mailSender;
+    private final AccountCreationService accountCreationService;
 
     @Value("${spring.mail.username:}")
     private String fromEmail;
 
     public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
                        UserRoleService userRoleService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                       VerificationCodeService verificationCodeService, JavaMailSender mailSender) {
+                       VerificationCodeService verificationCodeService, JavaMailSender mailSender, AccountCreationService accountCreationService) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleRelMapper = userRoleRelMapper;
@@ -68,6 +70,7 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
         this.verificationCodeService = verificationCodeService;
         this.mailSender = mailSender;
+        this.accountCreationService = accountCreationService;
     }
 
     /**
@@ -122,9 +125,9 @@ public class AuthService {
             newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
 
             try {
-                userInfoMapper.insert(newUser);
+                accountCreationService.insert(newUser);
             } catch (DuplicateKeyException e) {
-                throw new ConflictException("邮箱已被注册");
+                throw new ConflictException("用户名或邮箱已被注册");
             }
 
             UserRole defaultRole = userRoleMapper.selectOne(new LambdaQueryWrapper<UserRole>()
@@ -172,6 +175,12 @@ public class AuthService {
             throw new AuthorizationException("用户名/邮箱或密码错误");
         }
 
+        if (Boolean.FALSE.equals(user.getIsEnabled())) {
+            throw new AuthorizationException("账号已停用，请联系比赛管理员");
+        }
+        if (UserBans.isBanned(user)) {
+            throw new AuthorizationException(UserBans.message(user));
+        }
         String token = jwtUtil.createAccessToken(String.valueOf(user.getId()));
 
         LoginVO loginVO = new LoginVO();
@@ -179,6 +188,8 @@ public class AuthService {
         loginVO.setUsername(user.getUsername());
         loginVO.setNickname(user.getNickname());
         loginVO.setRole(userRoleService.getHighestRoleLabel(user.getId()));
+        loginVO.setId(user.getId());
+        loginVO.setCapabilities(userRoleService.getCapabilities(user.getId()));
 
         return loginVO;
     }
@@ -195,8 +206,11 @@ public class AuthService {
         } catch (NumberFormatException e) {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
-        if (user == null) {
-            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "用户不存在");
+        if (user == null || Boolean.FALSE.equals(user.getIsEnabled())) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "账号不存在或已停用");
+        }
+        if (UserBans.isBanned(user)) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), UserBans.message(user));
         }
 
         String userIdStr = String.valueOf(user.getId());
@@ -216,8 +230,11 @@ public class AuthService {
 
     public UserMeVO getCurrentUserProfile(Long userId) {
         UserInfo user = userInfoMapper.selectById(userId);
-        if (user == null) {
-            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "用户不存在");
+        if (user == null || Boolean.FALSE.equals(user.getIsEnabled())) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "账号不存在或已停用");
+        }
+        if (UserBans.isBanned(user)) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), UserBans.message(user));
         }
 
         UserMeVO profile = new UserMeVO();
@@ -225,11 +242,15 @@ public class AuthService {
         profile.setUsername(user.getUsername());
         profile.setNickname(user.getNickname());
         profile.setEmail(user.getEmail());
+        profile.setRole(userRoleService.getHighestRoleLabel(userId));
+        profile.setCapabilities(userRoleService.getCapabilities(userId));
+        profile.setAllowNicknameChange(!Boolean.FALSE.equals(user.getAllowNicknameChange()));
         return profile;
     }
 
     public UserProfileVO getUserProfile(Long currentUserId, Long targetUserId) {
-        if (!Objects.equals(currentUserId, targetUserId) && !userRoleService.isTeacherOrAdmin(currentUserId)) {
+        if (!Objects.equals(currentUserId, targetUserId) && !userRoleService.isTeacherOrAdmin(currentUserId)
+                && !userRoleService.hasCapability(currentUserId, com.seuoj.seuojbackend.common.Capability.USER_MANAGE)) {
             throw new ForbiddenException("无权查看该用户资料");
         }
         UserInfo user = userInfoMapper.selectById(targetUserId);
@@ -244,16 +265,20 @@ public class AuthService {
         return vo;
     }
 
+    @Transactional
     public UserMeVO updateProfile(Long userId, com.seuoj.seuojbackend.dto.user.UpdateProfileDTO dto) {
+        userInfoMapper.selectList(new LambdaQueryWrapper<UserInfo>().eq(UserInfo::getId,userId).last("FOR UPDATE"));
         UserInfo user = userInfoMapper.selectById(userId);
         if (user == null) {
             throw new BadRequestException("用户不存在");
         }
         if (dto.getNickname() != null) {
             String nickname = dto.getNickname().trim();
+            if (Boolean.FALSE.equals(user.getAllowNicknameChange()) && !Objects.equals(nickname,Objects.toString(user.getNickname(), ""))) throw new ForbiddenException("此账号不允许修改昵称");
             user.setNickname(nickname.isEmpty() ? null : nickname);
         }
-        userInfoMapper.updateById(user);
+        userInfoMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<UserInfo>()
+                .eq(UserInfo::getId,userId).set(UserInfo::getNickname,user.getNickname()));
         return getCurrentUserProfile(userId);
     }
 
@@ -344,11 +369,12 @@ public class AuthService {
                 if (row.getNickname() != null && !row.getNickname().trim().isEmpty()) {
                     newUser.setNickname(row.getNickname().trim());
                 }
+                newUser.setAllowNicknameChange(false);
                 newUser.setEmail(normalizedEmail);
                 newUser.setPassword(passwordEncoder.encode(rawPassword));
 
                 try {
-                    userInfoMapper.insert(newUser);
+                    accountCreationService.insert(newUser);
                 } catch (DuplicateKeyException e) {
                     result.getSkipped().add(new BatchImportResultVO.SkipDetail(
                             i + 1, username, normalizedEmail, "用户名或邮箱已存在，跳过"));
