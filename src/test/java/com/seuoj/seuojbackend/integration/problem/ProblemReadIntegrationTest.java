@@ -39,7 +39,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void guestShouldReadPublicProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/problem/p-public"))
+        mockMvc.perform(get("/api/problem/PPUBLIC"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.pid").value("PPUBLIC"));
@@ -50,7 +50,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void guestShouldNotReadPrivateProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/problem/p-private"))
+        mockMvc.perform(get("/api/problem/PPRIVATE"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(40400));
     }
@@ -60,7 +60,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void adminShouldReadPrivateProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/problem/p-private")
+        mockMvc.perform(get("/api/problem/PPRIVATE")
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -72,7 +72,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void shouldRejectWhenContestAndProblemSetContextBothProvided() throws Exception {
-        mockMvc.perform(get("/api/problem/p-public")
+        mockMvc.perform(get("/api/problem/PPUBLIC")
                         .queryParam("contest_id", "1")
                         .queryParam("problem_set_id", "1"))
                 .andExpect(status().isBadRequest())
@@ -86,7 +86,7 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
     void shouldReturn502WhenJudgeClientFetchContentFailed() throws Exception {
         when(judgeClient.fetchProblemContent(anyString())).thenThrow(new JudgeRemoteException("judge unavailable"));
 
-        mockMvc.perform(get("/api/problem/p-public"))
+        mockMvc.perform(get("/api/problem/PPUBLIC"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value(50001));
     }

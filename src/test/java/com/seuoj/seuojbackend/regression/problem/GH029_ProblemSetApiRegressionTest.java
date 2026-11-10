@@ -38,7 +38,7 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
                 """;
 
         String createResp = mockMvc.perform(post("/api/problem_set")
-                        .header("Authorization", bearerToken(10002L))
+                        .header("Authorization", bearerToken(10001L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBody))
                 .andExpect(status().isOk())
@@ -56,7 +56,7 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
 
         ProblemSet created = problemSetMapper.selectById(problemSetId);
         assertThat(created).isNotNull();
-        assertThat(created.getCreatedByUserId()).isEqualTo(10002L);
+        assertThat(created.getCreatedByUserId()).isEqualTo(10001L);
         assertThat(created.getTitle()).isEqualTo("GH029 回归题单");
 
         String replaceBody = """
@@ -68,14 +68,14 @@ class GH029_ProblemSetApiRegressionTest extends BaseIntegrationTest {
                 }
                 """;
         mockMvc.perform(post("/api/problem_set/{problem_set_id}/problem", problemSetId)
-                        .header("Authorization", bearerToken(10002L))
+                        .header("Authorization", bearerToken(10001L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(replaceBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
         String detailResp = mockMvc.perform(get("/api/problem_set/{problem_set_id}", problemSetId)
-                        .header("Authorization", bearerToken(10002L)))
+                        .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.problem_set_id").value(String.valueOf(problemSetId)))

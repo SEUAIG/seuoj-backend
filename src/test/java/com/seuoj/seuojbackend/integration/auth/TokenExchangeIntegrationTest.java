@@ -56,7 +56,7 @@ class TokenExchangeIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/user/me")
                         .header("Authorization", bearerToken(10002L)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.uuid").value("00000000-0000-0000-0000-000000010002"))
+                .andExpect(jsonPath("$.data.id").value("10002"))
                 .andExpect(jsonPath("$.data.username").value("normal_user"))
                 .andExpect(jsonPath("$.data.email").value("user@test.local"));
     }

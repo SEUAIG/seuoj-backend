@@ -94,7 +94,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
      */
     @Test
     void deleteShouldFailWhenProblemHasActiveRelations() throws Exception {
-        mockMvc.perform(delete("/api/problem/p-public")
+        mockMvc.perform(delete("/api/problem/PPUBLIC")
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40900));
@@ -113,7 +113,7 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
                 .setIsPublic(true);
         problemMapper.insert(unlinked);
 
-        mockMvc.perform(delete("/api/problem/p-unlinked")
+        mockMvc.perform(delete("/api/problem/PUNLINKED")
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));

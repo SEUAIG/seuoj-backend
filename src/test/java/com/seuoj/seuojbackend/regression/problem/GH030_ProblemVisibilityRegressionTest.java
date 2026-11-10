@@ -80,7 +80,7 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
      */
     @Test
     void normalUserShouldReceive404WhenReadingPrivateProblemDirectly() throws Exception {
-        mockMvc.perform(get("/api/problem/p-private")
+        mockMvc.perform(get("/api/problem/PPRIVATE")
                         .header("Authorization", bearerToken(10002L)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(40400));
@@ -91,7 +91,7 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
      */
     @Test
     void adminShouldReadPrivateProblemDetailDirectly() throws Exception {
-        mockMvc.perform(get("/api/problem/p-private")
+        mockMvc.perform(get("/api/problem/PPRIVATE")
                         .header("Authorization", bearerToken(10001L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
