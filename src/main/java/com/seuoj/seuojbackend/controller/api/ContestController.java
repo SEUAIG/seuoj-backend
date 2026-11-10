@@ -11,6 +11,7 @@ import com.seuoj.seuojbackend.dto.contest.ContestProblemEditDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestSubmitDTO;
 import com.seuoj.seuojbackend.dto.contest.ContestUpdateDTO;
 import com.seuoj.seuojbackend.service.ContestService;
+import com.seuoj.seuojbackend.service.SubmissionSkipService;
 import com.seuoj.seuojbackend.vo.contest.ContestCreateVO;
 import com.seuoj.seuojbackend.vo.contest.ContestDetailVO;
 import com.seuoj.seuojbackend.vo.contest.ContestPageVO;
@@ -41,9 +42,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContestController {
 
     private final ContestService contestService;
+    private final SubmissionSkipService skipService;
 
-    public ContestController(ContestService contestService) {
+    public ContestController(ContestService contestService, SubmissionSkipService skipService) {
         this.contestService = contestService;
+        this.skipService = skipService;
     }
 
     @RequireCapability(Capability.CONTEST_CREATE)
@@ -142,10 +145,17 @@ public class ContestController {
             @PathVariable("id") Long id,
             @PathVariable("submissionNo") String submissionNo) {
         ContestSubmissionDetailVO vo = contestService.getContestSubmissionDetail(id, submissionNo);
+        vo.setCanSkip(skipService.canSkip(com.seuoj.seuojbackend.interceptor.AuthContexts.userIdOrNull(), submissionNo));
         return Result.success(vo);
     }
 
     @AllowAnonymous
+    /** 比赛内 skip：按提交编号，或按账号名跳过该选手本场全部提交 */
+    @PostMapping("/{id}/submission/skip")
+    public Result<SubmissionSkipService.Outcome> skipContestSubmissions(@PathVariable("id") Long id,
+            @Valid @RequestBody SubmissionSkipService.ContestSkipRequest dto) {
+        return Result.success(skipService.skipInContest(com.seuoj.seuojbackend.interceptor.AuthContexts.requiredUserId(), id, dto));
+    }
 
     @GetMapping("/{id}/standings")
     public Result<ContestStandingsVO> getContestStandings(@PathVariable("id") Long id) {

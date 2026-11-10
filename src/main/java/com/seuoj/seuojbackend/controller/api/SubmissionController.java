@@ -9,6 +9,7 @@ import com.seuoj.seuojbackend.dto.submission.OnlineJudgeSubmitDTO;
 import com.seuoj.seuojbackend.dto.submission.SubmitDTO;
 import com.seuoj.seuojbackend.vo.submission.OnlineJudgeResultVO;
 import com.seuoj.seuojbackend.service.SubmissionService;
+import com.seuoj.seuojbackend.service.SubmissionSkipService;
 import com.seuoj.seuojbackend.vo.submission.SubmissionPageVO;
 import com.seuoj.seuojbackend.vo.submission.SubmissionResultVO;
 import com.seuoj.seuojbackend.vo.submission.SubmitVO;
@@ -26,9 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class SubmissionController {
     private final SubmissionService submissionService;
+    private final SubmissionSkipService skipService;
 
-    public SubmissionController(SubmissionService submissionService) {
+    public SubmissionController(SubmissionService submissionService, SubmissionSkipService skipService) {
         this.submissionService = submissionService;
+        this.skipService = skipService;
     }
 
     @RequireRole({ RoleType.STUDENT, RoleType.TEACHER, RoleType.ADMIN, RoleType.SUPER_ADMIN })
@@ -49,10 +52,17 @@ public class SubmissionController {
         return Result.success(submissionService.getSubmissionLanguages());
     }
 
+    @AllowAnonymous
+    /** skip / 取消 skip：比赛提交需要比赛 WRITE，其余需要题目或作业所在班级 WRITE。整批生效或整批不生效。 */
+    @PostMapping("/submission/skip")
+    public Result<SubmissionSkipService.Outcome> skip(@Valid @RequestBody SubmissionSkipService.SkipRequest dto) {
+        return Result.success(skipService.skip(com.seuoj.seuojbackend.interceptor.AuthContexts.requiredUserId(), dto));
+    }
 
     @GetMapping("/submission/{submissionNo}")
     public Result<SubmissionResultVO> getResult(@PathVariable String submissionNo) {
         SubmissionResultVO vo = submissionService.getResult(submissionNo);
+        vo.setCanSkip(skipService.canSkip(com.seuoj.seuojbackend.interceptor.AuthContexts.userIdOrNull(), submissionNo));
         return Result.success(vo);
     }
 

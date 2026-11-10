@@ -97,8 +97,17 @@ public class JudgeService {
                 .setErrorDetail(dto.getErrorDetail());
         submissionDetailMapper.insertOrUpdate(detail);
 
-        if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict)) {
+        if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict) && !isSkipped(submission.getId())) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
         }
+    }
+
+    /** 评测期间被 skip 的提交不再计入通过数（skip 时已从提交数里扣掉，这里不能再加通过数）。 */
+    private boolean isSkipped(Long submissionId) {
+        Submission current = submissionMapper.selectOne(new LambdaQueryWrapper<Submission>()
+                .select(Submission::getId, Submission::getIsSkipped)
+                .eq(Submission::getId, submissionId)
+                .last("FOR UPDATE"));
+        return current != null && Boolean.TRUE.equals(current.getIsSkipped());
     }
 }
