@@ -8,4 +8,5 @@ public class UserProfileVO {
     private String username;
     private String nickname;
     private String role;
+    private boolean canManageProfile;
 }

@@ -7,6 +7,8 @@ import lombok.Data;
  */
 @Data
 public class LoginVO {
+    Long id;
+    java.util.Set<com.seuoj.seuojbackend.common.Capability> capabilities;
     String jwt;
     String username;
     String nickname;

@@ -36,6 +36,9 @@ public class UserInfo implements Serializable {
     @TableField("nickname")
     private String nickname;
 
+    @TableField("allow_nickname_change")
+    private Boolean allowNicknameChange;
+
     /**
      * 邮箱
      */
@@ -45,8 +48,32 @@ public class UserInfo implements Serializable {
     /**
      * 加密密码
      */
+    @TableField("temporary_contest_id")
+    private Long temporaryContestId;
+
+    @TableField("is_enabled")
+    private Boolean isEnabled;
+
     @TableField("password")
     private String password;
+
+    /**
+     * 封禁时间，空表示未封禁；与比赛账号用的 is_enabled 相互独立
+     */
+    @TableField("banned_at")
+    private LocalDateTime bannedAt;
+
+    /**
+     * 封禁截止时间，空表示永久
+     */
+    @TableField("banned_until")
+    private LocalDateTime bannedUntil;
+
+    @TableField("ban_reason")
+    private String banReason;
+
+    @TableField("banned_by")
+    private Long bannedBy;
 
     /**
      * 创建时间

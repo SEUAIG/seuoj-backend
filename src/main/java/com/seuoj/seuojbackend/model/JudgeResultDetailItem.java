@@ -4,11 +4,13 @@ import com.seuoj.seuojbackend.common.SubmissionVerdict;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * 描述单个判题测试用例结果的值对象。
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class JudgeResultDetailItem {
     /**
      * 测试数据组号

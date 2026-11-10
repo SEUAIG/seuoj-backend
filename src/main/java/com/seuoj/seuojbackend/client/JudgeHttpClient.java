@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.seuoj.seuojbackend.client.dto.*;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.exception.JudgeRemoteException;
@@ -8,12 +9,15 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -176,6 +180,69 @@ public class JudgeHttpClient implements JudgeClient {
     }
 
     @Override
+    public void uploadProblemData(String pid, byte[] zipBytes) {
+        String url = judgeServerUrl + "/judge/problem/data/" + pid;
+        try {
+            MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+            parts.add("file", new ByteArrayResource(zipBytes) {
+                @Override
+                public String getFilename() {
+                    return pid + ".zip";
+                }
+            });
+            parts.add("format", "zip");
+
+            ResponseEntity<Result<Void>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(parts, buildMultipartHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<Void> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode())) {
+                log.error("上传题目测试数据失败, pid={}, body={}", pid, body);
+                throw new JudgeRemoteException("上传题目测试数据失败");
+            }
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            throw new JudgeRemoteException("无法向评测端上传题目测试数据", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法向评测端上传题目测试数据", ex);
+        }
+    }
+
+    @Override
+    public void updateProblemConfig(String pid, JsonNode config) {
+        String url = judgeServerUrl + "/judge/problem/config/" + pid;
+        try {
+            ResponseEntity<Result<Void>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.PUT,
+                    new HttpEntity<>(config, buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Result<Void> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode())) {
+                log.error("更新题目配置失败, pid={}, body={}", pid, body);
+                throw new JudgeRemoteException("更新题目配置失败");
+            }
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404) {
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            throw new JudgeRemoteException("无法向评测端更新题目配置", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法向评测端更新题目配置", ex);
+        }
+    }
+
+    @Override
     public void deleteProblem(String pid) {
         String url = judgeServerUrl + "/judge/problem/" + pid;
         try {
@@ -289,6 +356,50 @@ public class JudgeHttpClient implements JudgeClient {
             throw new JudgeRemoteException("无法向评测端获取题目文件", ex);
         } catch (RestClientException ex) {
             throw new JudgeRemoteException("无法向评测端获取题目文件", ex);
+        }
+    }
+
+    private HttpHeaders buildMultipartHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        if (judgeSecret != null && !judgeSecret.isEmpty()) {
+            headers.set(SECRET_HEADER, judgeSecret);
+        }
+        return headers;
+    }
+
+    @Override
+    public JudgeConcurrencyStatus fetchConcurrency() {
+        return exchangeConcurrency(HttpMethod.GET, null);
+    }
+
+    @Override
+    public JudgeConcurrencyStatus updateConcurrency(int limit) {
+        return exchangeConcurrency(HttpMethod.PUT, java.util.Map.of("limit", limit));
+    }
+
+    private JudgeConcurrencyStatus exchangeConcurrency(HttpMethod method, Object payload) {
+        String url = judgeServerUrl + "/judge/concurrency";
+        try {
+            ResponseEntity<Result<JudgeConcurrencyStatus>> response = restTemplate.exchange(
+                    url,
+                    method,
+                    new HttpEntity<>(payload, buildHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            Result<JudgeConcurrencyStatus> body = response.getBody();
+            if (body == null || !Integer.valueOf(0).equals(body.getCode()) || body.getData() == null) {
+                throw new JudgeRemoteException("判题端返回异常: " + body);
+            }
+            return body.getData();
+        } catch (HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404 || statusCode == 405) {
+                throw new JudgeRemoteException("判题端版本过旧，不支持在线调整并发", ex);
+            }
+            throw new JudgeRemoteException("判题端拒绝了并发设置请求（HTTP " + statusCode + "）", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法连接判题端", ex);
         }
     }
 

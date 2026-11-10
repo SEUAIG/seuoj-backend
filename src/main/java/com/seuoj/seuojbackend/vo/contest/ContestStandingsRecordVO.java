@@ -13,6 +13,12 @@ public class ContestStandingsRecordVO {
 
     private String nickname;
 
+    @JsonProperty("display_name")
+    private String displayName;
+
+    @JsonProperty("is_starred")
+    private Boolean isStarred;
+
     private Integer score;
 
     private Long penalty;

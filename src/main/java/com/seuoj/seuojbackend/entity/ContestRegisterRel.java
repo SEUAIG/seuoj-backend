@@ -30,6 +30,30 @@ public class ContestRegisterRel implements Serializable {
     @TableField("user_id")
     private Long userId;
 
+    @TableField("display_name")
+    private String displayName;
+
+    @TableField("is_starred")
+    private Boolean isStarred;
+
+    @TableField("is_managed")
+    private Boolean isManaged;
+
+    @TableField("student_no")
+    private String studentNo;
+
+    @TableField("college")
+    private String college;
+
+    @TableField("class_name")
+    private String className;
+
+    @TableField("contact_email")
+    private String contactEmail;
+
+    @TableField("notes")
+    private String notes;
+
     @TableField("joined_at")
     private LocalDateTime joinedAt;
 

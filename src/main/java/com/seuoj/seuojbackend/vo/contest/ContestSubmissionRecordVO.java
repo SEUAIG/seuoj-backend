@@ -14,7 +14,14 @@ public class ContestSubmissionRecordVO {
 
     private String status;
 
+    /** 被跳过时为 Skipped */
     private String verdict;
+
+    /** 跳过前的原始结果 */
+    @JsonProperty("original_verdict")
+    private String originalVerdict;
+
+    private boolean skipped;
 
     private Integer score;
 

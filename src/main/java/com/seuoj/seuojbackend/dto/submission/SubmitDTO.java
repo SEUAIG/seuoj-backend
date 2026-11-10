@@ -15,7 +15,7 @@ public class SubmitDTO {
 
     @NotBlank(message = "编程语言不能为空")
     @Pattern(
-            regexp = "^(C|Cpp|Cpp20|Python|Nodejs|Go|Java)$",
+            regexp = "^(C|Cpp|Cpp20|Python|Nodejs|Go|Java|Rust)$",
             message = "不支持的编程语言"
     )
     private String language;

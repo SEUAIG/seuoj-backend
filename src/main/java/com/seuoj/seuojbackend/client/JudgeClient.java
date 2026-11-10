@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.seuoj.seuojbackend.client.dto.*;
 
 
@@ -55,6 +56,22 @@ public interface JudgeClient {
     ProblemConfigDTO fetchProblemConfig(String pid);
 
     /**
+     * 上传题目测试数据压缩包
+     *
+     * @param pid      题目pid
+     * @param zipBytes zip 压缩包内容，解压后即为评测端 data 目录
+     */
+    void uploadProblemData(String pid, byte[] zipBytes);
+
+    /**
+     * 更新题目配置
+     *
+     * @param pid    题目pid
+     * @param config 评测端配置 JSON，原样透传
+     */
+    void updateProblemConfig(String pid, JsonNode config);
+
+    /**
      * 删除题目
      */
     void deleteProblem(String pid);
@@ -81,4 +98,17 @@ public interface JudgeClient {
      * @return 文件字节数组
      */
     byte[] fetchProblemFile(String pid, String fileName);
+
+    /**
+     * 判题并发上限、当前负载和计时探针样本
+     */
+    JudgeConcurrencyStatus fetchConcurrency();
+
+    /**
+     * 不重启判题端修改并发上限
+     *
+     * @param limit 新上限
+     * @return 修改后的状态（不含探针样本）
+     */
+    JudgeConcurrencyStatus updateConcurrency(int limit);
 }

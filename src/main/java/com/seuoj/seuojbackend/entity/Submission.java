@@ -105,4 +105,19 @@ public class Submission implements Serializable {
     @TableLogic
     private Integer isDel;
 
+    /**
+     * 被管理者跳过：保留原 verdict，但不计入榜单和任何统计
+     */
+    @TableField("is_skipped")
+    private Boolean isSkipped;
+
+    @TableField("skipped_at")
+    private LocalDateTime skippedAt;
+
+    @TableField("skipped_by")
+    private Long skippedBy;
+
+    @TableField("skip_reason")
+    private String skipReason;
+
 }

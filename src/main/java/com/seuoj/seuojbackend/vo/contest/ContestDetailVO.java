@@ -25,6 +25,9 @@ public class ContestDetailVO {
     @JsonProperty("is_registered")
     private Boolean isRegistered;
 
+    @JsonProperty("can_unregister")
+    private Boolean canUnregister;
+
     @JsonProperty("rule_type")
     private String ruleType;
 
