@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -27,6 +28,9 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private ProblemMapper problemMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     /**
      * 管理员创建题目成功，并写入数据库。
@@ -90,14 +94,19 @@ class ProblemManagementIntegrationTest extends BaseIntegrationTest {
     }
 
     /**
-     * 删除仍被关联的题目，应返回冲突。
+     * 删除采用逻辑删除，保留原始题目和比赛、题单关系。
      */
     @Test
-    void deleteShouldFailWhenProblemHasActiveRelations() throws Exception {
+    void deleteShouldSoftDeleteWithoutRemovingExistingRelations() throws Exception {
         mockMvc.perform(delete("/api/problem/PPUBLIC")
                         .header("Authorization", bearerToken(10001L)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(40900));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        assertThat(problemMapper.selectById(20001L)).isNull();
+        assertThat(jdbcTemplate.queryForObject("SELECT is_del FROM problem WHERE id = 20001", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM contest_problem_rel WHERE problem_id = 20001 AND is_del = 0", Long.class)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM problem_set_problem_rel WHERE problem_id = 20001 AND is_del = 0", Long.class)).isEqualTo(1L);
     }
 
     /**

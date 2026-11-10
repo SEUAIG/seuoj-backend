@@ -76,14 +76,14 @@ class GH030_ProblemVisibilityRegressionTest extends BaseIntegrationTest {
     }
 
     /**
-     * 普通用户直接按 pid 查看私有题时，应返回 404 以避免信息泄露。
+     * 普通用户直接按 pid 查看私有题时，应返回 403 拒绝访问。
      */
     @Test
-    void normalUserShouldReceive404WhenReadingPrivateProblemDirectly() throws Exception {
+    void normalUserShouldReceive403WhenReadingPrivateProblemDirectly() throws Exception {
         mockMvc.perform(get("/api/problem/PPRIVATE")
                         .header("Authorization", bearerToken(10002L)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(40400));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40300));
     }
 
     /**

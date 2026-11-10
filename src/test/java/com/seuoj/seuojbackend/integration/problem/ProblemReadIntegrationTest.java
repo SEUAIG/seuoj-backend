@@ -46,13 +46,13 @@ class ProblemReadIntegrationTest extends BaseIntegrationTest {
     }
 
     /**
-     * 匿名用户读取私有题目时应返回不存在，避免信息泄露。
+     * 匿名用户读取私有题目时应返回无权访问。
      */
     @Test
     void guestShouldNotReadPrivateProblemDetail() throws Exception {
         mockMvc.perform(get("/api/problem/PPRIVATE"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(40400));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40300));
     }
 
     /**
