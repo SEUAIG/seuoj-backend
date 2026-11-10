@@ -36,17 +36,19 @@ public class AnnouncementService {
     private final ClassInfoMapper classInfoMapper;
     private final AssignmentMapper assignmentMapper;
     private final PermissionService permissionService;
+    private final FileAccessService fileAccess;
 
     public AnnouncementService(AnnouncementMapper announcementMapper,
             AnnouncementAttachmentMapper attachmentMapper,
             ClassInfoMapper classInfoMapper,
             AssignmentMapper assignmentMapper,
-            PermissionService permissionService) {
+            PermissionService permissionService, FileAccessService fileAccess) {
         this.announcementMapper = announcementMapper;
         this.attachmentMapper = attachmentMapper;
         this.classInfoMapper = classInfoMapper;
         this.assignmentMapper = assignmentMapper;
         this.permissionService = permissionService;
+        this.fileAccess = fileAccess;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -267,6 +269,7 @@ public class AnnouncementService {
 
     private void insertAttachments(Long announcementId, List<AttachmentDTO> attachments) {
         for (AttachmentDTO att : attachments) {
+            fileAccess.assertAttach(AuthContexts.requiredUserId(), att.getFilePath());
             AnnouncementAttachment entity = new AnnouncementAttachment();
             entity.setAnnouncementId(announcementId);
             entity.setFilePath(att.getFilePath());
