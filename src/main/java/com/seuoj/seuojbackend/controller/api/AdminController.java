@@ -4,6 +4,7 @@ import com.seuoj.seuojbackend.common.*;
 import com.seuoj.seuojbackend.dto.user.UpdateProfileDTO;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
+import com.seuoj.seuojbackend.service.JudgeConcurrencyService;
 import com.seuoj.seuojbackend.service.UserBanService;
 import com.seuoj.seuojbackend.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
     private final UserSettingsService settings;
     private final UserBanService bans;
+    private final JudgeConcurrencyService judgeConcurrency;
     @PutMapping("/user/{userId}/role")
     public Result<Void> setUserRole(@PathVariable Long userId,@RequestBody Map<String,String> body) {
         Set<Capability> assigned=switch(Objects.toString(body.get("role"), "").toUpperCase(Locale.ROOT)) {
@@ -39,5 +41,15 @@ public class AdminController {
     @PostMapping("/users/unban")
     public Result<UserBanService.Outcome> unban(@RequestBody UserBanService.UnbanRequest dto) {
         return Result.success(bans.unban(AuthContexts.requiredUserId(),dto));
+    }
+    /** 判题并发、负载与计时探针（管理员可看） */
+    @GetMapping("/judge/concurrency")
+    public Result<JudgeConcurrencyService.Status> judgeConcurrency() {
+        return Result.success(judgeConcurrency.status(AuthContexts.requiredUserId()));
+    }
+    /** 修改判题并发，不重启判题端（仅超级管理员） */
+    @PutMapping("/judge/concurrency")
+    public Result<JudgeConcurrencyService.Status> setJudgeConcurrency(@RequestBody Map<String,Integer> body) {
+        return Result.success(judgeConcurrency.update(AuthContexts.requiredUserId(),body.get("limit")));
     }
 }
