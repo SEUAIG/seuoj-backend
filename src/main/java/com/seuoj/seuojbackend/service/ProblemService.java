@@ -338,14 +338,16 @@ public class ProblemService {
         if (dto.getTags() != null) {
             updateProblemTags(problem.getId(), dto.getTags());
         }
-        judgeClient.updateProblem(buildJudgeRequest(
+        JudgeProblemEditRequest createRequest = buildJudgeRequest(
                 dto.getPid(),
                 dto.getDescription(),
                 dto.getInput(),
                 dto.getOutput(),
                 dto.getExample(),
                 dto.getHint()
-        ));
+        );
+        createRequest.setStatementType(dto.getStatementType());
+        judgeClient.updateProblem(createRequest);
 
         ProblemCreateVO vo = new ProblemCreateVO();
         vo.setPid(dto.getPid());

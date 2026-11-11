@@ -28,6 +28,10 @@ public class ProblemCreateDTO {
 
     private List<Long> tags;
 
+    @JsonProperty("statement_type")
+    @Pattern(regexp = "Standard|Special|Interactive|InteractiveWithInput|Communication")
+    private String statementType;
+
     private String description;
 
     private String input;

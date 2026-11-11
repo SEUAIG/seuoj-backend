@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 import com.seuoj.seuojbackend.model.ProblemCommon;
@@ -9,6 +10,8 @@ import lombok.Data;
 @Data
 public class ProblemContentDTO {
     private String pid;
+    @JsonProperty("statement_type")
+    private String statementType;
     private String description;
     private String input;
     private String output;

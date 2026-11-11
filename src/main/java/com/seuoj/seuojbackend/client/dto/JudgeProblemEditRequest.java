@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.seuoj.seuojbackend.model.ProblemCommon;
 import java.util.List;
@@ -12,6 +13,8 @@ import lombok.Data;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class JudgeProblemEditRequest {
     private String pid;
+    @JsonProperty("statement_type")
+    private String statementType;
     private String description;
     private String input;
     private String output;
