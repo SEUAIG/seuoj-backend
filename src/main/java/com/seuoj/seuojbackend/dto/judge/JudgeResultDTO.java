@@ -32,5 +32,14 @@ public class JudgeResultDTO {
 
     private Integer score;
 
+    /** 评测这份提交的评测机，如 judge-0（旧判题端没有） */
+    private String judgeHost;
+
+    /** 评测开始时间，Unix 毫秒 */
+    private Long judgeStartedAt;
+
+    /** 评测耗时，毫秒 */
+    private Long judgeMs;
+
     // 回调来源验证由接口层请求头密钥校验负责
 }

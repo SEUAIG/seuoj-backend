@@ -514,6 +514,9 @@ CREATE TABLE `submission`
     `skipped_at`    datetime                                                     NULL     DEFAULT NULL COMMENT '跳过时间',
     `skipped_by`    bigint                                                       NULL     DEFAULT NULL COMMENT '操作者',
     `skip_reason`   varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '跳过原因',
+    `judge_host`    varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NULL DEFAULT NULL COMMENT '最近一次评测的评测机，如 judge-0',
+    `judge_started_at` datetime(3)                                              NULL DEFAULT NULL COMMENT '最近一次评测开始时间',
+    `judge_ms`      int                                                          NULL DEFAULT NULL COMMENT '最近一次评测耗时（毫秒，含编译）',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_submission_no` (`submission_no` ASC) USING BTREE,
     INDEX `idx_user` (`user_id` ASC) USING BTREE,
@@ -521,6 +524,7 @@ CREATE TABLE `submission`
     INDEX `idx_status` (`status` ASC) USING BTREE,
     INDEX `idx_user_time` (`user_id` ASC, `submit_time` DESC) USING BTREE,
     INDEX `idx_assignment` (`assignment_id` ASC) USING BTREE,
+    INDEX `idx_submission_judge_host` (`judge_host` ASC, `judge_started_at` ASC) USING BTREE,
     CONSTRAINT `fk_submission_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT `fk_submission_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT `fk_submission_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT

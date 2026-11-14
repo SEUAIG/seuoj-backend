@@ -79,6 +79,17 @@ public class JudgeService {
                 .setVerdict(verdict)
                 .setFinishTime(LocalDateTime.now())
                 .setScore(dto.getScore());
+        if (dto.getJudgeHost() != null && !dto.getJudgeHost().isBlank()) {
+            String host = dto.getJudgeHost().trim();
+            updateEntity.setJudgeHost(host.length() > 32 ? host.substring(0, 32) : host);
+            if (dto.getJudgeStartedAt() != null) {
+                updateEntity.setJudgeStartedAt(LocalDateTime.ofInstant(
+                        java.time.Instant.ofEpochMilli(dto.getJudgeStartedAt()), java.time.ZoneId.systemDefault()));
+            }
+            if (dto.getJudgeMs() != null) {
+                updateEntity.setJudgeMs((int) Math.min(Integer.MAX_VALUE, Math.max(0, dto.getJudgeMs())));
+            }
+        }
 
         int updatedRows = submissionMapper.update(updateEntity, new LambdaUpdateWrapper<Submission>()
                 .eq(Submission::getSubmissionNo, submissionNo)

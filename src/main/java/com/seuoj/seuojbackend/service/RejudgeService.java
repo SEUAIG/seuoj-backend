@@ -98,6 +98,17 @@ public class RejudgeService {
         return reset(actor, targets);
     }
 
+    /** 按评测机重测（含比赛提交）。权限由调用方（JudgeHostService，仅超级管理员）检查 */
+    @Transactional
+    public Outcome rejudgeJudgeHost(Long actor, String host, LocalDateTime since) {
+        List<Submission> targets = submissions.selectList(new LambdaQueryWrapper<Submission>()
+                .eq(Submission::getJudgeHost, host)
+                .ge(since != null, Submission::getJudgeStartedAt, since)
+                .orderByAsc(Submission::getId).last("FOR UPDATE"));
+        if (targets.isEmpty()) throw new BadRequestException("这台评测机在所选时间内没有评过提交");
+        return reset(actor, targets);
+    }
+
     private Problem requireProblem(String pid) {
         Problem problem = problems.selectOne(new LambdaQueryWrapper<Problem>().eq(Problem::getPid, pid));
         if (problem == null) throw new NotFoundException("题目不存在：" + pid);

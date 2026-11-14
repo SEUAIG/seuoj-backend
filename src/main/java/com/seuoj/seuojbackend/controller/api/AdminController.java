@@ -4,7 +4,8 @@ import com.seuoj.seuojbackend.common.*;
 import com.seuoj.seuojbackend.dto.user.UpdateProfileDTO;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
-import com.seuoj.seuojbackend.service.JudgeConcurrencyService;
+import com.seuoj.seuojbackend.service.JudgeHostService;
+import com.seuoj.seuojbackend.service.RejudgeService;
 import com.seuoj.seuojbackend.service.UserBanService;
 import com.seuoj.seuojbackend.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
     private final UserSettingsService settings;
     private final UserBanService bans;
-    private final JudgeConcurrencyService judgeConcurrency;
+    private final JudgeHostService judgeHosts;
     @PutMapping("/user/{userId}/role")
     public Result<Void> setUserRole(@PathVariable Long userId,@RequestBody Map<String,String> body) {
         Set<Capability> assigned=switch(Objects.toString(body.get("role"), "").toUpperCase(Locale.ROOT)) {
@@ -42,14 +43,40 @@ public class AdminController {
     public Result<UserBanService.Outcome> unban(@RequestBody UserBanService.UnbanRequest dto) {
         return Result.success(bans.unban(AuthContexts.requiredUserId(),dto));
     }
-    /** 判题并发、负载与计时探针（管理员可看） */
-    @GetMapping("/judge/concurrency")
-    public Result<JudgeConcurrencyService.Status> judgeConcurrency() {
-        return Result.success(judgeConcurrency.status(AuthContexts.requiredUserId()));
+    /** 评测机列表、排队与计时探针（管理员可看；以下修改类接口仅超级管理员） */
+    @GetMapping("/judge/hosts")
+    public Result<JudgeHostService.Status> judgeHosts() {
+        return Result.success(judgeHosts.status(AuthContexts.requiredUserId()));
     }
-    /** 修改判题并发，不重启判题端（仅超级管理员） */
-    @PutMapping("/judge/concurrency")
-    public Result<JudgeConcurrencyService.Status> setJudgeConcurrency(@RequestBody Map<String,Integer> body) {
-        return Result.success(judgeConcurrency.update(AuthContexts.requiredUserId(),body.get("limit")));
+    @PostMapping("/judge/hosts")
+    public Result<JudgeHostService.Status> addJudgeHost() {
+        return Result.success(judgeHosts.add(AuthContexts.requiredUserId()));
+    }
+    @DeleteMapping("/judge/hosts/{id}")
+    public Result<JudgeHostService.Status> removeJudgeHost(@PathVariable int id) {
+        return Result.success(judgeHosts.remove(AuthContexts.requiredUserId(),id));
+    }
+    /** body: {"enabled": true|false} */
+    @PutMapping("/judge/hosts/{id}/enabled")
+    public Result<JudgeHostService.Status> setJudgeHostEnabled(@PathVariable int id,@RequestBody Map<String,Boolean> body) {
+        return Result.success(judgeHosts.setEnabled(AuthContexts.requiredUserId(),id,requireEnabled(body)));
+    }
+    @PutMapping("/judge/hosts/enabled")
+    public Result<JudgeHostService.Status> setAllJudgeHostsEnabled(@RequestBody Map<String,Boolean> body) {
+        return Result.success(judgeHosts.setAllEnabled(AuthContexts.requiredUserId(),requireEnabled(body)));
+    }
+    @GetMapping("/judge/hosts/{id}/judgings")
+    public Result<List<JudgeHostService.Judging>> judgeHostJudgings(@PathVariable int id) {
+        return Result.success(judgeHosts.judgings(AuthContexts.requiredUserId(),id));
+    }
+    /** body: {"hours": n}，不给表示不限时间 */
+    @PostMapping("/judge/hosts/{id}/rejudge")
+    public Result<RejudgeService.Outcome> rejudgeJudgeHost(@PathVariable int id,@RequestBody(required=false) Map<String,Integer> body) {
+        return Result.success(judgeHosts.rejudge(AuthContexts.requiredUserId(),id,body==null?null:body.get("hours")));
+    }
+    private static boolean requireEnabled(Map<String,Boolean> body) {
+        Boolean enabled=body==null?null:body.get("enabled");
+        if(enabled==null) throw new BadRequestException("缺少 enabled");
+        return enabled;
     }
 }
