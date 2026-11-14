@@ -306,15 +306,22 @@ public class SubmissionService {
 
         Long contestId = contestSubmissionMapper.findContestIdBySubmissionId(submission.getId());
         Contest contest = null;
+        boolean publicView = false;
         if (contestId != null) {
             contest = contestMapper.selectById(contestId);
             if (contest == null) throw new NotFoundException("比赛不存在");
             contestSubmissionPolicy.assertCanView(userId, contest, submission);
         } else if (!Objects.equals(submission.getUserId(), userId) && !isTeacherOrAdmin(userId)) {
-            throw new ForbiddenException("无权查看他人提交记录");
+            if (!isPubliclyVisible(submission, problem)) {
+                throw new ForbiddenException("无权查看他人提交记录");
+            }
+            publicView = true;
         }
         SubmissionDetail detail = submissionDetailMapper.selectById(submission.getId());
         SubmissionResultVO vo = convertToResultVO(submission, problem, contest == null ? detail : null);
+        if (publicView) {
+            applyPublicView(vo, submission, detail);
+        }
         if (contest != null) {
             ContestSubmissionPolicy.Result visible = contestSubmissionPolicy.project(userId, contest, submission, detail);
             vo.setContestId(contestId);
@@ -351,11 +358,12 @@ public class SubmissionService {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "未登录");
         }
         Long currentUserId = userContext.getUserId();
-        Long effectiveUserId = userRoleService.isTeacherOrAdmin(currentUserId) ? userId : currentUserId;
+        // 教师、管理员不受限；其他人看到自己的全部提交和他人可公开查看的提交（规则见 isPubliclyVisible）
+        Long viewerId = userRoleService.isTeacherOrAdmin(currentUserId) ? null : currentUserId;
 
         Page<SubmissionListItemVO> page = new Page<>(current, size);
         IPage<SubmissionListItemVO> pageResult = submissionMapper.selectSubmissionPage(
-                page, effectiveUserId, verdict, assignmentId, pid, language, username);
+                page, userId, verdict, assignmentId, pid, language, username, viewerId, LocalDateTime.now());
 
         SubmissionPageVO result = new SubmissionPageVO();
         result.setCurrent(pageResult.getCurrent());
@@ -425,6 +433,35 @@ public class SubmissionService {
         vo.setUsername(user != null ? user.getUsername() : null);
         vo.setNickname(user != null ? user.getNickname() : null);
         return vo;
+    }
+
+    /**
+     * 他人的非比赛提交能否公开查看：不是作业提交、题目公开、题目不在进行中的比赛里。
+     * 与 SubmissionMapper.selectSubmissionPage 的 viewerId 条件保持一致。
+     */
+    boolean isPubliclyVisible(Submission submission, Problem problem) {
+        return submission.getAssignmentId() == null
+                && Boolean.TRUE.equals(problem.getIsPublic())
+                && submissionMapper.countRunningContestsUsingProblem(problem.getId(), LocalDateTime.now()) == 0;
+    }
+
+    /** 他人查看：保留代码与每个测试点的判定、用时、内存、得分，去掉测试输入、答案、输出和 checker 信息 */
+    private void applyPublicView(SubmissionResultVO vo, Submission submission, SubmissionDetail detail) {
+        boolean finished = "Finished".equals(submission.getStatus()) || "Failed".equals(submission.getStatus());
+        List<JudgeResultDetailItem> raw = detail == null ? null : detail.getResultDetail();
+        vo.setResultDetail(!finished || raw == null ? null : raw.stream().filter(Objects::nonNull).map(item -> {
+            JudgeResultDetailItem safe = new JudgeResultDetailItem();
+            safe.setId(item.getId());
+            safe.setTime(item.getTime());
+            safe.setMem(item.getMem());
+            safe.setType(item.getType());
+            safe.setScore(item.getScore());
+            return safe;
+        }).toList());
+        if (!finished) vo.setSubtasks(null);
+        vo.setErrorDetail("CompileError".equals(submission.getVerdict()) && detail != null
+                ? truncateJudgeDetail(detail.getErrorDetail()) : null);
+        vo.setTestDataVisible(false);
     }
 
     private boolean isTeacherOrAdmin(Long userId) {

@@ -27,6 +27,18 @@
         <if test="userId != null">
           AND s.user_id = #{userId}
         </if>
+        <!-- Non-managers: own submissions, plus others' that are not homework, on public problems,
+             and whose problem is not in a contest running right now. Keep in sync with SubmissionService.isPubliclyVisible. -->
+        <if test="viewerId != null">
+          AND (s.user_id = #{viewerId}
+               OR (s.assignment_id IS NULL
+                   AND p.is_public = 1
+                   AND NOT EXISTS (
+                       SELECT 1 FROM contest_problem_rel cpr
+                       JOIN contest c ON c.id = cpr.contest_id AND c.is_del = 0
+                       WHERE cpr.problem_id = s.problem_id AND cpr.is_del = 0
+                         AND c.start_time &lt;= #{now} AND c.end_time &gt; #{now})))
+        </if>
         <if test="verdict != null and verdict != ''">
           AND CASE WHEN s.is_skipped = 1 THEN 'Skipped' ELSE s.verdict END = #{verdict}
         </if>

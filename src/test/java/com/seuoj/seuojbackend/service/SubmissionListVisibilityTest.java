@@ -23,8 +23,8 @@ class SubmissionListVisibilityTest {
     private void login(boolean teacher) {
         UserContextHolder.set(UserContext.of(10L, AuthStatus.AUTHENTICATED));
         when(roles.isTeacherOrAdmin(10L)).thenReturn(teacher);
-        when(submissions.selectSubmissionPage(any(), nullable(Long.class), any(), any(), any(), any(), any()))
-                .thenReturn(new Page<>(1, 20));
+        when(submissions.selectSubmissionPage(any(), nullable(Long.class), any(), any(), any(), any(), any(),
+                nullable(Long.class), any())).thenReturn(new Page<>(1, 20));
     }
 
     @Test void anonymousCannotEnumerateStudentsSubmissions() {
@@ -34,22 +34,31 @@ class SubmissionListVisibilityTest {
         verifyNoInteractions(submissions);
     }
 
-    @Test void studentCannotOverrideOwnerWithUserIdAndUsername() {
+    @Test void studentFiltersAreLimitedToOwnAndPubliclyVisibleSubmissions() {
         login(false);
         service.listSubmissions(1, 20, 99L, null, 9L, "FN26101", null, "other-student");
-        verify(submissions).selectSubmissionPage(any(), eq(10L), isNull(), eq(9L),
-                eq("FN26101"), isNull(), eq("other-student"));
+        verify(submissions).selectSubmissionPage(any(), eq(99L), isNull(), eq(9L),
+                eq("FN26101"), isNull(), eq("other-student"), eq(10L), notNull());
+    }
+
+    @Test void studentListDefaultsToVisibleSubmissionsOfEveryone() {
+        login(false);
+        service.listSubmissions(1, 20, null, null, null, null, null, null);
+        verify(submissions).selectSubmissionPage(any(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(10L), notNull());
     }
 
     @Test void teacherCanFilterAnotherStudentsSubmissions() {
         login(true);
         service.listSubmissions(1, 20, 99L, null, 9L, null, null, null);
-        verify(submissions).selectSubmissionPage(any(), eq(99L), isNull(), eq(9L), isNull(), isNull(), isNull());
+        verify(submissions).selectSubmissionPage(any(), eq(99L), isNull(), eq(9L), isNull(), isNull(), isNull(),
+                isNull(), notNull());
     }
 
     @Test void teacherCanSeeAllStudents() {
         login(true);
         service.listSubmissions(1, 20, null, null, null, null, null, null);
-        verify(submissions).selectSubmissionPage(any(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
+        verify(submissions).selectSubmissionPage(any(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), notNull());
     }
 }
