@@ -100,15 +100,19 @@ public interface JudgeClient {
     byte[] fetchProblemFile(String pid, String fileName);
 
     /**
-     * 判题并发上限、当前负载和计时探针样本
+     * 评测机列表、排队和计时探针样本
      */
-    JudgeConcurrencyStatus fetchConcurrency();
+    JudgeHostsStatus fetchHosts();
 
     /**
-     * 不重启判题端修改并发上限
+     * 不重启判题端替换评测机列表：没列出的评测机评完手上的提交后删除
      *
-     * @param limit 新上限
+     * @param hosts 全部评测机及是否启用
      * @return 修改后的状态（不含探针样本）
      */
-    JudgeConcurrencyStatus updateConcurrency(int limit);
+    JudgeHostsStatus updateHosts(java.util.List<HostSetting> hosts);
+
+    /** 一台评测机的设置 */
+    record HostSetting(int id, boolean enabled) {
+    }
 }

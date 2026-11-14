@@ -120,4 +120,15 @@ public class Submission implements Serializable {
     @TableField("skip_reason")
     private String skipReason;
 
+    /** 最近一次评测的评测机，如 judge-0 */
+    @TableField("judge_host")
+    private String judgeHost;
+
+    @TableField("judge_started_at")
+    private LocalDateTime judgeStartedAt;
+
+    /** 最近一次评测耗时（毫秒，含编译） */
+    @TableField("judge_ms")
+    private Integer judgeMs;
+
 }

@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 /**
  * 重测送评队列。判题端同时只评少数几份，整题重测一次可能有上千条：
  * 这里逐条送出，判题端手上已有 maxInFlight 份在评时就等，新提交（提交时直接送评）可以随时插进来。
- * maxInFlight 跟随判题端当前并发（见 JudgeConcurrencyService）。
+ * maxInFlight 等于判题端当前启用的评测机数（见 JudgeHostService）。
  * <p>
  * 队列只在内存里；重启后把最近 24 小时仍为 Pending 的提交重新放回队列。
  */
@@ -40,7 +40,7 @@ public class RejudgeDispatcher {
     private final ProblemMapper problems;
     private final CodeStorage codeStorage;
     private final JudgeClient judgeClient;
-    /** 初始值来自配置，之后由 JudgeConcurrencyService 按判题端实际并发更新 */
+    /** 初始值来自配置，之后由 JudgeHostService 按判题端启用的评测机数更新 */
     private volatile int maxInFlight;
     private final long pollMillis;
 

@@ -369,25 +369,25 @@ public class JudgeHttpClient implements JudgeClient {
     }
 
     @Override
-    public JudgeConcurrencyStatus fetchConcurrency() {
-        return exchangeConcurrency(HttpMethod.GET, null);
+    public JudgeHostsStatus fetchHosts() {
+        return exchangeHosts(HttpMethod.GET, null);
     }
 
     @Override
-    public JudgeConcurrencyStatus updateConcurrency(int limit) {
-        return exchangeConcurrency(HttpMethod.PUT, java.util.Map.of("limit", limit));
+    public JudgeHostsStatus updateHosts(java.util.List<HostSetting> hosts) {
+        return exchangeHosts(HttpMethod.PUT, java.util.Map.of("hosts", hosts));
     }
 
-    private JudgeConcurrencyStatus exchangeConcurrency(HttpMethod method, Object payload) {
-        String url = judgeServerUrl + "/judge/concurrency";
+    private JudgeHostsStatus exchangeHosts(HttpMethod method, Object payload) {
+        String url = judgeServerUrl + "/judge/hosts";
         try {
-            ResponseEntity<Result<JudgeConcurrencyStatus>> response = restTemplate.exchange(
+            ResponseEntity<Result<JudgeHostsStatus>> response = restTemplate.exchange(
                     url,
                     method,
                     new HttpEntity<>(payload, buildHeaders()),
                     new ParameterizedTypeReference<>() {
                     });
-            Result<JudgeConcurrencyStatus> body = response.getBody();
+            Result<JudgeHostsStatus> body = response.getBody();
             if (body == null || !Integer.valueOf(0).equals(body.getCode()) || body.getData() == null) {
                 throw new JudgeRemoteException("判题端返回异常: " + body);
             }
@@ -395,9 +395,9 @@ public class JudgeHttpClient implements JudgeClient {
         } catch (HttpStatusCodeException ex) {
             int statusCode = ex.getStatusCode().value();
             if (statusCode == 404 || statusCode == 405) {
-                throw new JudgeRemoteException("判题端版本过旧，不支持在线调整并发", ex);
+                throw new JudgeRemoteException("判题端版本过旧，不支持评测机管理", ex);
             }
-            throw new JudgeRemoteException("判题端拒绝了并发设置请求（HTTP " + statusCode + "）", ex);
+            throw new JudgeRemoteException("判题端拒绝了评测机设置请求（HTTP " + statusCode + "）", ex);
         } catch (RestClientException ex) {
             throw new JudgeRemoteException("无法连接判题端", ex);
         }
