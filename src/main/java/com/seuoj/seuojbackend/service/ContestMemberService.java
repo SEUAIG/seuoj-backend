@@ -258,7 +258,6 @@ public class ContestMemberService {
                 var row = rows.get(i); var item = plan.get(i);
                 String password = randomPassword();
                 UserInfo user = new UserInfo().setUsername(item.username())
-                        .setNickname(row.getDisplayName().substring(0, Math.min(64, row.getDisplayName().length())))
                         .setEmail("contest-" + UUID.randomUUID() + "@accounts.invalid")
                         .setAllowNicknameChange(false).setPassword(passwordEncoder.encode(password)).setTemporaryContestId(contestId).setIsEnabled(true);
                 accountCreationService.insert(user);

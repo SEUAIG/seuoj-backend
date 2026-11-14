@@ -21,6 +21,7 @@ public final class ContestStandingMembership {
         Integer previousOriginalRank = null;
         for (var record : records) {
             var member = byUsername.get(record.getUsername());
+            record.setUserId(member == null ? null : member.getUserId());
             record.setDisplayName(member == null ? null : member.getDisplayName());
             boolean starred = member != null && Boolean.TRUE.equals(member.getIsStarred());
             record.setIsStarred(starred);
