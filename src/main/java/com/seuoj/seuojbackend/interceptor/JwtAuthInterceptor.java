@@ -92,6 +92,10 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
                     parsedToken.subject(), method, requestUri, controllerName, methodName);
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "令牌无效或已过期");
         }
+        if (!jwtUtil.matchesCredentials(parsedToken, user)) {
+            log.info("JWT 签发后密码已变更，令牌作废 - userId: {}, URI: {} {}", user.getId(), method, requestUri);
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "密码已变更，请重新登录");
+        }
 
         log.info("JWT 鉴权成功 - userId: {}, URI: {} {}, Controller: {}.{}",
                 user.getId(), method, requestUri, controllerName, methodName);

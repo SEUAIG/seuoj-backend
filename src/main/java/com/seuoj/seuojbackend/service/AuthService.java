@@ -181,7 +181,7 @@ public class AuthService {
         if (UserBans.isBanned(user)) {
             throw new AuthorizationException(UserBans.message(user));
         }
-        String token = jwtUtil.createAccessToken(String.valueOf(user.getId()));
+        String token = jwtUtil.createAccessToken(user);
 
         LoginVO loginVO = new LoginVO();
         loginVO.setJwt(token);
@@ -212,16 +212,18 @@ public class AuthService {
         if (UserBans.isBanned(user)) {
             throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), UserBans.message(user));
         }
+        if (!jwtUtil.matchesCredentials(parsedToken, user)) {
+            throw new AuthorizationException(ErrorCode.NOT_LOGIN_ERROR.getCode(), "密码已变更，请重新登录");
+        }
 
-        String userIdStr = String.valueOf(user.getId());
         TokenExchangeVO response = new TokenExchangeVO();
         if (parsedToken.tokenType() == JwtTokenType.TEMP) {
-            response.setAccessToken(jwtUtil.createAccessToken(userIdStr));
+            response.setAccessToken(jwtUtil.createAccessToken(user));
             return response;
         }
 
         if (parsedToken.tokenType() == JwtTokenType.ACCESS) {
-            response.setTempToken(jwtUtil.createTempToken(userIdStr));
+            response.setTempToken(jwtUtil.createTempToken(user));
             return response;
         }
 
