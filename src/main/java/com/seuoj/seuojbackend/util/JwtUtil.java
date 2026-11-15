@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -19,7 +20,12 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import com.seuoj.seuojbackend.entity.UserInfo;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,12 +93,25 @@ public class JwtUtil {
         }
     }
 
-    public String createAccessToken(String userPublicId) {
-        return createToken(userPublicId, JwtTokenType.ACCESS, accessExpirationSeconds);
+    public String createAccessToken(UserInfo user) {
+        return createToken(user, JwtTokenType.ACCESS, accessExpirationSeconds);
     }
 
-    public String createTempToken(String userPublicId) {
-        return createToken(userPublicId, JwtTokenType.TEMP, tempExpirationSeconds);
+    public String createTempToken(UserInfo user) {
+        return createToken(user, JwtTokenType.TEMP, tempExpirationSeconds);
+    }
+
+    /**
+     * 令牌是否签发于用户当前密码之下。改密码后旧令牌的 pwd 声明对不上，随即失效；
+     * 没有 pwd 声明的旧格式令牌一律视为失效。
+     */
+    public boolean matchesCredentials(ParsedToken token, UserInfo user) {
+        if (token.credentialStamp() == null || user.getPassword() == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                token.credentialStamp().getBytes(StandardCharsets.US_ASCII),
+                credentialStamp(user.getPassword()).getBytes(StandardCharsets.US_ASCII));
     }
 
     public ParsedToken parseToken(String token) {
@@ -129,15 +148,15 @@ public class JwtUtil {
             }
 
             JwtTokenType tokenType = JwtTokenType.fromClaimValue(tokenTypeValue);
-            return new ParsedToken(subject, tokenType);
+            return new ParsedToken(subject, tokenType, asString(payload.get("pwd")));
         } catch (Exception e) {
             return null;
         }
     }
 
-    private String createToken(String userPublicId, JwtTokenType tokenType, long expirationSeconds) {
-        if (userPublicId == null || userPublicId.isBlank()) {
-            throw new IllegalArgumentException("userPublicId 不能为空");
+    private String createToken(UserInfo user, JwtTokenType tokenType, long expirationSeconds) {
+        if (user == null || user.getId() == null || user.getPassword() == null) {
+            throw new IllegalArgumentException("签发令牌需要用户 ID 与密码哈希");
         }
 
         long now = Instant.now().getEpochSecond();
@@ -146,11 +165,12 @@ public class JwtUtil {
         header.put("typ", "JWT");
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("sub", userPublicId);
+        payload.put("sub", String.valueOf(user.getId()));
         payload.put("iat", now);
         payload.put("exp", now + expirationSeconds);
         payload.put("token_type", tokenType.getClaimValue());
         payload.put("jti", UUID.randomUUID().toString());
+        payload.put("pwd", credentialStamp(user.getPassword()));
 
         try {
             String encodedHeader = encodeJson(header);
@@ -160,6 +180,20 @@ public class JwtUtil {
             return signingInput + "." + signature;
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("序列化 JWT 负载失败", e);
+        }
+    }
+
+    /**
+     * 密码哈希的指纹：以签名私钥为 HMAC 密钥，避免令牌里出现可离线比对的密码派生值。
+     */
+    private String credentialStamp(String passwordHash) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(privateKey.getEncoded(), "HmacSHA256"));
+            byte[] digest = mac.doFinal(passwordHash.getBytes(StandardCharsets.UTF_8));
+            return URL_ENCODER.encodeToString(Arrays.copyOf(digest, 16));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("计算令牌密码指纹失败", e);
         }
     }
 
@@ -227,6 +261,6 @@ public class JwtUtil {
         return Long.parseLong(value.toString());
     }
 
-    public record ParsedToken(String subject, JwtTokenType tokenType) {
+    public record ParsedToken(String subject, JwtTokenType tokenType, String credentialStamp) {
     }
 }
