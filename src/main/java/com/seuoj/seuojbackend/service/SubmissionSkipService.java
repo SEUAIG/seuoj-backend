@@ -40,6 +40,7 @@ public class SubmissionSkipService {
     private final AssignmentMapper assignments;
     private final UserInfoMapper users;
     private final PermissionService permissions;
+    private final ContestBalloonService balloons;
 
     public record SkipRequest(@Size(max = MAX_BATCH, message = "一次最多处理 500 条提交") List<String> submissionNos,
                               @NotNull(message = "skipped 不能为空") Boolean skipped,
@@ -154,6 +155,7 @@ public class SubmissionSkipService {
         int changed = 0;
         // 题目计数按题目汇总后一次修正：跳过 = 撤销这次提交（以及通过）对计数的贡献
         Map<Long, int[]> deltas = new HashMap<>();
+        List<Long> changedIds = new ArrayList<>();
         for (Submission s : targets) {
             if (Boolean.TRUE.equals(s.getIsSkipped()) == skipped) continue;
             LambdaUpdateWrapper<Submission> update = new LambdaUpdateWrapper<Submission>().eq(Submission::getId, s.getId())
@@ -167,9 +169,12 @@ public class SubmissionSkipService {
             int[] d = deltas.computeIfAbsent(s.getProblemId(), k -> new int[2]);
             d[0] += sign;
             if (accepted) d[1] += sign;
+            changedIds.add(s.getId());
             changed++;
         }
         deltas.forEach((problemId, d) -> problems.adjustTotalCounts(problemId, d[0], d[1]));
+        // skip 掉 AC 要撤气球，取消 skip 可能要补气球；事务提交后独立执行，失败不影响 skip 本身
+        balloons.reconcileAfterCommit(changedIds);
         if (changed > 0) log.info("用户 {} {}了 {} 条提交", actor, skipped ? "跳过" : "取消跳过", changed);
         return new Outcome(targets.size(), changed);
     }

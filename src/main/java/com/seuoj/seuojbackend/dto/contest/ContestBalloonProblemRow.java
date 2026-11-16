@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 public class ContestBalloonProblemRow {
 
+    private Long problemId;
     private String pid;
     private String title;
     private String balloonColor;

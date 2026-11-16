@@ -18,6 +18,8 @@ public class ContestBalloonItemVO {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime deliveredAt;
+    /** 对应提交已被重测改判或 skip（只会出现在已送达的气球上，待送达的会直接撤出队列） */
+    private Boolean revoked;
     private String username;
     private String nickname;
 }

@@ -21,7 +21,7 @@ class SubmissionSkipServiceTest {
     final AssignmentMapper assignments = mock(AssignmentMapper.class);
     final UserInfoMapper users = mock(UserInfoMapper.class);
     final PermissionService permissions = mock(PermissionService.class);
-    final SubmissionSkipService skips = new SubmissionSkipService(submissions, contestSubmissions, problems, assignments, users, permissions);
+    final SubmissionSkipService skips = new SubmissionSkipService(submissions, contestSubmissions, problems, assignments, users, permissions, mock(ContestBalloonService.class));
 
     @BeforeEach void setup() {
         var configuration = new com.baomidou.mybatisplus.core.MybatisConfiguration();

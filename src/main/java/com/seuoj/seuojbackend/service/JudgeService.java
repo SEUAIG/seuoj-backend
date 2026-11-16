@@ -113,12 +113,13 @@ public class JudgeService {
 
         if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict) && !isSkipped(submission.getId())) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
-            try {
-                // 气球只是比赛的辅助功能，任何异常都不能影响判题结果落库
-                balloonService.enqueueOnAccepted(submission.getId());
-            } catch (RuntimeException balloonError) {
-                log.warn("气球入队失败 submissionId={}", submission.getId(), balloonError);
-            }
+        }
+        try {
+            // 任何判定都要对账：AC 可能入队，重测改判可能撤出。对账在本事务提交后独立执行，
+            // 气球只是比赛的辅助功能，任何异常都不能影响判题结果落库
+            balloonService.reconcileAfterCommit(List.of(submission.getId()));
+        } catch (RuntimeException balloonError) {
+            log.warn("登记气球对账失败 submissionId={}", submission.getId(), balloonError);
         }
     }
 
