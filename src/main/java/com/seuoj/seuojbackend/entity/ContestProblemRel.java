@@ -32,6 +32,9 @@ public class ContestProblemRel implements Serializable {
     @TableField("sort_order")
     private Integer sortOrder;
 
+    @TableField("balloon_color")
+    private String balloonColor;
+
     @TableField("is_del")
     @TableLogic
     private Integer isDel;

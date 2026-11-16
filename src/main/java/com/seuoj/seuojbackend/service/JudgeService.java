@@ -28,13 +28,16 @@ public class JudgeService {
     private final SubmissionMapper submissionMapper;
     private final SubmissionDetailMapper submissionDetailMapper;
     private final ProblemMapper problemMapper;
+    private final ContestBalloonService balloonService;
 
     public JudgeService(SubmissionMapper submissionMapper,
                         SubmissionDetailMapper submissionDetailMapper,
-                        ProblemMapper problemMapper) {
+                        ProblemMapper problemMapper,
+                        ContestBalloonService balloonService) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
+        this.balloonService = balloonService;
     }
 
     /**
@@ -110,6 +113,12 @@ public class JudgeService {
 
         if (SubmissionVerdict.ACCEPTED.getVerdict().equals(verdict) && !isSkipped(submission.getId())) {
             problemMapper.atomicallyIncreaseTotalAcceptCount(submission.getProblemId());
+            try {
+                // 气球只是比赛的辅助功能，任何异常都不能影响判题结果落库
+                balloonService.enqueueOnAccepted(submission.getId());
+            } catch (RuntimeException balloonError) {
+                log.warn("气球入队失败 submissionId={}", submission.getId(), balloonError);
+            }
         }
     }
 
