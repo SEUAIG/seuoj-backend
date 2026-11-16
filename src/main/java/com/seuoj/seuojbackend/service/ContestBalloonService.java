@@ -154,6 +154,21 @@ public class ContestBalloonService {
         }
     }
 
+    /** 撤回送达：已送达的气球重新回到待送达队列。 */
+    public void undeliver(Long contestId, Long balloonId) {
+        assertWrite(contestId);
+        int updated = balloonMapper.update(null, new LambdaUpdateWrapper<ContestBalloon>()
+                .eq(ContestBalloon::getId, balloonId)
+                .eq(ContestBalloon::getContestId, contestId)
+                .eq(ContestBalloon::getStatus, STATUS_DELIVERED)
+                .set(ContestBalloon::getStatus, STATUS_PENDING)
+                .set(ContestBalloon::getDeliveredAt, null)
+                .set(ContestBalloon::getDeliveredBy, null));
+        if (updated == 0) {
+            throw new NotFoundException("气球不存在或未送达");
+        }
+    }
+
     /** 设置某道题的气球颜色；color 为空则恢复自动分配。pid 为对外题号（如 P1001）。 */
     public void setProblemColor(Long contestId, String pid, String color) {
         assertWrite(contestId);
@@ -182,14 +197,12 @@ public class ContestBalloonService {
         if (updated == 0) {
             throw new NotFoundException("比赛中没有该题目: " + pid);
         }
-        // 尚未送达的气球跟随最新配色，已送达的保持送达时的颜色
-        if (normalized != null) {
-            balloonMapper.update(null, new LambdaUpdateWrapper<ContestBalloon>()
-                    .eq(ContestBalloon::getContestId, contestId)
-                    .eq(ContestBalloon::getProblemId, problem.getId())
-                    .eq(ContestBalloon::getStatus, STATUS_PENDING)
-                    .set(ContestBalloon::getColor, normalized));
-        }
+        // 队列里的气球（含已送达）跟随最新配色，保证列表颜色始终与配置一致
+        String effectiveColor = resolveColor(contestId, problem.getId());
+        balloonMapper.update(null, new LambdaUpdateWrapper<ContestBalloon>()
+                .eq(ContestBalloon::getContestId, contestId)
+                .eq(ContestBalloon::getProblemId, problem.getId())
+                .set(ContestBalloon::getColor, effectiveColor));
     }
 
     /** 题目配置的颜色优先，否则按题目顺序取调色板。 */

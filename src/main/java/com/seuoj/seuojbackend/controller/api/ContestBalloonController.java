@@ -44,6 +44,13 @@ public class ContestBalloonController {
         return Result.success();
     }
 
+    @PostMapping("/{id}/balloon/{balloonId}/undeliver")
+    public Result<Void> undeliverBalloon(@PathVariable("id") Long id,
+                                         @PathVariable("balloonId") Long balloonId) {
+        balloonService.undeliver(id, balloonId);
+        return Result.success();
+    }
+
     @PutMapping("/{id}/balloon/color")
     public Result<Void> setBalloonColor(@PathVariable("id") Long id,
                                         @RequestBody(required = false) ContestBalloonColorDTO dto) {
