@@ -9,6 +9,11 @@ public class ContestBalloonItemVO {
 
     private Long id;
     private Long problemId;
+    private Long submissionId;
+    /** 触发这只气球的 AC 提交时间（一血按它判定） */
+    private LocalDateTime submitTime;
+    /** 本题一血：未撤销的气球里提交时间最早的那只 */
+    private Boolean firstSolve;
     /** 题号，如 P1001 */
     private String pid;
     private String title;

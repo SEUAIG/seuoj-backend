@@ -24,6 +24,7 @@ import com.seuoj.seuojbackend.vo.contest.ContestBalloonProblemVO;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -237,7 +238,27 @@ public class ContestBalloonService {
                 item.setColor(color);
             }
         }
+        markFirstSolves(queue);
         return queue;
+    }
+
+    /**
+     * 每道题标出一血：未撤销的气球里提交时间最早的一只，同一时刻取提交编号小的。
+     * 队列只含正式参赛者在比赛时间内的 AC，所以这就是本场该题的第一个通过。
+     */
+    static void markFirstSolves(List<ContestBalloonItemVO> queue) {
+        Comparator<ContestBalloonItemVO> earliest = Comparator
+                .comparing(ContestBalloonItemVO::getSubmitTime, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(ContestBalloonItemVO::getSubmissionId, Comparator.nullsLast(Comparator.naturalOrder()));
+        Map<Long, ContestBalloonItemVO> first = new HashMap<>();
+        for (ContestBalloonItemVO item : queue) {
+            item.setFirstSolve(false);
+            if (Boolean.TRUE.equals(item.getRevoked()) || item.getSubmitTime() == null) {
+                continue;
+            }
+            first.merge(item.getProblemId(), item, (a, b) -> earliest.compare(a, b) <= 0 ? a : b);
+        }
+        first.values().forEach(item -> item.setFirstSolve(true));
     }
 
     /** 志愿者点“送达”。 */

@@ -8,6 +8,9 @@ import com.seuoj.seuojbackend.entity.ContestProblemRel;
 import com.seuoj.seuojbackend.entity.ContestRegisterRel;
 import com.seuoj.seuojbackend.entity.Submission;
 import com.seuoj.seuojbackend.mapper.*;
+import com.seuoj.seuojbackend.vo.contest.ContestBalloonItemVO;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -161,5 +164,35 @@ class ContestBalloonServiceTest {
         when(contestSubmissions.findContestIdBySubmissionId(55L)).thenThrow(new IllegalStateException("db down"));
 
         assertDoesNotThrow(() -> service.reconcileAfterCommit(List.of(55L)));
+    }
+
+    private static ContestBalloonItemVO item(long submissionId, long problemId, String time, Boolean revoked) {
+        ContestBalloonItemVO vo = new ContestBalloonItemVO();
+        vo.setSubmissionId(submissionId);
+        vo.setProblemId(problemId);
+        vo.setSubmitTime(LocalDateTime.parse(time));
+        vo.setRevoked(revoked);
+        return vo;
+    }
+
+    @Test void firstSolveIsTheEarliestSubmissionPerProblemIgnoringRevokedAndQueueOrder() {
+        // 队列按入队时间排；评测并发时后交的可能先评完、先入队
+        ContestBalloonItemVO lateButQueuedFirst = item(20, 1, "2026-11-16T14:05:00", false);
+        ContestBalloonItemVO earliestA = item(30, 1, "2026-11-16T14:01:00", false);
+        ContestBalloonItemVO revokedEvenEarlier = item(10, 1, "2026-11-16T14:00:00", true);
+        ContestBalloonItemVO onlyB = item(40, 2, "2026-11-16T14:30:00", null);
+        ContestBalloonItemVO tieLowerId = item(50, 3, "2026-11-16T15:00:00", false);
+        ContestBalloonItemVO tieHigherId = item(51, 3, "2026-11-16T15:00:00", false);
+        List<ContestBalloonItemVO> queue = new ArrayList<>(List.of(
+                lateButQueuedFirst, earliestA, revokedEvenEarlier, onlyB, tieHigherId, tieLowerId));
+
+        ContestBalloonService.markFirstSolves(queue);
+
+        assertTrue(earliestA.getFirstSolve());
+        assertFalse(lateButQueuedFirst.getFirstSolve());
+        assertFalse(revokedEvenEarlier.getFirstSolve());
+        assertTrue(onlyB.getFirstSolve());
+        assertTrue(tieLowerId.getFirstSolve());
+        assertFalse(tieHigherId.getFirstSolve());
     }
 }

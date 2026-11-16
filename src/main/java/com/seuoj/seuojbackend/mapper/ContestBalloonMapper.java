@@ -16,6 +16,8 @@ public interface ContestBalloonMapper extends BaseMapper<ContestBalloon> {
     @Select("""
             SELECT b.id,
                    b.problem_id   AS problemId,
+                   b.submission_id AS submissionId,
+                   s.submit_time  AS submitTime,
                    b.color,
                    b.status,
                    b.created_at   AS createdAt,
