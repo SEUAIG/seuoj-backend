@@ -4,6 +4,7 @@ import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.contest.ContestBalloonColorDTO;
 import com.seuoj.seuojbackend.service.ContestBalloonService;
 import com.seuoj.seuojbackend.vo.contest.ContestBalloonItemVO;
+import com.seuoj.seuojbackend.vo.contest.ContestBalloonProblemVO;
 import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,11 @@ public class ContestBalloonController {
     @GetMapping("/{id}/balloon/list")
     public Result<List<ContestBalloonItemVO>> listBalloons(@PathVariable("id") Long id) {
         return Result.success(balloonService.listQueue(id));
+    }
+
+    @GetMapping("/{id}/balloon/problems")
+    public Result<List<ContestBalloonProblemVO>> listProblems(@PathVariable("id") Long id) {
+        return Result.success(balloonService.listProblems(id));
     }
 
     @PostMapping("/{id}/balloon/{balloonId}/deliver")

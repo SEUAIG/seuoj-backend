@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
+import com.seuoj.seuojbackend.dto.contest.ContestBalloonProblemRow;
 import com.seuoj.seuojbackend.entity.ContestBalloon;
 import com.seuoj.seuojbackend.entity.ContestProblemRel;
 import com.seuoj.seuojbackend.entity.Problem;
@@ -17,7 +18,9 @@ import com.seuoj.seuojbackend.mapper.ContestSubmissionMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.SubmissionMapper;
 import com.seuoj.seuojbackend.vo.contest.ContestBalloonItemVO;
+import com.seuoj.seuojbackend.vo.contest.ContestBalloonProblemVO;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -110,6 +113,25 @@ public class ContestBalloonService {
         }
     }
 
+    /** 配色面板：题目列表及其当前生效颜色。 */
+    public List<ContestBalloonProblemVO> listProblems(Long contestId) {
+        assertWrite(contestId);
+        List<ContestBalloonProblemRow> rows = balloonMapper.selectProblems(contestId);
+        List<ContestBalloonProblemVO> result = new ArrayList<>(rows.size());
+        int index = 0;
+        for (ContestBalloonProblemRow row : rows) {
+            boolean explicit = row.getBalloonColor() != null && !row.getBalloonColor().isBlank();
+            ContestBalloonProblemVO vo = new ContestBalloonProblemVO();
+            vo.setPid(row.getPid());
+            vo.setTitle(row.getTitle());
+            vo.setExplicit(explicit);
+            vo.setColor(explicit ? row.getBalloonColor() : PALETTE.get(Math.floorMod(index, PALETTE.size())));
+            index++;
+            result.add(vo);
+        }
+        return result;
+    }
+
     /** 队列（含已送达，前端可自行过滤）。 */
     public List<ContestBalloonItemVO> listQueue(Long contestId) {
         assertWrite(contestId);
@@ -159,6 +181,14 @@ public class ContestBalloonService {
                 .set(ContestProblemRel::getBalloonColor, normalized));
         if (updated == 0) {
             throw new NotFoundException("比赛中没有该题目: " + pid);
+        }
+        // 尚未送达的气球跟随最新配色，已送达的保持送达时的颜色
+        if (normalized != null) {
+            balloonMapper.update(null, new LambdaUpdateWrapper<ContestBalloon>()
+                    .eq(ContestBalloon::getContestId, contestId)
+                    .eq(ContestBalloon::getProblemId, problem.getId())
+                    .eq(ContestBalloon::getStatus, STATUS_PENDING)
+                    .set(ContestBalloon::getColor, normalized));
         }
     }
 

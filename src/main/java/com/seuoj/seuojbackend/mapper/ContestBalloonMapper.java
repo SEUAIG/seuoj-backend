@@ -1,6 +1,7 @@
 package com.seuoj.seuojbackend.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.seuoj.seuojbackend.dto.contest.ContestBalloonProblemRow;
 import com.seuoj.seuojbackend.entity.ContestBalloon;
 import com.seuoj.seuojbackend.vo.contest.ContestBalloonItemVO;
 import java.util.List;
@@ -33,4 +34,18 @@ public interface ContestBalloonMapper extends BaseMapper<ContestBalloon> {
                      b.id ASC
             """)
     List<ContestBalloonItemVO> selectQueue(@Param("contestId") Long contestId);
+
+    /** 比赛的题目及其显式配置的气球颜色（按题目顺序）。 */
+    @Select("""
+            SELECT p.pid,
+                   p.title,
+                   r.balloon_color AS balloonColor,
+                   r.sort_order    AS sortIndex
+            FROM contest_problem_rel r
+                     JOIN problem p ON p.id = r.problem_id
+            WHERE r.contest_id = #{contestId}
+              AND r.is_del = 0
+            ORDER BY r.sort_order
+            """)
+    List<ContestBalloonProblemRow> selectProblems(@Param("contestId") Long contestId);
 }
