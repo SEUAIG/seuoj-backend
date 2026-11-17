@@ -28,6 +28,9 @@ public class ContestUpdateDTO {
     @JsonProperty("hide_statistics")
     private Boolean hideStatistics;
 
+    @JsonProperty("discussion_enabled")
+    private Boolean discussionEnabled;
+
     @JsonProperty("scoring_config")
     private String scoringConfig;
 

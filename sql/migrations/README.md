@@ -13,6 +13,7 @@ Apply in this order (once per existing database):
 5. `20261105_user_ban.sql`
 6. `20261106_submission_skip.sql`
 7. `20261106_system_setting.sql`
+8. `20261117_contest_editorial.sql`（比赛开关 `discussion_enabled`、`post`、`post_attachment`）
 
 The permissions migration was previously an untracked file named `20261103_account_permissions.sql`.
 If that script was already applied manually, it is the same migration: do not run the renamed file again.

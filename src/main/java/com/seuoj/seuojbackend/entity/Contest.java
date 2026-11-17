@@ -48,6 +48,10 @@ public class Contest implements Serializable {
     @TableField("hide_statistics")
     private Boolean hideStatistics;
 
+    /** 是否展示题解与讨论页面（建议只在正式比赛里打开） */
+    @TableField("discussion_enabled")
+    private Boolean discussionEnabled;
+
     @TableField("scoring_config")
     private String scoringConfig;
 

@@ -147,6 +147,7 @@ public class ContestService {
         contest.setRuleType(dto.getRuleType());
         contest.setIsPublic(Boolean.TRUE.equals(dto.getIsPublic()));
         contest.setHideStatistics(Boolean.TRUE.equals(dto.getHideStatistics()));
+        contest.setDiscussionEnabled(Boolean.TRUE.equals(dto.getDiscussionEnabled()));
         contest.setScoringConfig(dto.getScoringConfig());
         contest.setScoringScript(dto.getScoringScript());
         contest.setCreatedByUserId(userId);
@@ -241,6 +242,7 @@ public class ContestService {
         vo.setRuleType(contest.getRuleType());
         vo.setIsPublic(contest.getIsPublic());
         vo.setHideStatistics(contest.getHideStatistics());
+        vo.setDiscussionEnabled(Boolean.TRUE.equals(contest.getDiscussionEnabled()));
         vo.setScoringScript("CUSTOM".equals(contest.getRuleType()) ? contest.getScoringScript() : null);
         vo.setProblemList(problemList);
         vo.setCanWrite(userId != null && permissionService.hasPermission(userId, ResourceType.CONTEST, contest.getId(), PermissionOp.WRITE));
@@ -271,6 +273,7 @@ public class ContestService {
         }
         if (dto.getIsPublic() != null) { update.setIsPublic(dto.getIsPublic()); changed = true; }
         if (dto.getHideStatistics() != null) { update.setHideStatistics(dto.getHideStatistics()); changed = true; }
+        if (dto.getDiscussionEnabled() != null) { update.setDiscussionEnabled(dto.getDiscussionEnabled()); changed = true; }
         if (dto.getScoringConfig() != null) { update.setScoringConfig(dto.getScoringConfig()); changed = true; }
         if (StringUtils.hasText(dto.getScoringScript())) {
             update.setScoringScript(dto.getScoringScript());
