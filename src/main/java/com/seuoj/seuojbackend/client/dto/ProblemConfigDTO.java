@@ -39,6 +39,10 @@ public class ProblemConfigDTO {
 
         @JsonProperty("memory_limit_kb")
         private Long memoryLimitKb;
+
+        /** 代码长度上限（字节），-1 表示不限 */
+        @JsonProperty("max_code_length")
+        private Long maxCodeLength;
     }
 
     @Data
@@ -85,5 +89,9 @@ public class ProblemConfigDTO {
 
         @JsonProperty("interactor_path")
         private String interactorPath;
+
+        /** 函数式题的 grader 文件，与选手代码一起编译 */
+        @JsonProperty("grader_paths")
+        private List<String> graderPaths;
     }
 }

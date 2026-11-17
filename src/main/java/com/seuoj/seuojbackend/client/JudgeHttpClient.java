@@ -265,6 +265,30 @@ public class JudgeHttpClient implements JudgeClient {
         }
     }
 
+    @Override
+    public void readProblemDataZip(String pid, ZipStreamReader reader) {
+        String url = judgeServerUrl + "/judge/problem/file/" + pid + "/data.zip";
+        try {
+            restTemplate.execute(url, HttpMethod.GET,
+                    request -> {
+                        if (judgeSecret != null && !judgeSecret.isEmpty()) {
+                            request.getHeaders().set(SECRET_HEADER, judgeSecret);
+                        }
+                    },
+                    response -> {
+                        reader.read(response.getBody());
+                        return null;
+                    });
+        } catch (HttpStatusCodeException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw new JudgeRemoteException("评测端未找到该题目", ex);
+            }
+            throw new JudgeRemoteException("无法从评测端下载题目数据", ex);
+        } catch (RestClientException ex) {
+            throw new JudgeRemoteException("无法从评测端下载题目数据", ex);
+        }
+    }
+
 
     @Override
     public JudgeProblemDataResponse fetchProblemDataMeta(String pid) {

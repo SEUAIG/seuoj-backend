@@ -243,6 +243,8 @@ public class ProblemImportService {
         dto.setTitle(title);
         dto.setIsPublic(isPublic != null && isPublic);
         dto.setTags(resolveTagIds(tagNames));
+        // SEUOJ 扩展字段：交互题（含初始输入）、通信题的题面栏目名不同，Hydro 没有对应项
+        dto.setStatementType(HydroYaml.str(manifest, "statement_type"));
         dto.setDescription(statement.description());
         dto.setInput(statement.input());
         dto.setOutput(statement.output());

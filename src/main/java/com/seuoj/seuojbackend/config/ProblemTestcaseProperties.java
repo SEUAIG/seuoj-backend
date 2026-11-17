@@ -17,7 +17,7 @@ public class ProblemTestcaseProperties {
     /**
      * 最大文件数量
      */
-    private int maxEntryCount = 200;
+    private int maxEntryCount = 1000;
 
     /**
      * 单文件解包后大小上限（字节）
