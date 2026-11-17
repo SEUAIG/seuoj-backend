@@ -10,7 +10,9 @@ public record ContestDiscussionVO(
         boolean ended,
         @JsonProperty("can_manage") boolean canManage,
         Editorial editorial,
-        List<ProblemEntry> problems) {
+        List<ProblemEntry> problems,
+        /* 整场讨论的发言数（未删除、未隐藏，含回复） */
+        @JsonProperty("comment_count") long commentCount) {
 
     /**
      * 官方题解。非管理者只在已发布且到了公开时间后才拿得到；
@@ -38,6 +40,8 @@ public record ContestDiscussionVO(
     public record ProblemEntry(
             @JsonProperty("sort_order") Integer sortOrder,
             String pid,
-            String title) {
+            String title,
+            /* 这道题的讨论发言数（未删除、未隐藏，含回复） */
+            @JsonProperty("comment_count") long commentCount) {
     }
 }

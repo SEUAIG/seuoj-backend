@@ -2,6 +2,7 @@ package com.seuoj.seuojbackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.seuoj.seuojbackend.common.CommentTargetType;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.PostKind;
 import com.seuoj.seuojbackend.common.PostStatus;
@@ -10,6 +11,7 @@ import com.seuoj.seuojbackend.dto.contest.ContestEditorialDTO;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.Post;
 import com.seuoj.seuojbackend.entity.PostAttachment;
+import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
@@ -19,6 +21,7 @@ import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.PostAttachmentMapper;
 import com.seuoj.seuojbackend.mapper.PostMapper;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.storage.FileUploadStorage;
 import com.seuoj.seuojbackend.vo.contest.ContestDiscussionVO;
@@ -32,6 +35,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Set;
 import org.springframework.core.io.Resource;
 import org.springframework.dao.DuplicateKeyException;
@@ -57,6 +62,8 @@ public class ContestDiscussionService {
     private final PermissionService permissionService;
     private final FileAccessService fileAccessService;
     private final FileUploadStorage fileUploadStorage;
+    private final ProblemMapper problemMapper;
+    private final CommentService commentService;
 
     public ContestDiscussionService(ContestMapper contestMapper,
                                     PostMapper postMapper,
@@ -64,7 +71,9 @@ public class ContestDiscussionService {
                                     UserInfoMapper userInfoMapper,
                                     PermissionService permissionService,
                                     FileAccessService fileAccessService,
-                                    FileUploadStorage fileUploadStorage) {
+                                    FileUploadStorage fileUploadStorage,
+                                    ProblemMapper problemMapper,
+                                    CommentService commentService) {
         this.contestMapper = contestMapper;
         this.postMapper = postMapper;
         this.attachmentMapper = attachmentMapper;
@@ -72,6 +81,8 @@ public class ContestDiscussionService {
         this.permissionService = permissionService;
         this.fileAccessService = fileAccessService;
         this.fileUploadStorage = fileUploadStorage;
+        this.problemMapper = problemMapper;
+        this.commentService = commentService;
     }
 
     /** 下载附件时交给 controller 的文件和展示名 */
@@ -107,13 +118,22 @@ public class ContestDiscussionService {
         }
 
         List<ContestProblemOverviewVO> problemRows = contestMapper.selectContestProblems(contest.getId());
-        List<ContestDiscussionVO.ProblemEntry> problems = problemRows == null ? List.of() : problemRows.stream()
+        List<ContestProblemOverviewVO> rows = problemRows == null ? List.of() : problemRows;
+        List<String> pids = rows.stream().map(ContestProblemOverviewVO::getPid).toList();
+        Map<String, Long> problemIds = pids.isEmpty() ? Map.of() : problemMapper.selectList(
+                        new LambdaQueryWrapper<Problem>().in(Problem::getPid, pids))
+                .stream().collect(Collectors.toMap(Problem::getPid, Problem::getId, (a, b) -> a));
+        Map<Long, Long> problemCounts = commentService.countVisible(CommentTargetType.PROBLEM, problemIds.values());
+        List<ContestDiscussionVO.ProblemEntry> problems = rows.stream()
                 .sorted(Comparator.comparing(ContestProblemOverviewVO::getSortOrder,
                         Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(p -> new ContestDiscussionVO.ProblemEntry(p.getSortOrder(), p.getPid(), p.getTitle()))
+                .map(p -> new ContestDiscussionVO.ProblemEntry(p.getSortOrder(), p.getPid(), p.getTitle(),
+                        countOf(problemCounts, problemIds.get(p.getPid()))))
                 .toList();
+        long contestCount = commentService.countVisible(CommentTargetType.CONTEST, List.of(contest.getId()))
+                .getOrDefault(contest.getId(), 0L);
 
-        return new ContestDiscussionVO(enabled, ended, canManage, editorialVO, problems);
+        return new ContestDiscussionVO(enabled, ended, canManage, editorialVO, problems, contestCount);
     }
 
     public AttachmentFile loadAttachment(Long contestId, Long attachmentId) {
@@ -280,6 +300,11 @@ public class ContestDiscussionService {
                 : StringUtils.hasText(author.getNickname()) ? author.getNickname() : author.getUsername();
         return new ContestDiscussionVO.Editorial(post.getId(), post.getTitle(), post.getContent(), post.getStatus(),
                 post.getVisibleAfter(), visible, authorName, post.getPublishedAt(), post.getUpdatedAt(), attachments);
+    }
+
+    private static long countOf(Map<Long, Long> counts, Long id) {
+        Long n = id == null ? null : counts.get(id);
+        return n == null ? 0 : n;
     }
 
     /** 非管理者此刻能否看到官方题解：已发布、比赛已结束、到了 visible_after */
