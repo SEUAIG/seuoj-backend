@@ -90,14 +90,17 @@ public class HydroJudgeConfigConverter {
         problemInfo.put("checker_type", judged.checkerType());
         problemInfo.put("time_limit_ms", timeLimitMs);
         problemInfo.put("memory_limit_kb", memoryLimitKb);
-        problemInfo.put("max_code_length", DEFAULT_MAX_CODE_LENGTH);
+        problemInfo.put("max_code_length", parseMaxCodeLength(config));
 
         ArrayNode testcases = root.putArray("testcases");
         int[] weights;
         if (subtaskDefs.isEmpty()) {
-            weights = distributeWeights(cases.size());
+            weights = resolveCaseWeights(cases);
         } else {
             // Subtasks own the scores; case weights are compatibility placeholders.
+            if (cases.stream().anyMatch(spec -> spec.score() != null)) {
+                warnings.add(CONFIG_ENTRY + " 配了 subtasks，测试点上的 score 不参与计分，已忽略");
+            }
             weights = new int[cases.size()];
             Arrays.fill(weights, 1);
         }
@@ -125,8 +128,61 @@ public class HydroJudgeConfigConverter {
         if (judged.interactorPath() != null) {
             customModules.put("interactor_path", judged.interactorPath());
         }
+        // Hydro 的 user_extra_files：和选手代码一起编译的文件，即评测端的 grader
+        List<String> graderPaths = HydroYaml.strList(config, "user_extra_files");
+        if (!graderPaths.isEmpty()) {
+            ArrayNode graders = customModules.putArray("grader_paths");
+            for (String path : graderPaths) {
+                requireDataFile(dataEntries, path, "grader");
+                graders.add(path);
+            }
+        }
 
         return new Result(root, cases.size(), judged.special());
+    }
+
+    /**
+     * 没有子任务时测试点的 weight：全都没写 score 就均分 100；写了就必须每个点都写、都是正整数、总和恰好 100
+     */
+    private int[] resolveCaseWeights(List<CaseSpec> cases) {
+        long scored = cases.stream().filter(spec -> spec.score() != null).count();
+        if (scored == 0) {
+            return distributeWeights(cases.size());
+        }
+        if (scored != cases.size()) {
+            throw new BadRequestException(CONFIG_ENTRY + " 的 cases 里只有部分测试点写了 score，"
+                    + "要么全写，要么全不写（全不写时均分 100 分）");
+        }
+        int[] weights = new int[cases.size()];
+        int sum = 0;
+        for (int i = 0; i < cases.size(); i++) {
+            int score = cases.get(i).score();
+            if (score <= 0) {
+                throw new BadRequestException(CONFIG_ENTRY + " 的测试点 " + cases.get(i).inPath()
+                        + " 的 score 必须是正整数: " + score);
+            }
+            weights[i] = score;
+            sum += score;
+        }
+        if (sum != TOTAL_SCORE) {
+            throw new BadRequestException(CONFIG_ENTRY + " 的测试点 score 之和为 " + sum
+                    + "，评测端要求恰好为 " + TOTAL_SCORE);
+        }
+        return weights;
+    }
+
+    /**
+     * SEUOJ 扩展字段 max_code_length（字节），Hydro 没有这一项；-1 表示不限
+     */
+    private long parseMaxCodeLength(Map<String, Object> config) {
+        Integer value = HydroYaml.intValue(config, "max_code_length", CONFIG_ENTRY);
+        if (value == null) {
+            return DEFAULT_MAX_CODE_LENGTH;
+        }
+        if (value != -1 && value <= 0) {
+            throw new BadRequestException(CONFIG_ENTRY + " 的 max_code_length 必须是正整数或 -1（不限）: " + value);
+        }
+        return value;
     }
 
     /**
@@ -247,7 +303,8 @@ public class HydroJudgeConfigConverter {
                 memoryLimitKb = parseMemoryKb(HydroYaml.str(def, "memory"), DEFAULT_MEMORY_LIMIT_KB,
                         itemContext + " 的 memory");
             }
-            cases.add(new CaseSpec(inPath, ansPath, timeLimitMs, memoryLimitKb));
+            cases.add(new CaseSpec(inPath, ansPath, timeLimitMs, memoryLimitKb,
+                    HydroYaml.intValue(def, "score", itemContext)));
         }
         return cases;
     }
@@ -274,7 +331,7 @@ public class HydroJudgeConfigConverter {
                 }
                 warnings.add("测试数据 " + inPath + " 没有对应的 " + base + ".ans，特判题将不给 checker 传答案文件");
             }
-            cases.add(new CaseSpec(inPath, ansPath, null, null));
+            cases.add(new CaseSpec(inPath, ansPath, null, null, null));
         }
         return cases;
     }
@@ -477,6 +534,7 @@ public class HydroJudgeConfigConverter {
                           boolean special) {
     }
 
-    private record CaseSpec(String inPath, String ansPath, Long timeLimitMs, Long memoryLimitKb) {
+    /** score 只在没有子任务时生效，对应评测端测试点的 weight */
+    private record CaseSpec(String inPath, String ansPath, Long timeLimitMs, Long memoryLimitKb, Integer score) {
     }
 }

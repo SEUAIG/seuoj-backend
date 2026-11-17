@@ -238,6 +238,68 @@ class HydroJudgeConfigConverterTest {
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("超过上限 100");
     }
 
+    @Test
+    void shouldUseExplicitCaseScoresAsWeights() {
+        var result = converter.convert(config("""
+                cases:
+                  - {input: 1.in, output: 1.ans, score: 30}
+                  - {input: 2.in, output: 2.ans, score: 70}
+                """), entries("1.in", "1.ans", "2.in", "2.ans"), warnings);
+        assertThat(weights(result.config())).containsExactly(30, 70);
+    }
+
+    @Test
+    void shouldRejectPartialOrWrongCaseScores() {
+        Set<String> files = entries("1.in", "1.ans", "2.in", "2.ans");
+        assertThatThrownBy(() -> converter.convert(config("""
+                cases:
+                  - {input: 1.in, output: 1.ans, score: 30}
+                  - {input: 2.in, output: 2.ans}
+                """), files, warnings)).isInstanceOf(BadRequestException.class).hasMessageContaining("部分测试点");
+        assertThatThrownBy(() -> converter.convert(config("""
+                cases:
+                  - {input: 1.in, output: 1.ans, score: 30}
+                  - {input: 2.in, output: 2.ans, score: 60}
+                """), files, warnings)).isInstanceOf(BadRequestException.class).hasMessageContaining("之和为 90");
+        assertThatThrownBy(() -> converter.convert(config("""
+                cases:
+                  - {input: 1.in, output: 1.ans, score: 0}
+                  - {input: 2.in, output: 2.ans, score: 100}
+                """), files, warnings)).isInstanceOf(BadRequestException.class).hasMessageContaining("正整数");
+    }
+
+    @Test
+    void shouldIgnoreCaseScoresWhenSubtasksScore() {
+        var result = converter.convert(config("""
+                cases:
+                  - {input: 1.in, output: 1.ans, score: 30}
+                subtasks:
+                  - {score: 100, cases: [{input: 1.in, output: 1.ans}]}
+                """), entries("1.in", "1.ans"), warnings);
+        assertThat(weights(result.config())).containsExactly(1);
+        assertThat(warnings).anyMatch(warning -> warning.contains("不参与计分"));
+    }
+
+    @Test
+    void shouldMapUserExtraFilesToGraderAndReadCodeLength() {
+        var result = converter.convert(config("""
+                user_extra_files: [sum.h, grader.cpp]
+                max_code_length: 2048
+                """), entries("1.in", "1.ans", "sum.h", "grader.cpp"), warnings);
+        JsonNode config = result.config();
+        assertThat(config.path("custom_modules").path("grader_paths").toString()).isEqualTo("[\"sum.h\",\"grader.cpp\"]");
+        assertThat(config.path("problem_info").path("max_code_length").asLong()).isEqualTo(2048L);
+        // grader 不是测试点
+        assertThat(inPaths(config)).containsExactly("1.in");
+
+        assertThatThrownBy(() -> converter.convert(config("user_extra_files: [missing.h]\n"),
+                entries("1.in", "1.ans"), warnings)).isInstanceOf(BadRequestException.class).hasMessageContaining("missing.h");
+        assertThatThrownBy(() -> converter.convert(config("max_code_length: 0\n"),
+                entries("1.in", "1.ans"), warnings)).isInstanceOf(BadRequestException.class);
+        assertThat(converter.convert(config("max_code_length: -1\n"), entries("1.in", "1.ans"), warnings)
+                .config().path("problem_info").path("max_code_length").asLong()).isEqualTo(-1L);
+    }
+
     private Set<String> entries(String... names) {
         return new LinkedHashSet<>(List.of(names));
     }

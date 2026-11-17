@@ -18,6 +18,7 @@ class CapabilityEndpointTest {
     final ProblemService problems=mock(ProblemService.class);
     final ProblemTestcaseService data=mock(ProblemTestcaseService.class);
     final ProblemImportService imports=mock(ProblemImportService.class);
+    final ProblemExportService exports=mock(ProblemExportService.class);
     final AuthService accounts=mock(AuthService.class);
     <T> T proxy(T target) {
         var factory=new AspectJProxyFactory(target);
@@ -32,14 +33,14 @@ class CapabilityEndpointTest {
     @AfterEach void cleanup() { UserContextHolder.clear(); }
     @Test void studentWithCreationCapabilityCanCreateAndImport() {
         when(roles.hasCapability(10L,Capability.PROBLEM_CREATE)).thenReturn(true);
-        ProblemController controller=proxy(new ProblemController(problems,data,imports));
+        ProblemController controller=proxy(new ProblemController(problems,data,imports,exports));
         assertDoesNotThrow(()->controller.createProblem(null));
         assertDoesNotThrow(()->controller.importProblemPack(null,"P1",false,null));
         verify(problems).createProblem(null);
         verify(imports).importPack(null,null,"P1",false);
     }
     @Test void studentWithoutCreationCannotCreateOrImport() {
-        ProblemController controller=proxy(new ProblemController(problems,data,imports));
+        ProblemController controller=proxy(new ProblemController(problems,data,imports,exports));
         assertThrows(ForbiddenException.class,()->controller.createProblem(null));
         assertThrows(ForbiddenException.class,()->controller.importProblemPack(null,"P1",false,null));
         verifyNoInteractions(problems,imports);
@@ -58,7 +59,7 @@ class CapabilityEndpointTest {
     }
     @Test void anonymousCannotUseCapabilityEndpoints() {
         UserContextHolder.set(UserContext.guest());
-        ProblemController controller=proxy(new ProblemController(problems,data,imports));
+        ProblemController controller=proxy(new ProblemController(problems,data,imports,exports));
         assertThrows(AuthorizationException.class,()->controller.createProblem(null));
     }
     @Test void testcaseAccessRequiresSpecificProblemEditPermission() {

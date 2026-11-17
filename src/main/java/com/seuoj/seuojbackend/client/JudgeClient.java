@@ -77,6 +77,19 @@ public interface JudgeClient {
     void deleteProblem(String pid);
 
     /**
+     * 读取评测端打包的题目 data 目录（zip），以流的形式交给 reader，不把整包读进内存
+     *
+     * @param pid    题目pid
+     * @param reader 读取 zip 流的回调，流在回调返回后关闭
+     */
+    void readProblemDataZip(String pid, ZipStreamReader reader);
+
+    @FunctionalInterface
+    interface ZipStreamReader {
+        void read(java.io.InputStream zip) throws java.io.IOException;
+    }
+
+    /**
      * 获取题目测试点元数据（已废弃）
      */
     @Deprecated

@@ -9,6 +9,7 @@ import com.seuoj.seuojbackend.common.RoleType;
 import com.seuoj.seuojbackend.dto.problem.ProblemCreateDTO;
 import com.seuoj.seuojbackend.dto.problem.ProblemDetailQuery;
 import com.seuoj.seuojbackend.dto.problem.ProblemEditDTO;
+import com.seuoj.seuojbackend.service.ProblemExportService;
 import com.seuoj.seuojbackend.service.ProblemImportService;
 import com.seuoj.seuojbackend.service.ProblemService;
 import com.seuoj.seuojbackend.service.ProblemTestcaseService;
@@ -25,8 +26,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,12 +43,14 @@ public class ProblemController {
     private final ProblemService problemService;
     private final ProblemTestcaseService problemTestcaseService;
     private final ProblemImportService problemImportService;
+    private final ProblemExportService problemExportService;
 
     public ProblemController(ProblemService problemService, ProblemTestcaseService problemTestcaseService,
-                             ProblemImportService problemImportService) {
+                             ProblemImportService problemImportService, ProblemExportService problemExportService) {
         this.problemService = problemService;
         this.problemTestcaseService = problemTestcaseService;
         this.problemImportService = problemImportService;
+        this.problemExportService = problemExportService;
     }
 
     /**
@@ -105,6 +112,20 @@ public class ProblemController {
                                                              defaultValue = "false") Boolean isPublic,
                                                      @RequestParam(value = "format", required = false) String format) {
         return Result.success(problemImportService.importPack(file, format, pid, isPublic));
+    }
+
+    /**
+     * 导出题目包（Hydro 目录结构），可直接用 /import 导回
+     * 需要题目的管理权限，与下载测试数据一致
+     */
+    @GetMapping("/{pid}/export")
+    public void exportProblemPack(@PathVariable String pid, HttpServletResponse response) throws IOException {
+        ProblemExportService.Pack pack = problemExportService.prepare(pid);
+        response.setContentType("application/zip");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(pack.pid() + ".zip", StandardCharsets.UTF_8).build().toString());
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        problemExportService.write(pack, response.getOutputStream());
     }
 
     /**
