@@ -57,7 +57,7 @@ storage:
 problem:
   testcase:
     max-archive-size: 52428800
-    max-entry-count: 200
+    max-entry-count: 1000
     max-entry-size: 5242880
     max-total-size: 209715200
     max-compression-ratio: 50
