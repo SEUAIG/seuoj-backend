@@ -126,6 +126,35 @@ class ProblemExportServiceTest {
         assertEquals(100, config.getValue().path("testcases").get(0).path("weight").asInt());
     }
 
+    @Test void selectedDataFilesComeBackAsOneZip() throws IOException {
+        byte[] data = zip(Map.of("1.in", "4", "1.ans", "1 3", "sub/2.in", "9", "checker", "ELF"));
+        doAnswer(inv -> {
+            inv.<JudgeClient.ZipStreamReader>getArgument(1).read(new ByteArrayInputStream(data));
+            return null;
+        }).when(judge).readProblemDataZip(eq("P1001"), any());
+
+        var selected = service.prepareDataFiles("P1001", List.of("sub/2.in", "1.in", "checker"));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        service.writeDataFiles("P1001", selected, out);
+
+        Map<String, String> entries = unzip(out.toByteArray());
+        assertEquals(List.of("1.in", "checker", "sub/2.in"), List.copyOf(entries.keySet()));
+        assertEquals("9", entries.get("sub/2.in"));
+        verify(problems).assertCanManageProblem("P1001");
+    }
+
+    @Test void dataFileSelectionIsValidatedBeforeTouchingTheJudge() {
+        assertThrows(com.seuoj.seuojbackend.exception.BadRequestException.class,
+                () -> service.prepareDataFiles("P1001", List.of()));
+        assertThrows(com.seuoj.seuojbackend.exception.BadRequestException.class,
+                () -> service.prepareDataFiles("P1001", List.of("../etc/passwd")));
+        assertThrows(com.seuoj.seuojbackend.exception.BadRequestException.class,
+                () -> service.prepareDataFiles("P1001", List.of("a\\b.in")));
+        doThrow(new ForbiddenException("no")).when(problems).assertCanManageProblem("P1001");
+        assertThrows(ForbiddenException.class, () -> service.prepareDataFiles("P1001", List.of("1.in")));
+        verifyNoInteractions(judge);
+    }
+
     @Test void exportNeedsManagePermissionBeforeTouchingTheJudge() {
         doThrow(new ForbiddenException("no")).when(problems).assertCanManageProblem("P1001");
         assertThrows(ForbiddenException.class, () -> service.prepare("P1001"));

@@ -129,6 +129,24 @@ public class ProblemController {
     }
 
     /**
+     * 测试文件页“合并下载”：选中的数据文件打成一个 zip
+     * 文件名相对 data 目录，与 /tree 返回的路径一致
+     */
+    @PostMapping("/{pid}/files/zip")
+    public void downloadProblemFilesZip(@PathVariable String pid, @RequestBody DataFilesRequest request,
+                                        HttpServletResponse response) throws IOException {
+        var selected = problemExportService.prepareDataFiles(pid, request == null ? null : request.files());
+        response.setContentType("application/zip");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(pid + "-data.zip", StandardCharsets.UTF_8).build().toString());
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        problemExportService.writeDataFiles(pid, selected, response.getOutputStream());
+    }
+
+    public record DataFilesRequest(List<String> files) {
+    }
+
+    /**
      * 获取下一个最小可用题目id（待完善）
      */
     @RequireCapability(Capability.PROBLEM_CREATE)
