@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.seuoj.seuojbackend.common.AuthStatus;
+import com.seuoj.seuojbackend.common.CommentTargetType;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.dto.contest.ContestEditorialDTO;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.Post;
 import com.seuoj.seuojbackend.entity.PostAttachment;
+import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
@@ -19,6 +21,7 @@ import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.PostAttachmentMapper;
 import com.seuoj.seuojbackend.mapper.PostMapper;
+import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.storage.FileUploadStorage;
 import com.seuoj.seuojbackend.vo.contest.ContestDiscussionVO;
@@ -26,6 +29,7 @@ import com.seuoj.seuojbackend.vo.contest.ContestProblemOverviewVO;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,8 +51,10 @@ class ContestDiscussionServiceTest {
     private final PermissionService permissions = mock(PermissionService.class);
     private final FileAccessService fileAccess = mock(FileAccessService.class);
     private final FileUploadStorage storage = mock(FileUploadStorage.class);
+    private final ProblemMapper problemMapper = mock(ProblemMapper.class);
+    private final CommentService comments = mock(CommentService.class);
     private final ContestDiscussionService service = new ContestDiscussionService(
-            contests, posts, attachments, users, permissions, fileAccess, storage);
+            contests, posts, attachments, users, permissions, fileAccess, storage, problemMapper, comments);
 
     private final Contest contest = new Contest();
 
@@ -81,6 +87,10 @@ class ContestDiscussionServiceTest {
         ContestProblemOverviewVO a = problem(1, "P0001", "A 题");
         when(contests.selectContestProblems(CONTEST)).thenReturn(List.of(b, a));
         when(attachments.selectList(any())).thenReturn(List.of());
+        when(problemMapper.selectList(any())).thenReturn(List.of(
+                new Problem().setId(101L).setPid("P0001"), new Problem().setId(102L).setPid("P0002")));
+        when(comments.countVisible(eq(CommentTargetType.PROBLEM), any())).thenReturn(Map.of(102L, 7L));
+        when(comments.countVisible(eq(CommentTargetType.CONTEST), any())).thenReturn(Map.of(CONTEST, 3L));
     }
 
     @AfterEach
@@ -114,6 +124,16 @@ class ContestDiscussionServiceTest {
         assertNull(vo.editorial());
         assertFalse(vo.canManage());
         assertEquals(List.of("P0001", "P0002"), vo.problems().stream().map(ContestDiscussionVO.ProblemEntry::pid).toList());
+    }
+
+    @Test
+    void problemIndexCarriesCommentCounts() {
+        login(ALICE);
+
+        ContestDiscussionVO vo = service.getDiscussion(CONTEST);
+
+        assertEquals(List.of(0L, 7L), vo.problems().stream().map(ContestDiscussionVO.ProblemEntry::commentCount).toList());
+        assertEquals(3L, vo.commentCount());
     }
 
     @Test
