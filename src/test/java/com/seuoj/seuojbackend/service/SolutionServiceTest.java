@@ -86,19 +86,18 @@ class SolutionServiceTest {
     void listSeparatesMyUnpublishedPostsFromPublicOnes() {
         Post published = post(40L, BOB, "PUBLISHED");
         Post myDraft = post(41L, ALICE, "DRAFT");
-        Post myPublished = post(42L, ALICE, "PUBLISHED");
-        stubPage(List.of(published, myPublished));
-        when(posts.selectCount(any())).thenReturn(2L);
-        when(posts.selectList(any())).thenReturn(List.of(myDraft, myPublished));
+        stubPage(List.of(published));
+        when(posts.selectList(any())).thenReturn(List.of(myDraft));
         login(ALICE);
 
         SolutionPageVO vo = service.list("P1001", null, null, null);
 
         assertEquals(List.of(41L), vo.minePending().stream().map(SolutionPageVO.Item::id).toList());
-        assertEquals(List.of(40L, 42L), vo.items().stream().map(SolutionPageVO.Item::id).toList());
+        assertEquals(List.of(40L), vo.items().stream().map(SolutionPageVO.Item::id).toList());
         assertTrue(vo.hasAccepted());
-        assertTrue(vo.canPost());
-        assertEquals(2L, vo.myCount());
+        assertFalse(vo.canPost(), "写过一篇（哪怕是草稿）就不能再写");
+        assertEquals(1L, vo.myCount());
+        assertEquals(41L, vo.myPostId());
         assertEquals("bob", vo.items().get(0).author().username());
     }
 
@@ -110,11 +109,10 @@ class SolutionServiceTest {
         SolutionPageVO noAc = service.list("P1001", null, null, null);
         assertFalse(noAc.canPost());
         assertFalse(noAc.hasAccepted());
+        assertNull(noAc.myPostId());
 
         when(submissions.selectCount(any())).thenReturn(1L);
-        when(posts.selectCount(any())).thenReturn(3L);
-        when(posts.selectList(any())).thenReturn(List.of());
-        assertFalse(service.list("P1001", null, null, null).canPost());
+        assertTrue(service.list("P1001", null, null, null).canPost(), "AC 过、还没写过就能写");
     }
 
     @Test
@@ -169,7 +167,7 @@ class SolutionServiceTest {
     }
 
     @Test
-    void atMostThreeSolutionsPerProblem() {
+    void onlyOneSolutionPerProblem() {
         login(ALICE);
         when(posts.selectCount(any())).thenReturn((long) SolutionService.MAX_PER_PROBLEM);
         assertThrows(BadRequestException.class, () -> service.create(dto("DRAFT", "")));

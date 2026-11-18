@@ -11,11 +11,13 @@ import java.util.List;
 public record SolutionPageVO(
         String pid,
         @JsonProperty("problem_title") String problemTitle,
-        /* 现在能不能写题解：登录、AC 过、没超过篇数上限 */
+        /* 现在能不能写题解：登录、AC 过、这道题还没写过 */
         @JsonProperty("can_post") boolean canPost,
         @JsonProperty("has_accepted") boolean hasAccepted,
         @JsonProperty("can_manage") boolean canManage,
         @JsonProperty("my_count") long myCount,
+        /* 我在这道题下的题解（含草稿），写过就让前端直接去改它 */
+        @JsonProperty("my_post_id") Long myPostId,
         @JsonProperty("max_per_problem") int maxPerProblem,
         long current,
         long size,
