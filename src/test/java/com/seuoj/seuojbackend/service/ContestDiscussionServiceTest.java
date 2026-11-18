@@ -91,6 +91,7 @@ class ContestDiscussionServiceTest {
                 new Problem().setId(101L).setPid("P0001"), new Problem().setId(102L).setPid("P0002")));
         when(comments.countVisible(eq(CommentTargetType.PROBLEM), any())).thenReturn(Map.of(102L, 7L));
         when(comments.countVisible(eq(CommentTargetType.CONTEST), any())).thenReturn(Map.of(CONTEST, 3L));
+        when(comments.countPublicSolutions(any())).thenReturn(Map.of(101L, 2L));
     }
 
     @AfterEach
@@ -134,6 +135,7 @@ class ContestDiscussionServiceTest {
 
         assertEquals(List.of(0L, 7L), vo.problems().stream().map(ContestDiscussionVO.ProblemEntry::commentCount).toList());
         assertEquals(3L, vo.commentCount());
+        assertEquals(List.of(2L, 0L), vo.problems().stream().map(ContestDiscussionVO.ProblemEntry::solutionCount).toList());
     }
 
     @Test

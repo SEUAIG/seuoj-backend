@@ -5,12 +5,14 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.seuoj.seuojbackend.common.AuthStatus;
 import com.seuoj.seuojbackend.dto.discussion.VoteDTO;
 import com.seuoj.seuojbackend.entity.Comment;
+import com.seuoj.seuojbackend.entity.Post;
 import com.seuoj.seuojbackend.entity.Vote;
 import com.seuoj.seuojbackend.exception.BadRequestException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.CommentMapper;
+import com.seuoj.seuojbackend.mapper.PostMapper;
 import com.seuoj.seuojbackend.mapper.VoteMapper;
 import com.seuoj.seuojbackend.vo.discussion.VoteResultVO;
 import java.time.LocalDateTime;
@@ -29,7 +31,8 @@ class VoteServiceTest {
     private final VoteMapper votes = mock(VoteMapper.class);
     private final CommentMapper comments = mock(CommentMapper.class);
     private final CommentService commentService = mock(CommentService.class);
-    private final VoteService service = new VoteService(votes, comments, commentService);
+    private final PostMapper posts = mock(PostMapper.class);
+    private final VoteService service = new VoteService(votes, comments, posts, commentService);
 
     private final Comment comment = new Comment().setId(COMMENT_ID).setTargetType("PROBLEM").setTargetId(11L).setScore(4);
 
@@ -115,7 +118,35 @@ class VoteServiceTest {
     }
 
     @Test
-    void postVotesAreNotOpenYet() {
-        assertThrows(BadRequestException.class, () -> service.vote(new VoteDTO("POST", 1L, 1)));
+    void upvotingPublishedSolutionMovesPostScore() {
+        when(posts.selectById(40L)).thenReturn(new Post().setId(40L).setKind("SOLUTION").setProblemId(11L)
+                .setStatus("PUBLISHED").setScore(2));
+
+        service.vote(new VoteDTO("POST", 40L, 1));
+
+        verify(commentService).resolveProblemById(ALICE, 11L);
+        verify(posts).addScore(40L, 1);
+        verify(comments, never()).addScore(anyLong(), anyInt());
+    }
+
+    @Test
+    void draftOrHiddenSolutionCannotBeVoted() {
+        when(posts.selectById(40L)).thenReturn(new Post().setId(40L).setKind("SOLUTION").setProblemId(11L).setStatus("DRAFT"));
+        assertThrows(BadRequestException.class, () -> service.vote(new VoteDTO("POST", 40L, 1)));
+        when(posts.selectById(41L)).thenReturn(new Post().setId(41L).setKind("SOLUTION").setProblemId(11L)
+                .setStatus("PUBLISHED").setHiddenAt(LocalDateTime.now()));
+        assertThrows(BadRequestException.class, () -> service.vote(new VoteDTO("POST", 41L, 1)));
+    }
+
+    @Test
+    void editorialCannotBeVoted() {
+        when(posts.selectById(50L)).thenReturn(new Post().setId(50L).setKind("EDITORIAL").setStatus("PUBLISHED"));
+        assertThrows(com.seuoj.seuojbackend.exception.NotFoundException.class,
+                () -> service.vote(new VoteDTO("POST", 50L, 1)));
+    }
+
+    @Test
+    void unknownTargetTypeIsRejected() {
+        assertThrows(BadRequestException.class, () -> service.vote(new VoteDTO("BLOG", 1L, 1)));
     }
 }

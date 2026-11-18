@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 讨论 thread：题目讨论（target_type=PROBLEM，pid）和整场比赛讨论（target_type=CONTEST，contest_id） */
+/** 讨论 thread：题目讨论（PROBLEM，pid）、整场比赛讨论（CONTEST，contest_id）、题解评论区（POST，post_id） */
 @RestController
 @Validated
 @RequestMapping("/api/comments")
@@ -37,10 +37,11 @@ public class CommentController {
     public Result<CommentThreadVO> getThread(@RequestParam("target_type") String targetType,
                                              @RequestParam(value = "pid", required = false) String pid,
                                              @RequestParam(value = "contest_id", required = false) Long contestId,
+                                             @RequestParam(value = "post_id", required = false) Long postId,
                                              @RequestParam(value = "sort", required = false) String sort,
                                              @RequestParam(value = "current", required = false) Long current,
                                              @RequestParam(value = "size", required = false) Long size) {
-        return Result.success(commentService.getThread(targetType, pid, contestId, sort, current, size));
+        return Result.success(commentService.getThread(targetType, pid, contestId, postId, sort, current, size));
     }
 
     /** 题目页「💭 讨论」入口：能不能进、有几条 */

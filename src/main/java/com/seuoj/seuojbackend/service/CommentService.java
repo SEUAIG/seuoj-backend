@@ -9,8 +9,11 @@ import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.dto.discussion.CommentCreateDTO;
 import com.seuoj.seuojbackend.dto.discussion.CommentModerationDTO;
 import com.seuoj.seuojbackend.entity.Comment;
+import com.seuoj.seuojbackend.common.PostKind;
+import com.seuoj.seuojbackend.common.PostStatus;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ContestProblemRel;
+import com.seuoj.seuojbackend.entity.Post;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.Vote;
@@ -21,6 +24,7 @@ import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.CommentMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
+import com.seuoj.seuojbackend.mapper.PostMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.VoteMapper;
@@ -51,8 +55,10 @@ import org.springframework.util.StringUtils;
  * <ul>
  *   <li>整场比赛讨论：比赛 READ；非比赛管理者还要求开了「展示题解与讨论页面」且比赛已结束。</li>
  *   <li>题目讨论：题目 READ，或者通过某场包含这道题的比赛（按上一条判断）。</li>
+ *   <li>题解评论区：能看到这篇题解（见 {@link #canSeePost}）且它所在的题目能看。</li>
  * </ul>
- * 能看的登录用户都能发言、投票。管理者：整场讨论看比赛 WRITE，题目讨论看题目 WRITE（全站管理员都有）。
+ * 能看的登录用户都能发言、投票。管理者：整场讨论看比赛 WRITE，题目讨论和题解评论区看题目 WRITE（全站管理员都有）；
+ * 题解作者也能删除自己题解下的评论。
  */
 @Service
 public class CommentService {
@@ -72,6 +78,7 @@ public class CommentService {
     private final ContestProblemRelMapper contestProblemRelMapper;
     private final UserInfoMapper userInfoMapper;
     private final PermissionService permissionService;
+    private final PostMapper postMapper;
 
     public CommentService(CommentMapper commentMapper,
                           VoteMapper voteMapper,
@@ -79,7 +86,8 @@ public class CommentService {
                           ContestMapper contestMapper,
                           ContestProblemRelMapper contestProblemRelMapper,
                           UserInfoMapper userInfoMapper,
-                          PermissionService permissionService) {
+                          PermissionService permissionService,
+                          PostMapper postMapper) {
         this.commentMapper = commentMapper;
         this.voteMapper = voteMapper;
         this.problemMapper = problemMapper;
@@ -87,18 +95,19 @@ public class CommentService {
         this.contestProblemRelMapper = contestProblemRelMapper;
         this.userInfoMapper = userInfoMapper;
         this.permissionService = permissionService;
+        this.postMapper = postMapper;
     }
 
     /** 一个 thread：挂在哪、对当前用户来说能不能管理 */
-    record Thread(CommentTargetType type, Long targetId, Problem problem, Contest contest, boolean canManage) {
+    record Thread(CommentTargetType type, Long targetId, Problem problem, Contest contest, Post post, boolean canManage) {
     }
 
     // ---------------------------------------------------------------- 读
 
-    public CommentThreadVO getThread(String targetType, String pid, Long contestId,
+    public CommentThreadVO getThread(String targetType, String pid, Long contestId, Long postId,
                                      String sort, Long current, Long size) {
         Long userId = AuthContexts.userIdOrNull();
-        Thread thread = resolve(userId, targetType, pid, contestId);
+        Thread thread = resolve(userId, targetType, pid, contestId, postId);
         boolean newest = "new".equalsIgnoreCase(sort);
         long pageNo = current == null || current < 1 ? 1 : current;
         long pageSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
@@ -139,10 +148,10 @@ public class CommentService {
                         .last("LIMIT " + MAX_PINNED))
                 : List.of();
 
-        Views views = new Views(userId, thread.canManage(), concat(all, pinned));
+        Views views = new Views(userId, thread.canManage(), concat(all, pinned), postAuthorOf(thread));
         return new CommentThreadVO(thread.type().name(), pidOf(thread), titleOf(thread), contestIdOf(thread, contestId),
-                userId != null, thread.canManage(), newest ? "new" : "hot", pageNo, pageSize, page.getTotal(), null,
-                views.of(pinned), views.of(all));
+                postIdOf(thread), postTitleOf(thread), userId != null && canPostIn(thread), thread.canManage(),
+                newest ? "new" : "hot", pageNo, pageSize, page.getTotal(), null, views.of(pinned), views.of(all));
     }
 
     /** 「继续这个讨论」和置顶跳转：以某条发言为根的子树 */
@@ -163,22 +172,40 @@ public class CommentService {
             subtree.add(c);
             queue.addAll(children.getOrDefault(c.getId(), List.of()));
         }
-        Views views = new Views(userId, thread.canManage(), subtree);
+        Views views = new Views(userId, thread.canManage(), subtree, postAuthorOf(thread));
         return new CommentThreadVO(thread.type().name(), pidOf(thread), titleOf(thread), contestIdOf(thread, contestId),
-                userId != null, thread.canManage(), "hot", 1, subtree.size(), subtree.size(), focus.getId(),
-                List.of(), views.of(subtree));
+                postIdOf(thread), postTitleOf(thread), userId != null && canPostIn(thread), thread.canManage(),
+                "hot", 1, subtree.size(), subtree.size(), focus.getId(), List.of(), views.of(subtree));
     }
 
-    /** 题目页入口按钮用：不抛权限错误，看不了就返回 can_view = false */
+    /** 题目页入口按钮用：不抛权限错误，看不了就返回 can_view = false；题目还带上公开题解数 */
     public CommentSummaryVO getSummary(String targetType, String pid, Long contestId) {
         Thread thread;
         try {
-            thread = resolve(AuthContexts.userIdOrNull(), targetType, pid, contestId);
+            thread = resolve(AuthContexts.userIdOrNull(), targetType, pid, contestId, null);
         } catch (ForbiddenException | NotFoundException | BadRequestException e) {
-            return new CommentSummaryVO(false, 0);
+            return new CommentSummaryVO(false, 0, 0);
         }
         long count = countVisible(thread.type(), List.of(thread.targetId())).getOrDefault(thread.targetId(), 0L);
-        return new CommentSummaryVO(true, count);
+        long solutions = thread.type() == CommentTargetType.PROBLEM
+                ? countPublicSolutions(List.of(thread.targetId())).getOrDefault(thread.targetId(), 0L)
+                : 0;
+        return new CommentSummaryVO(true, count, solutions);
+    }
+
+    /** 每道题公开可见的用户题解数（已发布、未隐藏） */
+    public Map<Long, Long> countPublicSolutions(Collection<Long> problemIds) {
+        List<Long> ids = problemIds == null ? List.of() : problemIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> counts = new HashMap<>();
+        for (Map<String, Object> row : postMapper.countPublicSolutions(ids)) {
+            if (row.get("problem_id") instanceof Number n && row.get("cnt") instanceof Number m) {
+                counts.put(n.longValue(), m.longValue());
+            }
+        }
+        return counts;
     }
 
     /** 每个目标下可见的发言数（未删除、未隐藏，含回复） */
@@ -229,6 +256,7 @@ public class CommentService {
                 throw new BadRequestException("这条发言已删除或被隐藏，不能回复");
             }
             thread = resolveOf(userId, parent);
+            assertCanPost(thread);
             comment.setTargetType(parent.getTargetType())
                     .setTargetId(parent.getTargetId())
                     .setParentId(parent.getId())
@@ -237,7 +265,8 @@ public class CommentService {
             commentMapper.insert(comment);
             commentMapper.addReplyCount(parent.getId(), 1);
         } else {
-            thread = resolve(userId, dto.targetType(), dto.pid(), dto.contestId());
+            thread = resolve(userId, dto.targetType(), dto.pid(), dto.contestId(), dto.postId());
+            assertCanPost(thread);
             comment.setTargetType(thread.type().name())
                     .setTargetId(thread.targetId())
                     .setDepth(0);
@@ -248,11 +277,11 @@ public class CommentService {
             comment.setRootId(comment.getId());
         }
         comment.setCreatedAt(LocalDateTime.now());
-        return new Views(userId, thread.canManage(), List.of(comment)).of(comment);
+        return new Views(userId, thread.canManage(), List.of(comment), postAuthorOf(thread)).of(comment);
     }
 
     /**
-     * 删除发言：作者或管理者。有回复时留「[已删除]」占位；没有回复就直接删掉，
+     * 删除发言：作者、管理者，或者发言所在题解的作者。有回复时留「[已删除]」占位；没有回复就直接删掉，
      * 父发言因此变成没有回复的占位时一并删掉。
      */
     @Transactional(rollbackFor = Exception.class)
@@ -260,7 +289,7 @@ public class CommentService {
         Long userId = AuthContexts.requiredUserId();
         Comment comment = loadComment(commentId);
         Thread thread = resolveOf(userId, comment);
-        if (!userId.equals(comment.getAuthorUserId()) && !thread.canManage()) {
+        if (!userId.equals(comment.getAuthorUserId()) && !thread.canManage() && !userId.equals(postAuthorOf(thread))) {
             throw new ForbiddenException("只能删除自己的发言");
         }
         if (comment.getDeletedAt() != null) {
@@ -314,7 +343,7 @@ public class CommentService {
             commentMapper.update(null, update);
         }
         Comment fresh = loadComment(commentId);
-        return new Views(userId, true, List.of(fresh)).of(fresh);
+        return new Views(userId, true, List.of(fresh), postAuthorOf(thread)).of(fresh);
     }
 
     // ---------------------------------------------------------------- 给投票等调用
@@ -341,13 +370,16 @@ public class CommentService {
         }
     }
 
-    /** 按 target_type + pid / contest_id 定位 thread 并检查能否查看 */
-    Thread resolve(Long userId, String rawType, String pid, Long contestId) {
+    /** 按 target_type + pid / contest_id / post_id 定位 thread 并检查能否查看 */
+    Thread resolve(Long userId, String rawType, String pid, Long contestId, Long postId) {
         CommentTargetType type = parseType(rawType);
         if (type == CommentTargetType.CONTEST) {
             Contest contest = loadContest(contestId);
             assertContestOpen(userId, contest);
-            return new Thread(type, contest.getId(), null, contest, canManageContest(userId, contest.getId()));
+            return new Thread(type, contest.getId(), null, contest, null, canManageContest(userId, contest.getId()));
+        }
+        if (type == CommentTargetType.POST) {
+            return resolvePost(userId, postId);
         }
         Problem problem = loadProblem(pid);
         Contest contest = null;
@@ -363,7 +395,7 @@ public class CommentService {
         } else {
             permissionService.assertPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ);
         }
-        return new Thread(type, problem.getId(), problem, contest, canManageProblem(userId, problem.getId()));
+        return new Thread(type, problem.getId(), problem, contest, null, canManageProblem(userId, problem.getId()));
     }
 
     /** 已有发言所在的 thread；题目讨论不带比赛上下文，题库或任一场开放讨论的比赛能看到就行 */
@@ -372,17 +404,62 @@ public class CommentService {
         if (type == CommentTargetType.CONTEST) {
             Contest contest = loadContest(comment.getTargetId());
             assertContestOpen(userId, contest);
-            return new Thread(type, contest.getId(), null, contest, canManageContest(userId, contest.getId()));
+            return new Thread(type, contest.getId(), null, contest, null, canManageContest(userId, contest.getId()));
         }
-        Problem problem = problemMapper.selectById(comment.getTargetId());
+        if (type == CommentTargetType.POST) {
+            return resolvePost(userId, comment.getTargetId());
+        }
+        return resolveProblemById(userId, comment.getTargetId());
+    }
+
+    /** 题目（按 id）对当前用户能不能看：题目 READ，或通过任一场开放讨论的比赛 */
+    Thread resolveProblemById(Long userId, Long problemId) {
+        Problem problem = problemId == null ? null : problemMapper.selectById(problemId);
         if (problem == null) {
             throw new NotFoundException("题目不存在");
         }
         if (!permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.READ)
                 && !readableViaSomeContest(userId, problem.getId())) {
-            throw new ForbiddenException("无权查看这条讨论");
+            throw new ForbiddenException("无权查看这道题的讨论");
         }
-        return new Thread(type, problem.getId(), problem, null, canManageProblem(userId, problem.getId()));
+        return new Thread(CommentTargetType.PROBLEM, problem.getId(), problem, null, null,
+                canManageProblem(userId, problem.getId()));
+    }
+
+    /** 题解评论区：题解所在的题目能看，且这篇题解对当前用户可见 */
+    private Thread resolvePost(Long userId, Long postId) {
+        Post post = postId == null ? null : postMapper.selectById(postId);
+        if (post == null || !PostKind.SOLUTION.name().equals(post.getKind())) {
+            throw new NotFoundException("题解不存在");
+        }
+        Thread problemThread = resolveProblemById(userId, post.getProblemId());
+        if (!canSeePost(userId, post, problemThread.canManage())) {
+            throw new NotFoundException("题解不存在");
+        }
+        return new Thread(CommentTargetType.POST, post.getId(), problemThread.problem(), null, post,
+                problemThread.canManage());
+    }
+
+    /** 用户题解对当前用户是否可见：已发布且未隐藏的人人可见；草稿只有作者；被隐藏的作者和管理者能看 */
+    static boolean canSeePost(Long userId, Post post, boolean canManage) {
+        boolean mine = userId != null && userId.equals(post.getAuthorUserId());
+        if (!PostStatus.PUBLISHED.name().equals(post.getStatus())) {
+            return mine;
+        }
+        return post.getHiddenAt() == null || mine || canManage;
+    }
+
+    /** 能不能在这个 thread 里发言：题解要已发布、未隐藏、允许评论 */
+    private static boolean canPostIn(Thread thread) {
+        Post post = thread.post();
+        return post == null || (PostStatus.PUBLISHED.name().equals(post.getStatus())
+                && post.getHiddenAt() == null && !Boolean.FALSE.equals(post.getAllowComment()));
+    }
+
+    private static void assertCanPost(Thread thread) {
+        if (!canPostIn(thread)) {
+            throw new BadRequestException("这篇题解现在不能评论");
+        }
     }
 
     private boolean readableViaSomeContest(Long userId, Long problemId) {
@@ -437,16 +514,15 @@ public class CommentService {
         if (CommentTargetType.CONTEST.name().equals(s)) {
             return CommentTargetType.CONTEST;
         }
-        throw new BadRequestException("target_type 只能是 PROBLEM 或 CONTEST");
+        if (CommentTargetType.POST.name().equals(s)) {
+            return CommentTargetType.POST;
+        }
+        throw new BadRequestException("target_type 只能是 PROBLEM、CONTEST 或 POST");
     }
 
     private static CommentTargetType parseStoredType(String raw) {
         try {
-            CommentTargetType type = CommentTargetType.valueOf(raw);
-            if (type == CommentTargetType.POST) {
-                throw new BadRequestException("帖子评论区还没有开放");
-            }
-            return type;
+            return CommentTargetType.valueOf(raw);
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new NotFoundException("发言不存在");
         }
@@ -500,6 +576,18 @@ public class CommentService {
         return thread.contest() != null ? thread.contest().getId() : requested;
     }
 
+    private static Long postIdOf(Thread thread) {
+        return thread.post() == null ? null : thread.post().getId();
+    }
+
+    private static String postTitleOf(Thread thread) {
+        return thread.post() == null ? null : thread.post().getTitle();
+    }
+
+    private static Long postAuthorOf(Thread thread) {
+        return thread.post() == null ? null : thread.post().getAuthorUserId();
+    }
+
     private static List<Comment> concat(List<Comment> a, List<Comment> b) {
         List<Comment> out = new ArrayList<>(a);
         out.addAll(b);
@@ -512,10 +600,13 @@ public class CommentService {
         private final boolean canManage;
         private final Map<Long, UserInfo> authors;
         private final Map<Long, Integer> myVotes;
+        /** 题解评论区里题解作者也能删评论 */
+        private final Long postAuthorId;
 
-        Views(Long userId, boolean canManage, List<Comment> comments) {
+        Views(Long userId, boolean canManage, List<Comment> comments, Long postAuthorId) {
             this.userId = userId;
             this.canManage = canManage;
+            this.postAuthorId = postAuthorId;
             List<Long> authorIds = comments.stream().map(Comment::getAuthorUserId)
                     .filter(Objects::nonNull).distinct().toList();
             this.authors = authorIds.isEmpty() ? Map.of() : userInfoMapper.selectByIds(authorIds).stream()
@@ -544,7 +635,7 @@ public class CommentService {
                     hidden && (mine || canManage) ? c.getHiddenReason() : null,
                     c.getScore() == null ? 0 : c.getScore(), c.getId() == null ? 0 : myVotes.getOrDefault(c.getId(), 0),
                     c.getReplyCount() == null ? 0 : c.getReplyCount(), c.getPinnedAt() != null, mine,
-                    !deleted && userId != null && (mine || canManage), c.getCreatedAt());
+                    !deleted && userId != null && (mine || canManage || userId.equals(postAuthorId)), c.getCreatedAt());
         }
     }
 }

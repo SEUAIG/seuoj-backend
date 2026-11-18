@@ -124,11 +124,13 @@ public class ContestDiscussionService {
                         new LambdaQueryWrapper<Problem>().in(Problem::getPid, pids))
                 .stream().collect(Collectors.toMap(Problem::getPid, Problem::getId, (a, b) -> a));
         Map<Long, Long> problemCounts = commentService.countVisible(CommentTargetType.PROBLEM, problemIds.values());
+        Map<Long, Long> solutionCounts = commentService.countPublicSolutions(problemIds.values());
         List<ContestDiscussionVO.ProblemEntry> problems = rows.stream()
                 .sorted(Comparator.comparing(ContestProblemOverviewVO::getSortOrder,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(p -> new ContestDiscussionVO.ProblemEntry(p.getSortOrder(), p.getPid(), p.getTitle(),
-                        countOf(problemCounts, problemIds.get(p.getPid()))))
+                        countOf(problemCounts, problemIds.get(p.getPid())),
+                        countOf(solutionCounts, problemIds.get(p.getPid()))))
                 .toList();
         long contestCount = commentService.countVisible(CommentTargetType.CONTEST, List.of(contest.getId()))
                 .getOrDefault(contest.getId(), 0L);
