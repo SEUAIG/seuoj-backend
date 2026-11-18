@@ -315,28 +315,32 @@ class CommentServiceTest {
     // ---------------------------------------------------------------- 删除
 
     @Test
-    void deletingCommentWithRepliesLeavesPlaceholder() {
+    void deletingAlwaysLeavesPlaceholderWhetherOrNotItHasReplies() {
         login(ALICE);
         when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE).setReplyCount(2));
+        when(comments.selectById(21L)).thenReturn(comment(21L, 20L, 20L, 1, ALICE).setReplyCount(0));
 
         service.delete(20L);
+        service.delete(21L);
 
-        verify(comments).update(isNull(), any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.Wrapper<Comment>> w =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.Wrapper.class);
+        verify(comments, times(2)).update(isNull(), w.capture());
+        for (var wrapper : w.getAllValues()) {
+            String set = wrapper.getSqlSet();
+            assertTrue(set.contains("deleted_at") && set.contains("pinned_at"), set);
+        }
         verify(comments, never()).deleteById(anyLong());
+        verify(comments, never()).addReplyCount(anyLong(), anyInt());
     }
 
     @Test
-    void deletingLastReplyAlsoRemovesDeletedParentPlaceholder() {
-        login(BOB);
-        Comment placeholder = comment(20L, null, 20L, 0, ALICE).setDeletedAt(LocalDateTime.now()).setReplyCount(0);
-        when(comments.selectById(21L)).thenReturn(comment(21L, 20L, 20L, 1, BOB));
-        when(comments.selectById(20L)).thenReturn(placeholder);
-
-        service.delete(21L);
-
-        verify(comments).deleteById(21L);
-        verify(comments).addReplyCount(20L, -1);
-        verify(comments).deleteById(20L);
+    void deletingTwiceDoesNothingTheSecondTime() {
+        login(ALICE);
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE).setDeletedAt(LocalDateTime.now()));
+        service.delete(20L);
+        verify(comments, never()).update(isNull(), any());
     }
 
     @Test
@@ -346,7 +350,7 @@ class CommentServiceTest {
         assertThrows(ForbiddenException.class, () -> service.delete(20L));
         login(ADMIN);
         service.delete(20L);
-        verify(comments).deleteById(20L);
+        verify(comments).update(isNull(), any());
     }
 
     // ---------------------------------------------------------------- 置顶、隐藏
@@ -427,7 +431,7 @@ class CommentServiceTest {
 
         service.delete(50L);
 
-        verify(comments).deleteById(50L);
+        verify(comments).update(isNull(), any());
     }
 
     // ---------------------------------------------------------------- 修改与历史
