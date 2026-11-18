@@ -40,14 +40,14 @@ import org.springframework.util.StringUtils;
  *
  * <ul>
  *   <li>能看：和这道题的讨论一样（题目 READ，或通过开放讨论的比赛）；草稿只有作者看得到，被隐藏的作者和管理者看得到。</li>
- *   <li>能写：登录且 AC 过这道题（submission.verdict = Accepted 且没被跳过，题库、比赛、作业里交的都算），每人每题最多 3 篇。</li>
+ *   <li>能写：登录且 AC 过这道题（submission.verdict = Accepted 且没被跳过，题库、比赛、作业里交的都算），每人每题 1 篇（草稿也算）。</li>
  *   <li>能改：作者；能删：作者或管理者；精选、隐藏：管理者（题目 WRITE，全站管理员都有）。</li>
  * </ul>
  */
 @Service
 public class SolutionService {
 
-    static final int MAX_PER_PROBLEM = 3;
+    static final int MAX_PER_PROBLEM = 1;
     static final int DEFAULT_PAGE_SIZE = 20;
     static final int MAX_PAGE_SIZE = 50;
 
@@ -92,25 +92,17 @@ public class SolutionService {
         List<Post> items = page.getRecords() == null ? List.of() : page.getRecords();
 
         // 我自己还没公开的：草稿，以及被隐藏的（管理者已经在上面的列表里看到了）
-        List<Post> minePending = List.of();
-        long myCount = 0;
-        if (userId != null) {
-            myCount = postMapper.selectCount(new LambdaQueryWrapper<Post>()
-                    .eq(Post::getKind, PostKind.SOLUTION.name())
-                    .eq(Post::getProblemId, problemId)
-                    .eq(Post::getAuthorUserId, userId));
-            if (pageNo == 1 && myCount > 0) {
-                minePending = postMapper.selectList(new LambdaQueryWrapper<Post>()
-                                .eq(Post::getKind, PostKind.SOLUTION.name())
-                                .eq(Post::getProblemId, problemId)
-                                .eq(Post::getAuthorUserId, userId)
-                                .orderByDesc(Post::getUpdatedAt))
-                        .stream()
-                        .filter(p -> !PostStatus.PUBLISHED.name().equals(p.getStatus())
-                                || (p.getHiddenAt() != null && !canManage))
-                        .toList();
-            }
-        }
+        List<Post> mine = userId == null ? List.of() : postMapper.selectList(new LambdaQueryWrapper<Post>()
+                .eq(Post::getKind, PostKind.SOLUTION.name())
+                .eq(Post::getProblemId, problemId)
+                .eq(Post::getAuthorUserId, userId)
+                .orderByDesc(Post::getUpdatedAt));
+        long myCount = mine.size();
+        Long myPostId = mine.isEmpty() ? null : mine.get(0).getId();
+        List<Post> minePending = pageNo != 1 ? List.of() : mine.stream()
+                .filter(p -> !PostStatus.PUBLISHED.name().equals(p.getStatus())
+                        || (p.getHiddenAt() != null && !canManage))
+                .toList();
 
         boolean accepted = userId != null && hasAccepted(userId, problemId);
         List<Post> all = new ArrayList<>(minePending);
@@ -119,7 +111,7 @@ public class SolutionService {
         Map<Long, Long> comments = commentService.countVisible(CommentTargetType.POST,
                 all.stream().map(Post::getId).toList());
         return new SolutionPageVO(thread.problem().getPid(), thread.problem().getTitle(),
-                accepted && myCount < MAX_PER_PROBLEM, accepted, canManage, myCount, MAX_PER_PROBLEM,
+                accepted && myCount < MAX_PER_PROBLEM, accepted, canManage, myCount, myPostId, MAX_PER_PROBLEM,
                 pageNo, pageSize, page.getTotal(),
                 minePending.stream().map(p -> item(p, userId, authors, comments)).toList(),
                 items.stream().map(p -> item(p, userId, authors, comments)).toList());
@@ -150,7 +142,7 @@ public class SolutionService {
                 .eq(Post::getProblemId, problemId)
                 .eq(Post::getAuthorUserId, userId));
         if (mine != null && mine >= MAX_PER_PROBLEM) {
-            throw new BadRequestException("每道题最多写 " + MAX_PER_PROBLEM + " 篇题解");
+            throw new BadRequestException("这道题你已经写过题解了，可以修改那一篇");
         }
         String status = parseStatus(dto.status());
         String content = checkedContent(dto.content(), status);
