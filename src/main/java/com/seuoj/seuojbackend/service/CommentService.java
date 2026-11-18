@@ -359,8 +359,8 @@ public class CommentService {
     }
 
     /**
-     * 删除发言：作者、管理者，或者发言所在题解的作者。有回复时留「[已删除]」占位；没有回复就直接删掉，
-     * 父发言因此变成没有回复的占位时一并删掉。
+     * 删除发言：作者、管理者，或者发言所在题解的作者。无论在哪一层、有没有回复，都只记 deleted_at，
+     * 留「[已删除]」占位（正文和作者不再返回），同时取消置顶。重复删除没有副作用。
      */
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long commentId) {
@@ -373,15 +373,11 @@ public class CommentService {
         if (comment.getDeletedAt() != null) {
             return;
         }
-        if (comment.getReplyCount() != null && comment.getReplyCount() > 0) {
-            commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
-                    .eq(Comment::getId, comment.getId())
-                    .set(Comment::getDeletedAt, LocalDateTime.now())
-                    .set(Comment::getPinnedAt, null)
-                    .set(Comment::getPinnedBy, null));
-            return;
-        }
-        removeLeaf(comment);
+        commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
+                .eq(Comment::getId, comment.getId())
+                .set(Comment::getDeletedAt, LocalDateTime.now())
+                .set(Comment::getPinnedAt, null)
+                .set(Comment::getPinnedBy, null));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -432,21 +428,6 @@ public class CommentService {
     }
 
     // ---------------------------------------------------------------- 内部
-
-    private void removeLeaf(Comment comment) {
-        Comment current = comment;
-        while (current != null) {
-            commentMapper.deleteById(current.getId());
-            if (current.getParentId() == null) {
-                return;
-            }
-            commentMapper.addReplyCount(current.getParentId(), -1);
-            Comment parent = commentMapper.selectById(current.getParentId());
-            boolean orphanPlaceholder = parent != null && parent.getDeletedAt() != null
-                    && (parent.getReplyCount() == null || parent.getReplyCount() <= 0);
-            current = orphanPlaceholder ? parent : null;
-        }
-    }
 
     /** 按 target_type + pid / contest_id / post_id 定位 thread 并检查能否查看 */
     Thread resolve(Long userId, String rawType, String pid, Long contestId, Long postId) {
