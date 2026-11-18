@@ -23,7 +23,11 @@ public record CommentVO(
         boolean pinned,
         boolean mine,
         @JsonProperty("can_delete") boolean canDelete,
-        @JsonProperty("created_at") LocalDateTime createdAt) {
+        @JsonProperty("created_at") LocalDateTime createdAt,
+        /* 最后一次修改的时间，没改过为 null */
+        @JsonProperty("edited_at") LocalDateTime editedAt,
+        /* 当前是第几版（没改过是 1） */
+        int revision) {
 
     public record Author(
             Long id,

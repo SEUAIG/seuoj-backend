@@ -3,8 +3,10 @@ package com.seuoj.seuojbackend.controller.api;
 import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.discussion.CommentCreateDTO;
+import com.seuoj.seuojbackend.dto.discussion.CommentEditDTO;
 import com.seuoj.seuojbackend.dto.discussion.CommentModerationDTO;
 import com.seuoj.seuojbackend.service.CommentService;
+import com.seuoj.seuojbackend.vo.discussion.CommentRevisionsVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentSummaryVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentThreadVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentVO;
@@ -63,6 +65,19 @@ public class CommentController {
     @PostMapping
     public Result<CommentVO> create(@Valid @RequestBody CommentCreateDTO dto) {
         return Result.success(commentService.create(dto));
+    }
+
+    /** 修改自己的发言，旧正文进历史 */
+    @PutMapping("/{id}")
+    public Result<CommentVO> edit(@PathVariable("id") Long id, @Valid @RequestBody CommentEditDTO dto) {
+        return Result.success(commentService.edit(id, dto));
+    }
+
+    /** 历史版本：能看这条发言的人都能看 */
+    @AllowAnonymous
+    @GetMapping("/{id}/revisions")
+    public Result<CommentRevisionsVO> revisions(@PathVariable("id") Long id) {
+        return Result.success(commentService.getRevisions(id));
     }
 
     @DeleteMapping("/{id}")

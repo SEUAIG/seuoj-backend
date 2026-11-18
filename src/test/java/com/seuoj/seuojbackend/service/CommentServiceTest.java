@@ -7,8 +7,10 @@ import com.seuoj.seuojbackend.common.AuthStatus;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.dto.discussion.CommentCreateDTO;
+import com.seuoj.seuojbackend.dto.discussion.CommentEditDTO;
 import com.seuoj.seuojbackend.dto.discussion.CommentModerationDTO;
 import com.seuoj.seuojbackend.entity.Comment;
+import com.seuoj.seuojbackend.entity.CommentRevision;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ContestProblemRel;
 import com.seuoj.seuojbackend.entity.Post;
@@ -21,12 +23,14 @@ import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.UserContext;
 import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.CommentMapper;
+import com.seuoj.seuojbackend.mapper.CommentRevisionMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
 import com.seuoj.seuojbackend.mapper.PostMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.VoteMapper;
+import com.seuoj.seuojbackend.vo.discussion.CommentRevisionsVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentSummaryVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentThreadVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentVO;
@@ -53,7 +57,8 @@ class CommentServiceTest {
     private final UserInfoMapper users = mock(UserInfoMapper.class);
     private final PermissionService permissions = mock(PermissionService.class);
     private final PostMapper posts = mock(PostMapper.class);
-    private final CommentService service = new CommentService(comments, votes, problems, contests, rels, users, permissions, posts);
+    private final CommentRevisionMapper revisions = mock(CommentRevisionMapper.class);
+    private final CommentService service = new CommentService(comments, votes, problems, contests, rels, users, permissions, posts, revisions);
 
     private final Problem problem = new Problem().setId(PROBLEM).setPid("P1001").setTitle("两数之和");
     private final Contest contest = new Contest();
@@ -68,6 +73,7 @@ class CommentServiceTest {
         TableInfoHelper.initTableInfo(assistant, Problem.class);
         TableInfoHelper.initTableInfo(assistant, ContestProblemRel.class);
         TableInfoHelper.initTableInfo(assistant, Post.class);
+        TableInfoHelper.initTableInfo(assistant, CommentRevision.class);
     }
 
     @BeforeEach
@@ -424,6 +430,102 @@ class CommentServiceTest {
         verify(comments).deleteById(50L);
     }
 
+    // ---------------------------------------------------------------- 修改与历史
+
+    @Test
+    void editStoresOldContentAsRevision() {
+        Comment c = comment(20L, null, 20L, 0, ALICE);
+        when(comments.selectById(20L)).thenReturn(c);
+        login(ALICE);
+
+        service.edit(20L, new CommentEditDTO("  改过的内容  "));
+
+        ArgumentCaptor<CommentRevision> saved = ArgumentCaptor.forClass(CommentRevision.class);
+        verify(revisions).insert(saved.capture());
+        assertEquals(20L, saved.getValue().getCommentId());
+        assertEquals(1, saved.getValue().getVersion());
+        assertEquals("内容", saved.getValue().getContent());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.Wrapper<Comment>> w =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.Wrapper.class);
+        verify(comments).update(isNull(), w.capture());
+        String set = w.getValue().getSqlSet();
+        assertTrue(set.contains("edited_at") && set.contains("revision_count") && set.contains("content"), set);
+    }
+
+    @Test
+    void unchangedContentMakesNoRevision() {
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE));
+        login(ALICE);
+        service.edit(20L, new CommentEditDTO("内容"));
+        verify(revisions, never()).insert(any(CommentRevision.class));
+        verify(comments, never()).update(isNull(), any());
+    }
+
+    @Test
+    void onlyTheAuthorCanEditEvenManagersCannot() {
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE));
+        login(ADMIN);
+        assertThrows(ForbiddenException.class, () -> service.edit(20L, new CommentEditDTO("x")));
+        login(BOB);
+        assertThrows(ForbiddenException.class, () -> service.edit(20L, new CommentEditDTO("x")));
+    }
+
+    @Test
+    void deletedCommentCannotBeEdited() {
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE).setDeletedAt(LocalDateTime.now()));
+        login(ALICE);
+        assertThrows(BadRequestException.class, () -> service.edit(20L, new CommentEditDTO("x")));
+    }
+
+    @Test
+    void editsCountTowardTheRateLimit() {
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE));
+        when(comments.selectCount(any())).thenReturn((long) CommentService.COMMENTS_PER_MINUTE - 1);
+        when(revisions.countEditsSince(eq(ALICE), any())).thenReturn(1L);
+        login(ALICE);
+        assertThrows(BadRequestException.class, () -> service.edit(20L, new CommentEditDTO("新的")));
+    }
+
+    @Test
+    void revisionsRunFromFirstToCurrentWithStartTimes() {
+        LocalDateTime t0 = LocalDateTime.of(2026, 11, 18, 9, 0), t1 = t0.plusMinutes(5), t2 = t0.plusMinutes(9);
+        Comment c = comment(20L, null, 20L, 0, ALICE).setContent("第三版").setRevisionCount(2).setEditedAt(t2);
+        c.setCreatedAt(t0);
+        when(comments.selectById(20L)).thenReturn(c);
+        when(revisions.selectList(any())).thenReturn(List.of(
+                new CommentRevision().setCommentId(20L).setVersion(1).setContent("第一版").setCreatedAt(t1),
+                new CommentRevision().setCommentId(20L).setVersion(2).setContent("第二版").setCreatedAt(t2)));
+
+        CommentRevisionsVO vo = service.getRevisions(20L);
+
+        assertEquals(List.of(1, 2, 3), vo.versions().stream().map(CommentRevisionsVO.Version::version).toList());
+        assertEquals(List.of("第一版", "第二版", "第三版"), vo.versions().stream().map(CommentRevisionsVO.Version::content).toList());
+        assertEquals(List.of(t0, t1, t2), vo.versions().stream().map(CommentRevisionsVO.Version::startedAt).toList());
+        assertTrue(vo.versions().get(2).current());
+    }
+
+    @Test
+    void historyOfHiddenOrDeletedCommentIsNotShownToOthers() {
+        when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE).setHiddenAt(LocalDateTime.now()));
+        login(BOB);
+        assertThrows(NotFoundException.class, () -> service.getRevisions(20L));
+        login(ALICE);
+        assertDoesNotThrow(() -> service.getRevisions(20L));
+        when(comments.selectById(21L)).thenReturn(comment(21L, null, 21L, 0, ALICE).setDeletedAt(LocalDateTime.now()));
+        assertThrows(NotFoundException.class, () -> service.getRevisions(21L));
+    }
+
+    @Test
+    void editedCommentShowsRevisionNumber() {
+        Comment c = comment(20L, null, 20L, 0, ALICE).setRevisionCount(2).setEditedAt(LocalDateTime.now());
+        stubPage(List.of(c));
+        when(comments.selectList(any())).thenReturn(List.of(), List.of());
+        CommentVO vo = service.getThread("PROBLEM", "P1001", null, null, null, null, null).comments().get(0);
+        assertEquals(3, vo.revision());
+        assertNotNull(vo.editedAt());
+    }
+
     // ---------------------------------------------------------------- 工具
 
     private void stubPage(List<Comment> roots) {
@@ -438,7 +540,7 @@ class CommentServiceTest {
     private static Comment comment(long id, Long parent, long root, int depth, long author) {
         return new Comment().setId(id).setParentId(parent).setRootId(root).setDepth(depth)
                 .setTargetType("PROBLEM").setTargetId(PROBLEM).setAuthorUserId(author)
-                .setContent("内容").setScore(0).setReplyCount(0).setCreatedAt(LocalDateTime.now());
+                .setContent("内容").setScore(0).setReplyCount(0).setRevisionCount(0).setCreatedAt(LocalDateTime.now());
     }
 
     private static Post solution(long id, long author, String status) {

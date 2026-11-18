@@ -890,6 +890,8 @@ CREATE TABLE `comment`
     `hidden_by`      bigint                                                                   NULL     DEFAULT NULL COMMENT '隐藏操作人',
     `hidden_reason`  varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci            NULL     DEFAULT NULL COMMENT '隐藏原因',
     `deleted_at`     datetime                                                                 NULL     DEFAULT NULL COMMENT '有回复时被删除：保留占位，正文不再返回',
+    `edited_at`      datetime                                                                 NULL     DEFAULT NULL COMMENT '最后一次修改时间，NULL 表示没改过',
+    `revision_count` int                                                                      NOT NULL DEFAULT 0 COMMENT '修改次数，等于 comment_revision 里的行数',
     `created_at`     timestamp                                                                NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`     timestamp                                                                NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_del`         tinyint(1)                                                               NOT NULL DEFAULT 0 COMMENT '是否删除：0-未删除，1-已删除（没有回复时删除）',
@@ -903,6 +905,22 @@ CREATE TABLE `comment`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
   ROW_FORMAT = DYNAMIC COMMENT ='讨论发言（题目讨论、整场比赛讨论、帖子评论区），树形';
+
+DROP TABLE IF EXISTS `comment_revision`;
+CREATE TABLE `comment_revision`
+(
+    `id`         bigint                                                NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `comment_id` bigint                                                NOT NULL COMMENT '发言ID',
+    `version`    int                                                   NOT NULL COMMENT '这份正文是第几版，从 1 开始',
+    `content`    text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '被替换掉的旧正文',
+    `created_at` timestamp                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '被替换的时间（下一版开始的时间）',
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE KEY `uk_comment_revision_version` (`comment_id`, `version`) USING BTREE,
+    CONSTRAINT `fk_comment_revision_comment` FOREIGN KEY (`comment_id`) REFERENCES `comment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  ROW_FORMAT = DYNAMIC COMMENT ='讨论发言的历史版本';
 
 DROP TABLE IF EXISTS `vote`;
 CREATE TABLE `vote`
