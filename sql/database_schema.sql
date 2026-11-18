@@ -504,6 +504,7 @@ CREATE TABLE `submission`
     `problem_id`    bigint                                                       NOT NULL,
     `language`      varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `assignment_id` bigint                                                       NULL     COMMENT '关联作业ID',
+    `code_hash`     char(64) CHARACTER SET ascii COLLATE ascii_bin               NULL     DEFAULT NULL COMMENT '去掉空白后的代码 SHA-256，用于拦截重复提交',
     `status`        varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '生命周期状态：Pending/Running/Finished/Failed',
     `verdict`       varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL     DEFAULT NULL COMMENT '最终判定状态：Accepted/WA/TLE/...',
     `score`         int                                                          NULL     DEFAULT NULL COMMENT '得分',
@@ -527,6 +528,7 @@ CREATE TABLE `submission`
     INDEX `idx_user_time` (`user_id` ASC, `submit_time` DESC) USING BTREE,
     INDEX `idx_assignment` (`assignment_id` ASC) USING BTREE,
     INDEX `idx_submission_judge_host` (`judge_host` ASC, `judge_started_at` ASC) USING BTREE,
+    INDEX `idx_submission_code_hash` (`user_id` ASC, `problem_id` ASC, `code_hash` ASC) USING BTREE,
     CONSTRAINT `fk_submission_problem` FOREIGN KEY (`problem_id`) REFERENCES `problem` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT `fk_submission_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT `fk_submission_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT

@@ -82,6 +82,7 @@ public class SubmissionService {
     private final ContestMapper contestMapper;
     private final ContestSubmissionMapper contestSubmissionMapper;
     private final ContestSubmissionPolicy contestSubmissionPolicy;
+    private final SubmissionGuard submissionGuard;
 
     public SubmissionService(SubmissionMapper submissionMapper, SubmissionDetailMapper submissionDetailMapper,
             ProblemMapper problemMapper, AssignmentMapper assignmentMapper,
@@ -90,7 +91,8 @@ public class SubmissionService {
             UserRoleService userRoleService, PermissionService permissionService,
             ProblemService problemService,
             TransactionTemplate transactionTemplate, ContestMapper contestMapper,
-            ContestSubmissionMapper contestSubmissionMapper, ContestSubmissionPolicy contestSubmissionPolicy) {
+            ContestSubmissionMapper contestSubmissionMapper, ContestSubmissionPolicy contestSubmissionPolicy,
+            SubmissionGuard submissionGuard) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
@@ -105,6 +107,7 @@ public class SubmissionService {
         this.contestMapper = contestMapper;
         this.contestSubmissionMapper = contestSubmissionMapper;
         this.contestSubmissionPolicy = contestSubmissionPolicy;
+        this.submissionGuard = submissionGuard;
     }
 
     public OnlineJudgeResultVO submitOnlineJudge(OnlineJudgeSubmitDTO dto) {
@@ -203,8 +206,15 @@ public class SubmissionService {
             }
         }
 
+        // 题目管理者常要在改数据后重交标程，不查重；冷却对所有人生效
+        String codeHash = SubmissionGuard.codeHash(dto.getCode());
+        if (!permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE)) {
+            submissionGuard.assertNotDuplicate(userId, problem.getId(), dto.getLanguage(), codeHash, null, assignmentId);
+        }
+        submissionGuard.acquireCooldown(userId);
+
         // 数据库操作（事务完成）
-        Submission submission = submitInTransaction(dto, userId, problem.getId());
+        Submission submission = submitInTransaction(dto, userId, problem.getId(), codeHash);
         if (submission == null) {
             throw new InternalServerException("提交失败");
         }
@@ -220,7 +230,7 @@ public class SubmissionService {
     /**
      * 事务内完成校验、记录创建、代码保存、计数累加，并注册 afterCommit/rollback 处理
      */
-    private Submission submitInTransaction(SubmitDTO dto, Long userId, Long problemId) {
+    private Submission submitInTransaction(SubmitDTO dto, Long userId, Long problemId, String codeHash) {
         return transactionTemplate.execute(status -> {
             // 创建提交记录
             Submission submission = new Submission();
@@ -229,6 +239,7 @@ public class SubmissionService {
             submission.setProblemId(problemId);
             submission.setLanguage(dto.getLanguage());
             submission.setAssignmentId(dto.getAssignmentId());
+            submission.setCodeHash(codeHash);
             submission.setStatus(SubmissionStatus.PENDING.getStatus());
             submission.setSubmitTime(LocalDateTime.now());
             submissionMapper.insert(submission);

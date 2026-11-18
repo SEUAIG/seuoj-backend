@@ -37,6 +37,35 @@ public interface SubmissionMapper extends BaseMapper<Submission> {
                                                      @Param("viewerId") Long viewerId,
                                                      @Param("now") LocalDateTime now);
 
+    /**
+     * 同一用户在同一题、同一语言、同一场比赛（或同一份作业，或都在两者之外）下，代码哈希相同的提交数。
+     * 评测系统故障（Failed / JudgendError / SystemError）、已删除、被跳过的不算。
+     */
+    @Select("""
+            <script>
+            SELECT COUNT(*) FROM submission s
+            WHERE s.user_id = #{userId} AND s.problem_id = #{problemId} AND s.code_hash = #{codeHash}
+              AND s.language = #{language} AND s.is_del = 0 AND s.is_skipped = 0
+              AND s.status != 'Failed' AND (s.verdict IS NULL OR s.verdict NOT IN ('JudgendError', 'SystemError'))
+              <choose>
+                <when test="assignmentId != null">AND s.assignment_id = #{assignmentId}</when>
+                <otherwise>AND s.assignment_id IS NULL</otherwise>
+              </choose>
+              <choose>
+                <when test="contestId != null">
+                  AND EXISTS (SELECT 1 FROM contest_submission cs
+                              WHERE cs.submission_id = s.id AND cs.is_del = 0 AND cs.contest_id = #{contestId})
+                </when>
+                <otherwise>
+                  AND NOT EXISTS (SELECT 1 FROM contest_submission cs WHERE cs.submission_id = s.id AND cs.is_del = 0)
+                </otherwise>
+              </choose>
+            </script>
+            """)
+    long countSameCode(@Param("userId") Long userId, @Param("problemId") Long problemId,
+                       @Param("language") String language, @Param("codeHash") String codeHash,
+                       @Param("contestId") Long contestId, @Param("assignmentId") Long assignmentId);
+
     /** 题目在多少场此刻进行中的比赛里 */
     @Select("""
             SELECT COUNT(*) FROM contest_problem_rel cpr

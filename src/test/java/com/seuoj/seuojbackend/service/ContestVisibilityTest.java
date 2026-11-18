@@ -32,7 +32,7 @@ class ContestVisibilityTest {
     private final ContestRankingStrategyFactory strategies = mock(ContestRankingStrategyFactory.class);
     private final ContestService service = new ContestService(contests, null, mock(ContestRegisterRelMapper.class), null,
             null, null, mock(com.seuoj.seuojbackend.mapper.ProblemMapper.class), null, permissions,
-            mock(UserRoleService.class), null, null, null, null, strategies, null);
+            mock(UserRoleService.class), null, null, null, null, strategies, null, null);
     private final Contest contest = new Contest();
 
     @BeforeEach
