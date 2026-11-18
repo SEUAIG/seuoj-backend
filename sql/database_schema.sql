@@ -941,4 +941,24 @@ CREATE TABLE `vote`
   COLLATE = utf8mb4_unicode_ci
   ROW_FORMAT = DYNAMIC COMMENT ='赞踩：每人对每个目标一行';
 
+DROP TABLE IF EXISTS `user_notification`;
+CREATE TABLE `user_notification`
+(
+    `id`         bigint                                                       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id`    bigint                                                       NOT NULL COMMENT '收件人',
+    `type`       varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '通知类型，见后端 NotificationType',
+    `contest_id` bigint                                                       NULL COMMENT '相关比赛',
+    `ref_id`     bigint                                                       NULL COMMENT '相关对象：公告ID / 答疑ID',
+    `created_at` datetime                                                     NOT NULL COMMENT '事件发生时间',
+    `popped_at`  datetime                                                     NULL DEFAULT NULL COMMENT '弹出过的时间，NULL 表示还没弹',
+    PRIMARY KEY (`id`) USING BTREE,
+    KEY `idx_notification_pending` (`user_id`, `popped_at`, `created_at`) USING BTREE,
+    KEY `idx_notification_ref` (`ref_id`, `type`) USING BTREE,
+    CONSTRAINT `fk_notification_user` FOREIGN KEY (`user_id`) REFERENCES `user_info` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT `fk_notification_contest` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  ROW_FORMAT = DYNAMIC COMMENT ='站内通知（右上角弹窗）';
+
 SET FOREIGN_KEY_CHECKS = 1;
