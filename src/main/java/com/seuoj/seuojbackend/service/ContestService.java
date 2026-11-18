@@ -92,6 +92,7 @@ public class ContestService {
     private final TransactionTemplate transactionTemplate;
     private final ContestRankingStrategyFactory rankingStrategyFactory;
     private final ContestSubmissionPolicy contestSubmissionPolicy;
+    private final SubmissionGuard submissionGuard;
 
     public ContestService(ContestMapper contestMapper,
                           ContestProblemRelMapper contestProblemRelMapper,
@@ -108,7 +109,8 @@ public class ContestService {
                           CodeStorage codeStorage,
                           TransactionTemplate transactionTemplate,
                           ContestRankingStrategyFactory rankingStrategyFactory,
-                          ContestSubmissionPolicy contestSubmissionPolicy) {
+                          ContestSubmissionPolicy contestSubmissionPolicy,
+                          SubmissionGuard submissionGuard) {
         this.contestMapper = contestMapper;
         this.contestProblemRelMapper = contestProblemRelMapper;
         this.contestRegisterRelMapper = contestRegisterRelMapper;
@@ -125,6 +127,7 @@ public class ContestService {
         this.transactionTemplate = transactionTemplate;
         this.rankingStrategyFactory = rankingStrategyFactory;
         this.contestSubmissionPolicy = contestSubmissionPolicy;
+        this.submissionGuard = submissionGuard;
     }
 
     // ───────────────────────── CRUD ─────────────────────────
@@ -519,7 +522,14 @@ public class ContestService {
             throw new BadRequestException("提交代码过长，请修改后重试");
         }
 
-        Submission submission = submitContestInTransaction(dto, userId, problem.getId(), contest.getId());
+        // 比赛或题目的管理者验题时常重交同一份标程，不查重；冷却对所有人生效
+        String codeHash = SubmissionGuard.codeHash(dto.getCode());
+        if (!canManage && !permissionService.hasPermission(userId, ResourceType.PROBLEM, problem.getId(), PermissionOp.WRITE)) {
+            submissionGuard.assertNotDuplicate(userId, problem.getId(), dto.getLanguage(), codeHash, contest.getId(), null);
+        }
+        submissionGuard.acquireCooldown(userId);
+
+        Submission submission = submitContestInTransaction(dto, userId, problem.getId(), contest.getId(), codeHash);
         if (submission == null) {
             throw new InternalServerException("提交失败");
         }
@@ -531,13 +541,15 @@ public class ContestService {
         return vo;
     }
 
-    private Submission submitContestInTransaction(ContestSubmitDTO dto, Long userId, Long problemId, Long contestId) {
+    private Submission submitContestInTransaction(ContestSubmitDTO dto, Long userId, Long problemId, Long contestId,
+                                                  String codeHash) {
         return transactionTemplate.execute(txStatus -> {
             Submission submission = new Submission();
             submission.setSubmissionNo(UUID.randomUUID().toString());
             submission.setUserId(userId);
             submission.setProblemId(problemId);
             submission.setLanguage(dto.getLanguage());
+            submission.setCodeHash(codeHash);
             submission.setStatus(SubmissionStatus.PENDING.getStatus());
             submission.setSubmitTime(LocalDateTime.now());
             submissionMapper.insert(submission);

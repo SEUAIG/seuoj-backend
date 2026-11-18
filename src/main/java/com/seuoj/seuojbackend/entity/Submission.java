@@ -55,6 +55,10 @@ public class Submission implements Serializable {
     @TableField("assignment_id")
     private Long assignmentId;
 
+    /** 去掉空白后的代码 SHA-256，用于拦截重复提交；上线前的旧提交为空 */
+    @TableField("code_hash")
+    private String codeHash;
+
     /**
      * 提交流程状态
      */

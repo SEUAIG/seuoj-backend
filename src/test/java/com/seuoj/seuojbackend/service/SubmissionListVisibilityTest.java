@@ -16,7 +16,7 @@ class SubmissionListVisibilityTest {
     private final SubmissionMapper submissions = mock(SubmissionMapper.class);
     private final UserRoleService roles = mock(UserRoleService.class);
     private final SubmissionService service = new SubmissionService(submissions, null, null, null,
-            null, null, null, roles, null, null, null, null, null, null);
+            null, null, null, roles, null, null, null, null, null, null, null);
 
     @AfterEach void cleanup() { UserContextHolder.clear(); }
 

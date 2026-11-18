@@ -16,6 +16,10 @@ jwt:
   access-expiration: 86400
   temp-expiration: 300
 
+seuoj:
+  submission:
+    cooldown-ms: 0   # 集成测试里同一用户连续提交，关掉冷却
+
 judge:
   server-url: http://127.0.0.1:19090
   secret: test-judge-secret
