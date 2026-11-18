@@ -11,6 +11,7 @@ import com.seuoj.seuojbackend.dto.discussion.CommentModerationDTO;
 import com.seuoj.seuojbackend.entity.Comment;
 import com.seuoj.seuojbackend.entity.Contest;
 import com.seuoj.seuojbackend.entity.ContestProblemRel;
+import com.seuoj.seuojbackend.entity.Post;
 import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.Vote;
@@ -22,6 +23,7 @@ import com.seuoj.seuojbackend.interceptor.UserContextHolder;
 import com.seuoj.seuojbackend.mapper.CommentMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
+import com.seuoj.seuojbackend.mapper.PostMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.VoteMapper;
@@ -50,7 +52,8 @@ class CommentServiceTest {
     private final ContestProblemRelMapper rels = mock(ContestProblemRelMapper.class);
     private final UserInfoMapper users = mock(UserInfoMapper.class);
     private final PermissionService permissions = mock(PermissionService.class);
-    private final CommentService service = new CommentService(comments, votes, problems, contests, rels, users, permissions);
+    private final PostMapper posts = mock(PostMapper.class);
+    private final CommentService service = new CommentService(comments, votes, problems, contests, rels, users, permissions, posts);
 
     private final Problem problem = new Problem().setId(PROBLEM).setPid("P1001").setTitle("两数之和");
     private final Contest contest = new Contest();
@@ -64,6 +67,7 @@ class CommentServiceTest {
         TableInfoHelper.initTableInfo(assistant, Vote.class);
         TableInfoHelper.initTableInfo(assistant, Problem.class);
         TableInfoHelper.initTableInfo(assistant, ContestProblemRel.class);
+        TableInfoHelper.initTableInfo(assistant, Post.class);
     }
 
     @BeforeEach
@@ -102,7 +106,7 @@ class CommentServiceTest {
     @Test
     void problemThreadNeedsProblemReadFromLibrary() {
         when(permissions.hasPermission(any(), eq(ResourceType.PROBLEM), eq(PROBLEM), eq(PermissionOp.READ))).thenReturn(false);
-        assertThrows(ForbiddenException.class, () -> service.getThread("PROBLEM", "P1001", null, null, null, null));
+        assertThrows(ForbiddenException.class, () -> service.getThread("PROBLEM", "P1001", null, null, null, null, null));
     }
 
     @Test
@@ -111,23 +115,23 @@ class CommentServiceTest {
         stubPage(List.of());
         login(ALICE);
 
-        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", CONTEST, null, null, null);
+        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", CONTEST, null, null, null, null);
         assertEquals("P1001", vo.pid());
         assertEquals(CONTEST, vo.contestId());
         assertTrue(vo.canPost());
         assertFalse(vo.canManage());
 
         contest.setDiscussionEnabled(false);
-        assertThrows(NotFoundException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null));
+        assertThrows(NotFoundException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null, null));
         contest.setDiscussionEnabled(true);
         contest.setEndTime(LocalDateTime.now().plusHours(1));
-        assertThrows(ForbiddenException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null));
+        assertThrows(ForbiddenException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null, null));
     }
 
     @Test
     void problemFromAnotherContestIsRejected() {
         when(rels.selectCount(any())).thenReturn(0L);
-        assertThrows(NotFoundException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null));
+        assertThrows(NotFoundException.class, () -> service.getThread("PROBLEM", "P1001", CONTEST, null, null, null, null));
     }
 
     @Test
@@ -137,7 +141,7 @@ class CommentServiceTest {
         stubPage(List.of());
         login(ADMIN);
 
-        CommentThreadVO vo = service.getThread("CONTEST", null, CONTEST, null, null, null);
+        CommentThreadVO vo = service.getThread("CONTEST", null, CONTEST, null, null, null, null);
 
         assertTrue(vo.canManage());
         assertEquals(CONTEST, vo.contestId());
@@ -151,9 +155,11 @@ class CommentServiceTest {
 
         when(permissions.hasPermission(any(), eq(ResourceType.PROBLEM), eq(PROBLEM), eq(PermissionOp.READ))).thenReturn(true);
         when(comments.countVisibleByTargets(eq("PROBLEM"), any())).thenReturn(List.of(Map.of("target_id", PROBLEM, "cnt", 4L)));
+        when(posts.countPublicSolutions(any())).thenReturn(List.of(Map.of("problem_id", PROBLEM, "cnt", 2L)));
         CommentSummaryVO ok = service.getSummary("PROBLEM", "P1001", null);
         assertTrue(ok.canView());
         assertEquals(4L, ok.commentCount());
+        assertEquals(2L, ok.solutionCount());
     }
 
     @Test
@@ -168,7 +174,7 @@ class CommentServiceTest {
 
     @Test
     void unknownTargetTypeIsRejected() {
-        assertThrows(BadRequestException.class, () -> service.getThread("POST", null, null, null, null, null));
+        assertThrows(BadRequestException.class, () -> service.getThread("BLOG", null, null, null, null, null, null));
     }
 
     // ---------------------------------------------------------------- 拼树与可见性
@@ -182,7 +188,7 @@ class CommentServiceTest {
         when(comments.selectList(any())).thenReturn(List.of(reply), List.of(pinned));
         login(BOB);
 
-        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", null, "hot", 1L, 20L);
+        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", null, null, "hot", 1L, 20L);
 
         assertEquals(List.of(20L, 21L), vo.comments().stream().map(CommentVO::id).toList());
         assertEquals(1, vo.pinned().size());
@@ -193,7 +199,7 @@ class CommentServiceTest {
     @Test
     void secondPageHasNoPinnedSection() {
         stubPage(List.of());
-        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", null, "new", 2L, 20L);
+        CommentThreadVO vo = service.getThread("PROBLEM", "P1001", null, null, "new", 2L, 20L);
         assertTrue(vo.pinned().isEmpty());
         assertEquals("new", vo.sort());
         verify(comments, never()).selectList(any());
@@ -207,7 +213,7 @@ class CommentServiceTest {
         when(comments.selectList(any())).thenReturn(List.of(hidden), List.of());
 
         login(ALICE);
-        List<CommentVO> forAlice = service.getThread("PROBLEM", "P1001", null, null, null, null).comments();
+        List<CommentVO> forAlice = service.getThread("PROBLEM", "P1001", null, null, null, null, null).comments();
         assertNull(forAlice.get(0).content());
         assertNull(forAlice.get(0).author());
         assertTrue(forAlice.get(0).deleted());
@@ -217,7 +223,7 @@ class CommentServiceTest {
 
         when(comments.selectList(any())).thenReturn(List.of(hidden), List.of());
         login(BOB);
-        CommentVO forAuthor = service.getThread("PROBLEM", "P1001", null, null, null, null).comments().get(1);
+        CommentVO forAuthor = service.getThread("PROBLEM", "P1001", null, null, null, null, null).comments().get(1);
         assertEquals("内容", forAuthor.content());
         assertEquals("剧透", forAuthor.hiddenReason());
     }
@@ -247,7 +253,7 @@ class CommentServiceTest {
             return 1;
         }).when(comments).insert(any(Comment.class));
 
-        CommentVO vo = service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, "  样例过不了  "));
+        CommentVO vo = service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, null, "  样例过不了  "));
 
         ArgumentCaptor<Comment> saved = ArgumentCaptor.forClass(Comment.class);
         verify(comments).insert(saved.capture());
@@ -266,7 +272,7 @@ class CommentServiceTest {
         Comment parent = comment(20L, null, 20L, 0, ALICE);
         when(comments.selectById(20L)).thenReturn(parent);
 
-        service.create(new CommentCreateDTO(null, null, null, 20L, "同意"));
+        service.create(new CommentCreateDTO(null, null, null, null, 20L, "同意"));
 
         ArgumentCaptor<Comment> saved = ArgumentCaptor.forClass(Comment.class);
         verify(comments).insert(saved.capture());
@@ -281,7 +287,7 @@ class CommentServiceTest {
     void cannotReplyToDeletedOrHiddenComment() {
         login(BOB);
         when(comments.selectById(20L)).thenReturn(comment(20L, null, 20L, 0, ALICE).setHiddenAt(LocalDateTime.now()));
-        assertThrows(BadRequestException.class, () -> service.create(new CommentCreateDTO(null, null, null, 20L, "x")));
+        assertThrows(BadRequestException.class, () -> service.create(new CommentCreateDTO(null, null, null, null, 20L, "x")));
     }
 
     @Test
@@ -289,7 +295,7 @@ class CommentServiceTest {
         login(ALICE);
         when(comments.selectCount(any())).thenReturn((long) CommentService.COMMENTS_PER_MINUTE);
         assertThrows(BadRequestException.class,
-                () -> service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, "hi")));
+                () -> service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, null, "hi")));
         verify(comments, never()).insert(any(Comment.class));
     }
 
@@ -297,7 +303,7 @@ class CommentServiceTest {
     void blankContentIsRejected() {
         login(ALICE);
         assertThrows(BadRequestException.class,
-                () -> service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, "   ")));
+                () -> service.create(new CommentCreateDTO("PROBLEM", "P1001", null, null, null, "   ")));
     }
 
     // ---------------------------------------------------------------- 删除
@@ -370,6 +376,54 @@ class CommentServiceTest {
         assertThrows(BadRequestException.class, () -> service.moderate(20L, new CommentModerationDTO(true, null, null)));
     }
 
+    // ---------------------------------------------------------------- 题解评论区
+
+    @Test
+    void draftSolutionThreadIsOnlyForItsAuthor() {
+        when(posts.selectById(40L)).thenReturn(solution(40L, ALICE, "DRAFT"));
+        stubPage(List.of());
+        login(BOB);
+        assertThrows(NotFoundException.class, () -> service.getThread("POST", null, null, 40L, null, null, null));
+        login(ALICE);
+        CommentThreadVO vo = service.getThread("POST", null, null, 40L, null, null, null);
+        assertEquals(40L, vo.postId());
+        assertEquals("P1001", vo.pid());
+        assertFalse(vo.canPost(), "草稿不能评论");
+    }
+
+    @Test
+    void cannotCommentOnHiddenSolution() {
+        when(posts.selectById(40L)).thenReturn(solution(40L, ALICE, "PUBLISHED").setHiddenAt(LocalDateTime.now()));
+        login(ALICE);
+        assertThrows(BadRequestException.class,
+                () -> service.create(new CommentCreateDTO("POST", null, null, 40L, null, "hi")));
+    }
+
+    @Test
+    void commentOnPublishedSolutionTargetsThePost() {
+        when(posts.selectById(40L)).thenReturn(solution(40L, ALICE, "PUBLISHED"));
+        login(BOB);
+
+        service.create(new CommentCreateDTO("POST", null, null, 40L, null, "写得清楚"));
+
+        ArgumentCaptor<Comment> saved = ArgumentCaptor.forClass(Comment.class);
+        verify(comments).insert(saved.capture());
+        assertEquals("POST", saved.getValue().getTargetType());
+        assertEquals(40L, saved.getValue().getTargetId());
+    }
+
+    @Test
+    void solutionAuthorCanDeleteCommentsUnderIt() {
+        when(posts.selectById(40L)).thenReturn(solution(40L, ALICE, "PUBLISHED"));
+        Comment c = comment(50L, null, 50L, 0, BOB).setTargetType("POST").setTargetId(40L);
+        when(comments.selectById(50L)).thenReturn(c);
+        login(ALICE);
+
+        service.delete(50L);
+
+        verify(comments).deleteById(50L);
+    }
+
     // ---------------------------------------------------------------- 工具
 
     private void stubPage(List<Comment> roots) {
@@ -385,6 +439,11 @@ class CommentServiceTest {
         return new Comment().setId(id).setParentId(parent).setRootId(root).setDepth(depth)
                 .setTargetType("PROBLEM").setTargetId(PROBLEM).setAuthorUserId(author)
                 .setContent("内容").setScore(0).setReplyCount(0).setCreatedAt(LocalDateTime.now());
+    }
+
+    private static Post solution(long id, long author, String status) {
+        return new Post().setId(id).setKind("SOLUTION").setProblemId(PROBLEM).setAuthorUserId(author)
+                .setTitle("前缀和").setContent("x").setStatus(status).setAllowComment(true).setScore(0);
     }
 
     private static UserInfo user(long id, String username) {

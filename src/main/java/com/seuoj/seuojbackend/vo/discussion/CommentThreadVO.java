@@ -12,6 +12,9 @@ public record CommentThreadVO(
         String pid,
         @JsonProperty("problem_title") String problemTitle,
         @JsonProperty("contest_id") Long contestId,
+        /* 题解评论区：题解 id 和标题，用来链回题解 */
+        @JsonProperty("post_id") Long postId,
+        @JsonProperty("post_title") String postTitle,
         @JsonProperty("can_post") boolean canPost,
         @JsonProperty("can_manage") boolean canManage,
         String sort,

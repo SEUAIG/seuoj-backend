@@ -42,6 +42,8 @@ public record ContestDiscussionVO(
             String pid,
             String title,
             /* 这道题的讨论发言数（未删除、未隐藏，含回复） */
-            @JsonProperty("comment_count") long commentCount) {
+            @JsonProperty("comment_count") long commentCount,
+            /* 这道题公开的用户题解数（已发布、未隐藏） */
+            @JsonProperty("solution_count") long solutionCount) {
     }
 }
