@@ -7,8 +7,10 @@ import com.seuoj.seuojbackend.common.CommentTargetType;
 import com.seuoj.seuojbackend.common.PermissionOp;
 import com.seuoj.seuojbackend.common.ResourceType;
 import com.seuoj.seuojbackend.dto.discussion.CommentCreateDTO;
+import com.seuoj.seuojbackend.dto.discussion.CommentEditDTO;
 import com.seuoj.seuojbackend.dto.discussion.CommentModerationDTO;
 import com.seuoj.seuojbackend.entity.Comment;
+import com.seuoj.seuojbackend.entity.CommentRevision;
 import com.seuoj.seuojbackend.common.PostKind;
 import com.seuoj.seuojbackend.common.PostStatus;
 import com.seuoj.seuojbackend.entity.Contest;
@@ -18,16 +20,19 @@ import com.seuoj.seuojbackend.entity.Problem;
 import com.seuoj.seuojbackend.entity.UserInfo;
 import com.seuoj.seuojbackend.entity.Vote;
 import com.seuoj.seuojbackend.exception.BadRequestException;
+import com.seuoj.seuojbackend.exception.ConflictException;
 import com.seuoj.seuojbackend.exception.ForbiddenException;
 import com.seuoj.seuojbackend.exception.NotFoundException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.mapper.CommentMapper;
+import com.seuoj.seuojbackend.mapper.CommentRevisionMapper;
 import com.seuoj.seuojbackend.mapper.ContestMapper;
 import com.seuoj.seuojbackend.mapper.ContestProblemRelMapper;
 import com.seuoj.seuojbackend.mapper.PostMapper;
 import com.seuoj.seuojbackend.mapper.ProblemMapper;
 import com.seuoj.seuojbackend.mapper.UserInfoMapper;
 import com.seuoj.seuojbackend.mapper.VoteMapper;
+import com.seuoj.seuojbackend.vo.discussion.CommentRevisionsVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentSummaryVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentThreadVO;
 import com.seuoj.seuojbackend.vo.discussion.CommentVO;
@@ -44,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -79,6 +85,7 @@ public class CommentService {
     private final UserInfoMapper userInfoMapper;
     private final PermissionService permissionService;
     private final PostMapper postMapper;
+    private final CommentRevisionMapper revisionMapper;
 
     public CommentService(CommentMapper commentMapper,
                           VoteMapper voteMapper,
@@ -87,7 +94,8 @@ public class CommentService {
                           ContestProblemRelMapper contestProblemRelMapper,
                           UserInfoMapper userInfoMapper,
                           PermissionService permissionService,
-                          PostMapper postMapper) {
+                          PostMapper postMapper,
+                          CommentRevisionMapper revisionMapper) {
         this.commentMapper = commentMapper;
         this.voteMapper = voteMapper;
         this.problemMapper = problemMapper;
@@ -96,6 +104,7 @@ public class CommentService {
         this.userInfoMapper = userInfoMapper;
         this.permissionService = permissionService;
         this.postMapper = postMapper;
+        this.revisionMapper = revisionMapper;
     }
 
     /** 一个 thread：挂在哪、对当前用户来说能不能管理 */
@@ -234,12 +243,7 @@ public class CommentService {
         if (content.isEmpty()) {
             throw new BadRequestException("发言不能为空");
         }
-        Long recent = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
-                .eq(Comment::getAuthorUserId, userId)
-                .gt(Comment::getCreatedAt, LocalDateTime.now().minusMinutes(1)));
-        if (recent != null && recent >= COMMENTS_PER_MINUTE) {
-            throw new BadRequestException("发言太快了，请过一会儿再发");
-        }
+        assertNotTooFast(userId);
 
         Comment comment = new Comment()
                 .setAuthorUserId(userId)
@@ -278,6 +282,80 @@ public class CommentService {
         }
         comment.setCreatedAt(LocalDateTime.now());
         return new Views(userId, thread.canManage(), List.of(comment), postAuthorOf(thread)).of(comment);
+    }
+
+    /**
+     * 修改自己的发言：旧正文存进 comment_revision（第 1 版是最初发的），正文没变就什么也不做。
+     * 已删除的不能改；被隐藏的作者仍能改，改完仍是隐藏状态。修改和发言一起算每分钟 5 次的限流。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public CommentVO edit(Long commentId, CommentEditDTO dto) {
+        Long userId = AuthContexts.requiredUserId();
+        Comment comment = loadComment(commentId);
+        Thread thread = resolveOf(userId, comment);
+        if (!userId.equals(comment.getAuthorUserId())) {
+            throw new ForbiddenException("只能修改自己的发言");
+        }
+        if (comment.getDeletedAt() != null) {
+            throw new BadRequestException("已删除的发言不能修改");
+        }
+        String content = dto.content() == null ? "" : dto.content().strip();
+        if (content.isEmpty()) {
+            throw new BadRequestException("发言不能为空");
+        }
+        if (!content.equals(comment.getContent())) {
+            assertNotTooFast(userId);
+            int old = comment.getRevisionCount() == null ? 0 : comment.getRevisionCount();
+            try {
+                revisionMapper.insert(new CommentRevision()
+                        .setCommentId(comment.getId())
+                        .setVersion(old + 1)
+                        .setContent(comment.getContent()));
+            } catch (DuplicateKeyException e) {
+                throw new ConflictException("这条发言刚被改过，请刷新后再改");
+            }
+            commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
+                    .eq(Comment::getId, comment.getId())
+                    .set(Comment::getContent, content)
+                    .set(Comment::getEditedAt, LocalDateTime.now())
+                    .set(Comment::getRevisionCount, old + 1));
+        }
+        Comment fresh = loadComment(commentId);
+        return new Views(userId, thread.canManage(), List.of(fresh), postAuthorOf(thread)).of(fresh);
+    }
+
+    /** 历史版本：能看到这条发言正文的人都能看（已删除的、对你隐藏的看不了） */
+    public CommentRevisionsVO getRevisions(Long commentId) {
+        Long userId = AuthContexts.userIdOrNull();
+        Comment comment = loadComment(commentId);
+        Thread thread = resolveOf(userId, comment);
+        boolean mine = userId != null && userId.equals(comment.getAuthorUserId());
+        if (comment.getDeletedAt() != null || (comment.getHiddenAt() != null && !mine && !thread.canManage())) {
+            throw new NotFoundException("发言不存在");
+        }
+        List<CommentRevision> rows = revisionMapper.selectList(new LambdaQueryWrapper<CommentRevision>()
+                .eq(CommentRevision::getCommentId, comment.getId())
+                .orderByAsc(CommentRevision::getVersion));
+        List<CommentRevisionsVO.Version> versions = new ArrayList<>();
+        LocalDateTime started = comment.getCreatedAt();
+        for (CommentRevision r : rows) {
+            versions.add(new CommentRevisionsVO.Version(r.getVersion(), r.getContent(), started, false));
+            started = r.getCreatedAt();
+        }
+        versions.add(new CommentRevisionsVO.Version(rows.size() + 1, comment.getContent(), started, true));
+        return new CommentRevisionsVO(comment.getId(), versions);
+    }
+
+    /** 每人每分钟最多 5 次发言或修改 */
+    private void assertNotTooFast(Long userId) {
+        LocalDateTime since = LocalDateTime.now().minusMinutes(1);
+        Long posted = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getAuthorUserId, userId)
+                .gt(Comment::getCreatedAt, since));
+        long edited = revisionMapper.countEditsSince(userId, since);
+        if ((posted == null ? 0 : posted) + edited >= COMMENTS_PER_MINUTE) {
+            throw new BadRequestException("发言太快了，请过一会儿再发");
+        }
     }
 
     /**
@@ -635,7 +713,9 @@ public class CommentService {
                     hidden && (mine || canManage) ? c.getHiddenReason() : null,
                     c.getScore() == null ? 0 : c.getScore(), c.getId() == null ? 0 : myVotes.getOrDefault(c.getId(), 0),
                     c.getReplyCount() == null ? 0 : c.getReplyCount(), c.getPinnedAt() != null, mine,
-                    !deleted && userId != null && (mine || canManage || userId.equals(postAuthorId)), c.getCreatedAt());
+                    !deleted && userId != null && (mine || canManage || userId.equals(postAuthorId)), c.getCreatedAt(),
+                    show ? c.getEditedAt() : null,
+                    show && c.getRevisionCount() != null ? c.getRevisionCount() + 1 : 1);
         }
     }
 }

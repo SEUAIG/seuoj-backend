@@ -73,6 +73,14 @@ public class Comment implements Serializable {
     @TableField("deleted_at")
     private LocalDateTime deletedAt;
 
+    /** 最后一次修改时间，null 表示没改过 */
+    @TableField("edited_at")
+    private LocalDateTime editedAt;
+
+    /** 修改次数；当前正文是第 revisionCount + 1 版 */
+    @TableField("revision_count")
+    private Integer revisionCount;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 
