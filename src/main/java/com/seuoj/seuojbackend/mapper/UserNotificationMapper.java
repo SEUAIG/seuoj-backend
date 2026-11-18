@@ -26,13 +26,17 @@ public interface UserNotificationMapper extends BaseMapper<UserNotification> {
                             @Param("sameRef1") String sameRef1, @Param("sameRef2") String sameRef2);
 
     /**
-     * 给这场比赛被单独授予管理权限（resource_permission WRITE）的人各写一条，跳过操作者本人。
-     * 靠全站角色管所有比赛的管理员不在其中，否则每场比赛的提问都会弹给他们。
+     * 给能管这场比赛的人各写一条，跳过操作者本人。能管 = 这场比赛上单独授了 WRITE（resource_permission），
+     * 或者全站管理员（ADMIN / SUPER_ADMIN 角色、CONTEST_MANAGE 能力），与 PermissionService 的判定一致。
      */
     @Insert("INSERT INTO user_notification (user_id, type, contest_id, ref_id, created_at) "
-            + "SELECT DISTINCT p.user_id, #{type}, #{contestId}, #{refId}, #{now} FROM resource_permission p "
-            + "WHERE p.resource_type = 'CONTEST' AND p.resource_id = #{contestId} AND p.permission = 'WRITE' "
-            + "AND p.is_del = 0 AND p.user_id <> #{skip}")
+            + "SELECT m.user_id, #{type}, #{contestId}, #{refId}, #{now} FROM ("
+            + "SELECT p.user_id FROM resource_permission p WHERE p.resource_type = 'CONTEST' AND p.resource_id = #{contestId} "
+            + "AND p.permission = 'WRITE' AND p.is_del = 0 "
+            + "UNION SELECT urr.user_id FROM user_role_rel urr JOIN user_role r ON r.id = urr.role_id "
+            + "WHERE urr.is_del = 0 AND r.is_del = 0 AND r.role_code IN ('ADMIN', 'SUPER_ADMIN') "
+            + "UNION SELECT uc.user_id FROM user_capability uc WHERE uc.capability = 'CONTEST_MANAGE'"
+            + ") m JOIN user_info u ON u.id = m.user_id AND u.is_del = 0 WHERE m.user_id <> #{skip}")
     int fanOutToContestManagers(@Param("contestId") Long contestId, @Param("type") String type,
                                 @Param("refId") Long refId, @Param("now") LocalDateTime now, @Param("skip") Long skip);
 
