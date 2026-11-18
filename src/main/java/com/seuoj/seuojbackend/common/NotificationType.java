@@ -12,6 +12,6 @@ public enum NotificationType {
     CLARIFICATION_ANSWER_UPDATED,
     /** 别人的提问被回复并公开（给报名的人），ref = 答疑ID */
     CLARIFICATION_PUBLIC,
-    /** 选手提了新问题（给比赛管理者），ref = 答疑ID */
+    /** 选手提了新问题（给这场比赛的单独授权者和全站管理员），ref = 答疑ID */
     CLARIFICATION_ASKED
 }
