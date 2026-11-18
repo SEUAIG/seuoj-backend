@@ -51,6 +51,7 @@ public class ContestNoticeService {
     private final ProblemMapper problemMapper;
     private final UserInfoMapper userInfoMapper;
     private final PermissionService permissionService;
+    private final NotificationService notificationService;
 
     public ContestNoticeService(ContestMapper contestMapper,
                                 AnnouncementMapper announcementMapper,
@@ -58,7 +59,8 @@ public class ContestNoticeService {
                                 ContestRegisterRelMapper registerRelMapper,
                                 ProblemMapper problemMapper,
                                 UserInfoMapper userInfoMapper,
-                                PermissionService permissionService) {
+                                PermissionService permissionService,
+                                NotificationService notificationService) {
         this.contestMapper = contestMapper;
         this.announcementMapper = announcementMapper;
         this.clarificationMapper = clarificationMapper;
@@ -66,6 +68,7 @@ public class ContestNoticeService {
         this.problemMapper = problemMapper;
         this.userInfoMapper = userInfoMapper;
         this.permissionService = permissionService;
+        this.notificationService = notificationService;
     }
 
     // ---------------------------------------------------------------- 读
@@ -144,6 +147,7 @@ public class ContestNoticeService {
                 .setCreatedAt(now)
                 .setUpdatedAt(now);
         announcementMapper.insert(a);
+        notificationService.announcementPublished(contest.getId(), a.getId(), userId);
         return a.getId();
     }
 
@@ -152,11 +156,18 @@ public class ContestNoticeService {
         Long userId = AuthContexts.requiredUserId();
         assertManage(userId, contest.getId());
         Announcement a = loadAnnouncement(contest.getId(), announcementId);
-        a.setTitle(dto.title().trim())
-                .setContent(dto.content() == null || dto.content().isBlank() ? null : dto.content())
+        String title = dto.title().trim();
+        String content = dto.content() == null || dto.content().isBlank() ? null : dto.content();
+        // 只改置顶不算更新，不发通知
+        boolean changed = !Objects.equals(title, a.getTitle()) || !Objects.equals(content, a.getContent());
+        a.setTitle(title)
+                .setContent(content)
                 .setIsPinned(Boolean.TRUE.equals(dto.isPinned()))
                 .setUpdatedAt(LocalDateTime.now());
         announcementMapper.updateById(a);
+        if (changed) {
+            notificationService.announcementUpdated(contest.getId(), a.getId(), userId);
+        }
     }
 
     public void deleteAnnouncement(Long contestId, Long announcementId) {
@@ -165,6 +176,7 @@ public class ContestNoticeService {
         assertManage(userId, contest.getId());
         loadAnnouncement(contest.getId(), announcementId);
         announcementMapper.deleteById(announcementId);
+        notificationService.announcementDeleted(announcementId);
     }
 
     // ---------------------------------------------------------------- 答疑
@@ -202,6 +214,9 @@ public class ContestNoticeService {
                 .setIsPublic(false)
                 .setCreatedAt(LocalDateTime.now());
         clarificationMapper.insert(c);
+        if (!manage) {
+            notificationService.questionAsked(contest.getId(), c.getId(), userId);
+        }
         return c.getId();
     }
 
@@ -211,11 +226,17 @@ public class ContestNoticeService {
         Long userId = AuthContexts.requiredUserId();
         assertManage(userId, contest.getId());
         ContestClarification c = loadClarification(contest.getId(), clarificationId);
-        c.setAnswer(dto.answer().trim())
+        String answer = dto.answer().trim();
+        boolean firstAnswer = c.getAnswer() == null;
+        boolean answerChanged = !firstAnswer && !answer.equals(c.getAnswer());
+        boolean becamePublic = Boolean.TRUE.equals(dto.isPublic()) && !Boolean.TRUE.equals(c.getIsPublic());
+        c.setAnswer(answer)
                 .setIsPublic(Boolean.TRUE.equals(dto.isPublic()))
                 .setAnsweredByUserId(userId)
                 .setAnsweredAt(LocalDateTime.now());
         clarificationMapper.updateById(c);
+        notificationService.questionAnswered(contest.getId(), c.getId(), c.getAskerUserId(), userId,
+                firstAnswer, answerChanged, becamePublic);
     }
 
     public void deleteClarification(Long contestId, Long clarificationId) {
@@ -224,6 +245,7 @@ public class ContestNoticeService {
         assertManage(userId, contest.getId());
         loadClarification(contest.getId(), clarificationId);
         clarificationMapper.deleteById(clarificationId);
+        notificationService.clarificationDeleted(clarificationId);
     }
 
     // ---------------------------------------------------------------- 辅助

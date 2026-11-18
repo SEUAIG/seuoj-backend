@@ -45,8 +45,9 @@ class ContestNoticeServiceTest {
     private final ProblemMapper problems = mock(ProblemMapper.class);
     private final UserInfoMapper users = mock(UserInfoMapper.class);
     private final PermissionService permissions = mock(PermissionService.class);
+    private final NotificationService notifications = mock(NotificationService.class);
     private final ContestNoticeService service = new ContestNoticeService(
-            contests, announcements, clars, roster, problems, users, permissions);
+            contests, announcements, clars, roster, problems, users, permissions, notifications);
 
     private final Contest contest = new Contest();
 
@@ -195,6 +196,55 @@ class ContestNoticeServiceTest {
         assertEquals(CONTEST, saved.getValue().getTargetId());
         assertEquals("B 题数据范围更正", saved.getValue().getTitle());
         assertTrue(saved.getValue().getIsPinned());
+    }
+
+    // ---------------------------------------------------------------- 通知
+
+    @Test
+    void publishingAnnouncementNotifies() {
+        login(ADMIN);
+        service.createAnnouncement(CONTEST, new ContestNoticeDTO.Announcement("t", "c", false));
+        verify(notifications).announcementPublished(eq(CONTEST), any(), eq(ADMIN));
+    }
+
+    @Test
+    void onlyTitleOrContentChangesNotify() {
+        Announcement a = new Announcement().setId(7L).setTargetType(AnnouncementTargetType.CONTEST.name())
+                .setTargetId(CONTEST).setTitle("t").setContent("c").setIsPinned(false);
+        when(announcements.selectById(7L)).thenReturn(a);
+        login(ADMIN);
+        service.updateAnnouncement(CONTEST, 7L, new ContestNoticeDTO.Announcement(" t ", "c", true));
+        verify(notifications, never()).announcementUpdated(any(), any(), any());
+        service.updateAnnouncement(CONTEST, 7L, new ContestNoticeDTO.Announcement("t", "c2", true));
+        verify(notifications).announcementUpdated(CONTEST, 7L, ADMIN);
+        service.deleteAnnouncement(CONTEST, 7L);
+        verify(notifications).announcementDeleted(7L);
+    }
+
+    @Test
+    void participantQuestionNotifiesManagersButManagerQuestionDoesNot() {
+        login(ALICE);
+        service.ask(CONTEST, new ContestNoticeDTO.Ask(null, "?"));
+        verify(notifications).questionAsked(eq(CONTEST), any(), eq(ALICE));
+        login(ADMIN);
+        service.ask(CONTEST, new ContestNoticeDTO.Ask(null, "?"));
+        verify(notifications, never()).questionAsked(any(), any(), eq(ADMIN));
+    }
+
+    @Test
+    void answerReportsWhatChanged() {
+        ContestClarification c = new ContestClarification().setId(9L).setContestId(CONTEST).setAskerUserId(ALICE)
+                .setIsPublic(false);
+        when(clars.selectById(9L)).thenReturn(c);
+        login(ADMIN);
+        service.answer(CONTEST, 9L, new ContestNoticeDTO.Answer("a", false));
+        verify(notifications).questionAnswered(CONTEST, 9L, ALICE, ADMIN, true, false, false);
+        service.answer(CONTEST, 9L, new ContestNoticeDTO.Answer(" a ", true));
+        verify(notifications).questionAnswered(CONTEST, 9L, ALICE, ADMIN, false, false, true);
+        service.answer(CONTEST, 9L, new ContestNoticeDTO.Answer("b", true));
+        verify(notifications).questionAnswered(CONTEST, 9L, ALICE, ADMIN, false, true, false);
+        service.deleteClarification(CONTEST, 9L);
+        verify(notifications).clarificationDeleted(9L);
     }
 
     private List<ContestClarification> sampleClars() {
