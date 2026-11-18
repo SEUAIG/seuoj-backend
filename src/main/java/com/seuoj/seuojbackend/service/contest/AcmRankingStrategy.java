@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,14 @@ import org.springframework.stereotype.Component;
 public class AcmRankingStrategy implements ContestRankingStrategy {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /** 只有程序跑过测试数据后的错误才计罚时；CE、代码过长、判题端/系统错误、跳过都不算。 */
+    private static final Set<String> PENALIZED_VERDICTS = Set.of(
+            SubmissionVerdict.WRONG_ANSWER.getVerdict(),
+            SubmissionVerdict.TIME_LIMIT_EXCEEDED.getVerdict(),
+            SubmissionVerdict.MEMORY_LIMIT_EXCEEDED.getVerdict(),
+            SubmissionVerdict.RUNTIME_ERROR.getVerdict(),
+            SubmissionVerdict.PARTIALLY_ACCEPTED.getVerdict());
 
     @Override
     public List<ContestStandingsRecordVO> computeStandings(
@@ -52,7 +61,7 @@ public class AcmRankingStrategy implements ContestRankingStrategy {
                 tracker.accepted = true;
                 tracker.acceptedTimeMinutes = Duration.between(contest.getStartTime(), s.getSubmitTime()).toMinutes();
                 tracker.submissionId = s.getId();
-            } else {
+            } else if (PENALIZED_VERDICTS.contains(s.getVerdict())) {
                 tracker.failedAttempts++;
             }
         }
