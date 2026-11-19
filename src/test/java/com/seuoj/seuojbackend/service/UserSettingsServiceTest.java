@@ -48,7 +48,7 @@ class UserSettingsServiceTest {
         verify(users,never()).update(any(),any());
     }
     @Test void legacyProfileEndpointAlsoRespectsNicknameLock() {
-        AuthService auth=new AuthService(users,definitions,links,roles,passwords,null,codes,null,null);
+        AuthService auth=new AuthService(users,definitions,links,roles,passwords,null,codes,null,null,null);
         var dto=new com.seuoj.seuojbackend.dto.user.UpdateProfileDTO();dto.setNickname("Changed");
         assertThrows(ForbiddenException.class,()->auth.updateProfile(2L,dto));
         verify(users,never()).update(any(),any());

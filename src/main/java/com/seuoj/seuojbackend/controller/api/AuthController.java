@@ -4,14 +4,18 @@ import com.seuoj.seuojbackend.annotation.AllowAnonymous;
 import com.seuoj.seuojbackend.common.Result;
 import com.seuoj.seuojbackend.dto.auth.ChangePasswordDTO;
 import com.seuoj.seuojbackend.dto.auth.LoginDTO;
+import com.seuoj.seuojbackend.dto.auth.MfaCodeDTO;
+import com.seuoj.seuojbackend.dto.auth.MfaTokenDTO;
 import com.seuoj.seuojbackend.dto.auth.RegisterDTO;
 import com.seuoj.seuojbackend.dto.auth.ResetPasswordDTO;
 import com.seuoj.seuojbackend.dto.auth.SendCodeDTO;
 import com.seuoj.seuojbackend.exception.AuthorizationException;
 import com.seuoj.seuojbackend.interceptor.AuthContexts;
 import com.seuoj.seuojbackend.service.AuthService;
+import com.seuoj.seuojbackend.service.MfaService;
 import com.seuoj.seuojbackend.service.VerificationCodeService;
 import com.seuoj.seuojbackend.vo.auth.LoginVO;
+import com.seuoj.seuojbackend.vo.auth.MfaSetupVO;
 import com.seuoj.seuojbackend.vo.auth.SendCodeVO;
 import com.seuoj.seuojbackend.vo.auth.TokenExchangeVO;
 import jakarta.validation.Valid;
@@ -29,10 +33,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
     private final AuthService authService;
     private final VerificationCodeService verificationCodeService;
+    private final MfaService mfaService;
 
-    public AuthController(AuthService authService, VerificationCodeService verificationCodeService) {
+    public AuthController(AuthService authService, VerificationCodeService verificationCodeService,
+                          MfaService mfaService) {
         this.authService = authService;
         this.verificationCodeService = verificationCodeService;
+        this.mfaService = mfaService;
     }
 
     /**
@@ -42,6 +49,36 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return Result.success(authService.login(dto));
+    }
+
+    /**
+     * 两步验证：密码已通过，凭 MFA 令牌提交 6 位动态码或恢复码
+     */
+    @AllowAnonymous
+    @PostMapping("/mfa/verify")
+    public Result<LoginVO> verifyMfa(@Valid @RequestBody MfaCodeDTO dto) {
+        return Result.success(authService.issueLogin(mfaService.verify(dto.getMfaToken(), dto.getCode())));
+    }
+
+    /**
+     * 首次绑定验证器：生成密钥和二维码内容
+     */
+    @AllowAnonymous
+    @PostMapping("/mfa/setup")
+    public Result<MfaSetupVO> setupMfa(@Valid @RequestBody MfaTokenDTO dto) {
+        return Result.success(mfaService.setup(dto.getMfaToken()));
+    }
+
+    /**
+     * 首次绑定验证器：提交验证器上的码确认，成功即登录并返回恢复码
+     */
+    @AllowAnonymous
+    @PostMapping("/mfa/enable")
+    public Result<LoginVO> enableMfa(@Valid @RequestBody MfaCodeDTO dto) {
+        MfaService.EnableResult result = mfaService.enable(dto.getMfaToken(), dto.getCode());
+        LoginVO login = authService.issueLogin(result.user());
+        login.setRecoveryCodes(result.recoveryCodes());
+        return Result.success(login);
     }
 
     /**

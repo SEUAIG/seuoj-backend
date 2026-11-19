@@ -43,6 +43,8 @@ public class JwtUtil {
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
 
+    private static final long MFA_EXPIRATION_SECONDS = 300;
+
     private final ObjectMapper objectMapper;
 
     @Value("${jwt.private-key:}")
@@ -102,8 +104,16 @@ public class JwtUtil {
     }
 
     /**
+     * 两步验证中间态令牌：只能拿去验证码或绑定验证器，拦截器不认它。
+     */
+    public String createMfaToken(UserInfo user) {
+        return createToken(user, JwtTokenType.MFA, MFA_EXPIRATION_SECONDS);
+    }
+
+    /**
      * 令牌是否签发于用户当前密码之下。改密码后旧令牌的 pwd 声明对不上，随即失效；
      * 没有 pwd 声明的旧格式令牌一律视为失效。
+     * 启用两步验证后 TOTP 密钥也计入指纹，启用前签发的令牌随之失效。
      */
     public boolean matchesCredentials(ParsedToken token, UserInfo user) {
         if (token.credentialStamp() == null || user.getPassword() == null) {
@@ -111,7 +121,7 @@ public class JwtUtil {
         }
         return MessageDigest.isEqual(
                 token.credentialStamp().getBytes(StandardCharsets.US_ASCII),
-                credentialStamp(user.getPassword()).getBytes(StandardCharsets.US_ASCII));
+                credentialStamp(user).getBytes(StandardCharsets.US_ASCII));
     }
 
     public ParsedToken parseToken(String token) {
@@ -170,7 +180,7 @@ public class JwtUtil {
         payload.put("exp", now + expirationSeconds);
         payload.put("token_type", tokenType.getClaimValue());
         payload.put("jti", UUID.randomUUID().toString());
-        payload.put("pwd", credentialStamp(user.getPassword()));
+        payload.put("pwd", credentialStamp(user));
 
         try {
             String encodedHeader = encodeJson(header);
@@ -181,6 +191,14 @@ public class JwtUtil {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("序列化 JWT 负载失败", e);
         }
+    }
+
+    private String credentialStamp(UserInfo user) {
+        String material = user.getPassword();
+        if (Boolean.TRUE.equals(user.getTotpEnabled()) && user.getTotpSecret() != null) {
+            material += "|totp:" + user.getTotpSecret();
+        }
+        return credentialStamp(material);
     }
 
     /**
