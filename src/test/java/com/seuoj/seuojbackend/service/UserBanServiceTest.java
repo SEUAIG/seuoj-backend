@@ -106,7 +106,7 @@ class UserBanServiceTest {
     @Test void loginShowsBanReason() {
         var passwords = mock(org.springframework.security.crypto.password.PasswordEncoder.class);
         when(passwords.matches(any(), any())).thenReturn(true);
-        AuthService auth = new AuthService(users, null, null, roles, passwords, null, null, null, null);
+        AuthService auth = new AuthService(users, null, null, roles, passwords, null, null, null, null, null);
         when(users.selectOne(any())).thenReturn(new UserInfo().setId(2L).setUsername("alice").setPassword("hash")
                 .setIsEnabled(true).setBannedAt(LocalDateTime.now()).setBanReason("比赛作弊"));
         var dto = new com.seuoj.seuojbackend.dto.auth.LoginDTO();

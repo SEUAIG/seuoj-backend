@@ -55,13 +55,15 @@ public class AuthService {
     private final VerificationCodeService verificationCodeService;
     private final JavaMailSender mailSender;
     private final AccountCreationService accountCreationService;
+    private final MfaService mfaService;
 
     @Value("${spring.mail.username:}")
     private String fromEmail;
 
     public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
                        UserRoleService userRoleService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                       VerificationCodeService verificationCodeService, JavaMailSender mailSender, AccountCreationService accountCreationService) {
+                       VerificationCodeService verificationCodeService, JavaMailSender mailSender, AccountCreationService accountCreationService,
+                       MfaService mfaService) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleRelMapper = userRoleRelMapper;
@@ -71,6 +73,7 @@ public class AuthService {
         this.verificationCodeService = verificationCodeService;
         this.mailSender = mailSender;
         this.accountCreationService = accountCreationService;
+        this.mfaService = mfaService;
     }
 
     /**
@@ -181,6 +184,17 @@ public class AuthService {
         if (UserBans.isBanned(user)) {
             throw new AuthorizationException(UserBans.message(user));
         }
+        LoginVO challenge = mfaService.challengeIfNeeded(user);
+        if (challenge != null) {
+            return challenge;
+        }
+        return issueLogin(user);
+    }
+
+    /**
+     * 签发访问令牌。调用方须已完成密码（及需要时的两步）验证。
+     */
+    public LoginVO issueLogin(UserInfo user) {
         String token = jwtUtil.createAccessToken(user);
 
         LoginVO loginVO = new LoginVO();

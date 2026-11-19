@@ -17,6 +17,7 @@ Apply in this order (once per existing database):
 9. `20261117_comment_vote.sql`（讨论发言 `comment`、赞踩 `vote`）
 10. `20261118_comment_revision.sql`（发言修改：`comment.edited_at`、`revision_count`，历史版本表 `comment_revision`）
 11. `20261118_user_notification.sql`（站内通知 `user_notification`）
+12. `20261119_user_totp.sql`（超级管理员两步验证：`user_info.totp_*`）
 
 The permissions migration was previously an untracked file named `20261103_account_permissions.sql`.
 If that script was already applied manually, it is the same migration: do not run the renamed file again.

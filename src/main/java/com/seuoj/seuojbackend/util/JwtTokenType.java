@@ -5,7 +5,9 @@ import lombok.Getter;
 @Getter
 public enum JwtTokenType {
     ACCESS("access"),
-    TEMP("temp");
+    TEMP("temp"),
+    /** 密码已通过、还差两步验证（或首次绑定验证器）的登录中间态 */
+    MFA("mfa");
 
     private final String claimValue;
 

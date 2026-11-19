@@ -1,5 +1,6 @@
 package com.seuoj.seuojbackend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -74,6 +75,31 @@ public class UserInfo implements Serializable {
 
     @TableField("banned_by")
     private Long bannedBy;
+
+    /**
+     * TOTP 密钥（Base32）。未启用时非空表示正在绑定。
+     */
+    @JsonIgnore
+    @TableField("totp_secret")
+    private String totpSecret;
+
+    @JsonIgnore
+    @TableField("totp_enabled")
+    private Boolean totpEnabled;
+
+    /**
+     * 最近一次通过验证的时间步，同一个码不能用第二次
+     */
+    @JsonIgnore
+    @TableField("totp_last_step")
+    private Long totpLastStep;
+
+    /**
+     * 未使用恢复码的 SHA-256（十六进制），逗号分隔
+     */
+    @JsonIgnore
+    @TableField("totp_recovery_codes")
+    private String totpRecoveryCodes;
 
     /**
      * 创建时间
