@@ -34,6 +34,10 @@ class UserSettingsServiceTest {
         when(roles.getHighestRoleLabel(2L)).thenReturn("student");
         when(roles.hasCapability(1L,Capability.USER_MANAGE)).thenReturn(true);
         when(roles.isAdmin(1L)).thenReturn(true);
+        // 5 是超级管理员；1 是普通管理员，只能封禁和批量导入
+        when(roles.hasCapability(5L,Capability.USER_MANAGE)).thenReturn(true);
+        when(roles.isAdmin(5L)).thenReturn(true);
+        when(roles.isSuperAdmin(5L)).thenReturn(true);
         when(definitions.selectOne(any())).thenReturn(new UserRole().setId(4L).setRoleCode("TEACHER"));
     }
     @AfterEach void cleanup() {
@@ -56,9 +60,22 @@ class UserSettingsServiceTest {
     @Test void lockedSelfMaySubmitUnchangedNickname() {
         assertDoesNotThrow(()->settings.updateProfile(2L,2L,new UserSettingsService.ProfileUpdate("Real Name",null,null)));
     }
-    @Test void managerCanCorrectLockedNickname() {
-        assertDoesNotThrow(()->settings.updateProfile(1L,2L,new UserSettingsService.ProfileUpdate("Correct Name",null,false)));
+    @Test void superAdministratorCanCorrectLockedNickname() {
+        assertDoesNotThrow(()->settings.updateProfile(5L,2L,new UserSettingsService.ProfileUpdate("Correct Name",null,false)));
         verify(users,times(2)).update(isNull(),any());
+    }
+    @Test void administratorCannotEditOthersProfile() {
+        assertThrows(ForbiddenException.class,()->settings.updateProfile(1L,2L,new UserSettingsService.ProfileUpdate("Correct Name",null,null)));
+        assertThrows(ForbiddenException.class,()->settings.updateProfile(1L,2L,new UserSettingsService.ProfileUpdate(null,"new@example.invalid",null)));
+        verify(users,never()).update(any(),any());
+    }
+    @Test void administratorSettingsViewIsReadOnly() {
+        var view=settings.get(1L,2L);
+        assertFalse(view.canManageProfile());
+        assertFalse(view.canManagePermissions());
+        var superView=settings.get(5L,2L);
+        assertTrue(superView.canManageProfile());
+        assertTrue(superView.canManagePermissions());
     }
     @Test void nonManagerCannotReadPrivateSettings() {
         assertThrows(ForbiddenException.class,()->settings.get(3L,2L));
@@ -72,14 +89,20 @@ class UserSettingsServiceTest {
     }
     @Test void editAvailabilityMatchesAccountBoundaries() {
         assertTrue(settings.canManageProfile(2L,2L));
-        assertTrue(settings.canManageProfile(1L,2L));
+        assertFalse(settings.canBan(2L,2L));
+        // 普通管理员：能封禁，不能编辑
+        assertFalse(settings.canManageProfile(1L,2L));
+        assertTrue(settings.canBan(1L,2L));
         assertFalse(settings.canManageProfile(3L,2L));
+        assertFalse(settings.canBan(3L,2L));
+        assertTrue(settings.canManageProfile(5L,2L));
+        assertTrue(settings.canBan(5L,2L));
         when(roles.isAdmin(2L)).thenReturn(true);
-        assertFalse(settings.canManageProfile(1L,2L));
-        when(roles.isSuperAdmin(1L)).thenReturn(true);
-        assertTrue(settings.canManageProfile(1L,2L));
+        assertFalse(settings.canBan(1L,2L));
+        assertTrue(settings.canManageProfile(5L,2L));
         when(roles.isSuperAdmin(2L)).thenReturn(true);
-        assertFalse(settings.canManageProfile(1L,2L));
+        assertFalse(settings.canManageProfile(5L,2L));
+        assertFalse(settings.canBan(5L,2L));
     }
     @Test void emailValidationMatchesDatabaseColumnLength() {
         try (var factory=jakarta.validation.Validation.buildDefaultValidatorFactory()) {
@@ -117,8 +140,13 @@ class UserSettingsServiceTest {
         when(roles.isSuperAdmin(2L)).thenReturn(true);
         assertThrows(ForbiddenException.class,()->settings.updatePermissions(1L,2L,Set.of()));
     }
+    @Test void administratorCannotChangePermissions() {
+        assertThrows(ForbiddenException.class,()->settings.updatePermissions(1L,2L,Set.of(Capability.TEACHER)));
+        assertThrows(ForbiddenException.class,()->settings.updatePermissions(1L,2L,Set.of()));
+        verifyNoInteractions(grants,links);
+    }
     @Test void savingPermissionsReplacesDirectGrants() {
-        settings.updatePermissions(1L,2L,Set.of(Capability.TEACHER,Capability.USER_MANAGE));
+        settings.updatePermissions(5L,2L,Set.of(Capability.TEACHER,Capability.USER_MANAGE));
         verify(grants).deleteByUserId(2L);
         verify(grants).grant(2L,"USER_MANAGE");
         verify(grants,never()).grant(2L,"TEACHER");
@@ -161,16 +189,20 @@ class UserSettingsServiceTest {
     }
     @Test void duplicateMailboxIsRejected() {
         when(users.selectList(any())).thenReturn(List.of(new UserInfo().setId(9L)));
-        assertThrows(ConflictException.class,()->settings.updateProfile(1L,2L,new UserSettingsService.ProfileUpdate(null,"taken@example.invalid",null)));
+        assertThrows(ConflictException.class,()->settings.updateProfile(5L,2L,new UserSettingsService.ProfileUpdate(null,"taken@example.invalid",null)));
         verify(users,never()).update(any(),any());
     }
-    @Test void managerResetsPasswordWithRandomValue() {
+    @Test void administratorCannotResetPassword() {
+        assertThrows(ForbiddenException.class,()->settings.resetPassword(1L,2L));
+        verify(users,never()).update(any(),any());
+    }
+    @Test void superAdministratorResetsPasswordWithRandomValue() {
         when(passwords.encode(anyString())).thenReturn("new-hash");
-        var reset=settings.resetPassword(1L,2L);
+        var reset=settings.resetPassword(5L,2L);
         assertTrue(reset.password().matches("[A-HJ-NP-Za-km-z2-9]{12}"));
         verify(passwords).encode(reset.password());
         verify(users).update(isNull(),any());
-        assertNotEquals(reset.password(),settings.resetPassword(1L,2L).password());
+        assertNotEquals(reset.password(),settings.resetPassword(5L,2L).password());
     }
     @Test void passwordResetCannotTargetSelf() {
         assertThrows(ForbiddenException.class,()->settings.resetPassword(2L,2L));

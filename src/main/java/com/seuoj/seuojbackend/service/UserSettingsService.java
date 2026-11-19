@@ -53,10 +53,29 @@ public class UserSettingsService {
         if (!roles.getCapabilities(target).isEmpty() && !roles.isAdmin(actor)) throw new ForbiddenException("仅账号管理员可管理有特殊权限的账号");
     }
 
+    /**
+     * 修改他人资料、重设密码、分配权限：在 {@link #assertManageProfile} 的边界内，且只有超级管理员能做。
+     * 普通管理员和用户管理者只保留封禁与批量导入。
+     */
+    public void assertEditAccount(Long actor, Long target) {
+        assertManageProfile(actor, target);
+        if (!roles.isSuperAdmin(actor)) throw new ForbiddenException("只有超级管理员可以修改他人的资料、密码和权限");
+    }
+
     public boolean canManageProfile(Long actor, Long target) {
         if (Objects.equals(actor, target)) return true;
+        return allowed(() -> assertEditAccount(actor, target));
+    }
+
+    /** 能否封禁／解封对方，边界与 {@link UserBanService} 一致 */
+    public boolean canBan(Long actor, Long target) {
+        if (Objects.equals(actor, target)) return false;
+        return allowed(() -> assertManageProfile(actor, target));
+    }
+
+    private static boolean allowed(Runnable check) {
         try {
-            assertManageProfile(actor, target);
+            check.run();
             return true;
         } catch (ForbiddenException denied) {
             return false;
@@ -71,17 +90,17 @@ public class UserSettingsService {
         for (String code : grants.findByUserId(target)) assigned.add(Capability.valueOf(code));
         if (roles.isTeacher(target)) assigned.add(Capability.TEACHER);
         if (roles.isAdmin(target)) assigned.add(Capability.ACCOUNT_ADMIN);
-        boolean manage = !self && roles.hasCapability(actor,Capability.USER_MANAGE);
+        boolean manage = !self && roles.isSuperAdmin(actor);
         return new Settings(target,user.getUsername(),user.getNickname(),user.getEmail(),roles.getHighestRoleLabel(target),
                 !Boolean.FALSE.equals(user.getAllowNicknameChange()),assigned,roles.getCapabilities(target),
-                manage,manage && roles.isAdmin(actor) && !roles.isSuperAdmin(target),roles.isSuperAdmin(actor));
+                manage,manage && !roles.isSuperAdmin(target),roles.isSuperAdmin(actor));
     }
 
     @Transactional
     public Settings updateProfile(Long actor, Long target, ProfileUpdate dto) {
         users.selectList(new LambdaQueryWrapper<UserInfo>().eq(UserInfo::getId,target).last("FOR UPDATE"));
         boolean self = Objects.equals(actor,target);
-        if (!self) assertManageProfile(actor,target);
+        if (!self) assertEditAccount(actor,target);
         UserInfo user = requireUser(target);
         if (self && (dto.email()!=null || dto.allowNicknameChange()!=null)) throw new ForbiddenException("邮箱需单独验证，昵称开关由账号管理者设置");
         if (dto.nickname()!=null) {
@@ -131,7 +150,7 @@ public class UserSettingsService {
         users.selectList(new LambdaQueryWrapper<UserInfo>().eq(UserInfo::getId,target).last("FOR UPDATE"));
         requireUser(target);
         if (Objects.equals(actor,target)) throw new ForbiddenException("修改自己的密码请使用修改密码功能");
-        assertManageProfile(actor,target);
+        assertEditAccount(actor,target);
         StringBuilder password=new StringBuilder(RESET_PASSWORD_LENGTH);
         for (int i=0;i<RESET_PASSWORD_LENGTH;i++) password.append(PASSWORD_CHARS.charAt(RANDOM.nextInt(PASSWORD_CHARS.length())));
         users.update(null,new LambdaUpdateWrapper<UserInfo>().eq(UserInfo::getId,target)
@@ -145,8 +164,7 @@ public class UserSettingsService {
         users.selectList(new LambdaQueryWrapper<UserInfo>().eq(UserInfo::getId,target).last("FOR UPDATE"));
         requireUser(target);
         if (Objects.equals(actor,target)) throw new ForbiddenException("不能修改自己的权限");
-        if (!roles.isAdmin(actor)) throw new ForbiddenException("仅账号管理员可分配权限");
-        assertManageProfile(actor,target);
+        assertEditAccount(actor,target);
         if (roles.isSuperAdmin(target)) throw new ForbiddenException("不能修改超级管理员权限");
         if (assigned.contains(Capability.ACCOUNT_ADMIN) && !roles.isSuperAdmin(actor)) throw new ForbiddenException("仅超级管理员可授予账号管理员权限");
         grants.deleteByUserId(target);

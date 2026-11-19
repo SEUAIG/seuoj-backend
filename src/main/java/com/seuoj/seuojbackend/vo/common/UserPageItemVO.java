@@ -17,6 +17,8 @@ public class UserPageItemVO {
 
     private String email;
     private boolean canManageProfile;
+    /** 当前用户能否封禁／解封此人 */
+    private boolean canBan;
 
     /** 当前是否处于封禁中（已到期的封禁视为未封禁） */
     private boolean banned;

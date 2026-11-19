@@ -64,6 +64,7 @@ public class CommonService {
         fillRoles(records, visibleRoleCodes);
         for (UserPageItemVO item : records) {
             item.setCanManageProfile(settings.canManageProfile(currentUserId, item.getUserId()));
+            item.setCanBan(settings.canBan(currentUserId, item.getUserId()));
             boolean active = item.getBannedAt() != null && (item.getBannedUntil() == null || item.getBannedUntil().isAfter(now));
             item.setBanned(active);
             if (!active || !isAdmin) {
