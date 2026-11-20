@@ -58,10 +58,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -87,12 +84,9 @@ public class ClassService {
     private final UserRoleMapper userRoleMapper;
     private final UserRoleRelMapper userRoleRelMapper;
     private final PasswordEncoder passwordEncoder;
-    private final JavaMailSender mailSender;
+    private final MailDispatcher mailDispatcher;
     private final AccountCreationService accountCreationService;
     private final FileAccessService fileAccess;
-
-    @Value("${spring.mail.username:}")
-    private String fromEmail;
 
     public ClassService(ClassInfoMapper classInfoMapper,
                         ClassIntroAttachmentMapper classIntroAttachmentMapper,
@@ -110,7 +104,7 @@ public class ClassService {
                         UserRoleMapper userRoleMapper,
                         UserRoleRelMapper userRoleRelMapper,
                         PasswordEncoder passwordEncoder,
-                        JavaMailSender mailSender, AccountCreationService accountCreationService, FileAccessService fileAccess) {
+                        MailDispatcher mailDispatcher, AccountCreationService accountCreationService, FileAccessService fileAccess) {
         this.classInfoMapper = classInfoMapper;
         this.classIntroAttachmentMapper = classIntroAttachmentMapper;
         this.classStudentRelMapper = classStudentRelMapper;
@@ -127,7 +121,7 @@ public class ClassService {
         this.userRoleMapper = userRoleMapper;
         this.userRoleRelMapper = userRoleRelMapper;
         this.passwordEncoder = passwordEncoder;
-        this.mailSender = mailSender;
+        this.mailDispatcher = mailDispatcher;
         this.accountCreationService = accountCreationService;
         this.fileAccess = fileAccess;
     }
@@ -508,17 +502,13 @@ public class ClassService {
     }
 
     private void sendAccountNotificationEmail(String to, String username, String rawPassword) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject("【SEUOJ】您的账号已创建");
-        message.setText("您好，\n\n管理员已为您创建 SEUOJ 账号，请使用以下信息登录：\n\n"
+        mailDispatcher.send(to, "【SEUOJ】您的账号已创建",
+                "您好，\n\n管理员已为您创建 SEUOJ 账号，请使用以下信息登录：\n\n"
                 + "邮箱：" + to + "\n"
                 + "用户名：" + username + "\n"
                 + "密码：" + rawPassword + "\n\n"
                 + "登录后请及时修改密码。\n\n"
                 + "SEUOJ 团队");
-        mailSender.send(message);
     }
 
     public LinkPageVO getClassContestPage(Long classId, Integer current, Integer size) {

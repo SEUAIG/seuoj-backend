@@ -9,8 +9,6 @@ import com.seuoj.seuojbackend.vo.auth.SendCodeVO;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -24,10 +22,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class VerificationCodeService {
 
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
-    private String fromEmail;
+    private final MailDispatcher mailDispatcher;
 
     /**
      * 验证码有效期（秒）
@@ -92,8 +87,8 @@ public class VerificationCodeService {
      */
     private Cache<String, Integer> verifyFailCount;
 
-    public VerificationCodeService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public VerificationCodeService(MailDispatcher mailDispatcher) {
+        this.mailDispatcher = mailDispatcher;
     }
 
     @PostConstruct
@@ -312,12 +307,8 @@ public class VerificationCodeService {
      */
     private void sendEmail(String to, String code) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(to);
-            message.setSubject("【SEUOJ】邮箱验证码");
-            message.setText("您的邮箱验证码是：" + code + "，有效期" + (codeExpireSeconds / 60) + "分钟。如非本人操作，请忽略此邮件。");
-            mailSender.send(message);
+            mailDispatcher.send(to, "【SEUOJ】邮箱验证码",
+                "您的邮箱验证码是：" + code + "，有效期" + (codeExpireSeconds / 60) + "分钟。如非本人操作，请忽略此邮件。");
             log.info("验证码邮件发送成功: {}", to);
         } catch (Exception e) {
             log.error("验证码邮件发送失败: {}", to, e);

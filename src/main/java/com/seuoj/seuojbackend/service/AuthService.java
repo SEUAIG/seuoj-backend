@@ -32,10 +32,7 @@ import java.util.Objects;
 import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,16 +50,13 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final VerificationCodeService verificationCodeService;
-    private final JavaMailSender mailSender;
+    private final MailDispatcher mailDispatcher;
     private final AccountCreationService accountCreationService;
     private final MfaService mfaService;
 
-    @Value("${spring.mail.username:}")
-    private String fromEmail;
-
     public AuthService(UserInfoMapper userInfoMapper, UserRoleMapper userRoleMapper, UserRoleRelMapper userRoleRelMapper,
                        UserRoleService userRoleService, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                       VerificationCodeService verificationCodeService, JavaMailSender mailSender, AccountCreationService accountCreationService,
+                       VerificationCodeService verificationCodeService, MailDispatcher mailDispatcher, AccountCreationService accountCreationService,
                        MfaService mfaService) {
         this.userInfoMapper = userInfoMapper;
         this.userRoleMapper = userRoleMapper;
@@ -71,7 +65,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.verificationCodeService = verificationCodeService;
-        this.mailSender = mailSender;
+        this.mailDispatcher = mailDispatcher;
         this.accountCreationService = accountCreationService;
         this.mfaService = mfaService;
     }
@@ -484,16 +478,12 @@ public class AuthService {
      * 发送账号通知邮件
      */
     private void sendAccountNotificationEmail(String to, String username, String rawPassword) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject("【SEUOJ】您的账号已创建");
-        message.setText("您好，\n\n管理员已为您创建 SEUOJ 账号，请使用以下信息登录：\n\n"
+        mailDispatcher.send(to, "【SEUOJ】您的账号已创建",
+                "您好，\n\n管理员已为您创建 SEUOJ 账号，请使用以下信息登录：\n\n"
                 + "邮箱：" + to + "\n"
                 + "用户名：" + username + "\n"
                 + "初始密码：" + rawPassword + "\n\n"
                 + "请登录后尽快修改密码。\n\n"
                 + "—— SEUOJ 团队");
-        mailSender.send(message);
     }
 }
