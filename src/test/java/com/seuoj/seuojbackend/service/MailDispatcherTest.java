@@ -42,7 +42,7 @@ class MailDispatcherTest {
         dispatcher = new MailDispatcher(
                 List.of(new MailDispatcher.Channel("smtp.resend.com", primary, "SEUOJ <noreply@seuoj.best>"),
                         new MailDispatcher.Channel("smtp.qq.com", backup, "bot@qq.com")),
-                List.of("admin@example.com"), COOLDOWN, ALERT_INTERVAL, Runnable::run, now::get);
+                List.of("admin@example.com"), COOLDOWN, ALERT_INTERVAL, 1, Runnable::run, now::get);
     }
 
     private List<SimpleMailMessage> sent(JavaMailSender sender, int count) {
@@ -120,10 +120,47 @@ class MailDispatcherTest {
     void worksWithOnlyOneChannel() {
         MailDispatcher single = new MailDispatcher(
                 List.of(new MailDispatcher.Channel("smtp.qq.com", backup, "bot@qq.com")),
-                List.of(), COOLDOWN, ALERT_INTERVAL, Runnable::run, now::get);
+                List.of(), COOLDOWN, ALERT_INTERVAL, 1, Runnable::run, now::get);
 
         single.send("u@seu.edu.cn", "s", "t");
 
         assertEquals("bot@qq.com", sent(backup, 1).get(0).getFrom());
+    }
+
+    @Test
+    void singleBlipIsAbsorbedWithoutAlert() {
+        MailDispatcher tolerant = new MailDispatcher(
+                List.of(new MailDispatcher.Channel("smtp.resend.com", primary, "SEUOJ <noreply@seuoj.best>"),
+                        new MailDispatcher.Channel("smtp.qq.com", backup, "bot@qq.com")),
+                List.of("admin@example.com"), COOLDOWN, ALERT_INTERVAL, 3, Runnable::run, now::get);
+        doThrow(new MailSendException("UnknownHostException: smtp.resend.com"))
+                .doNothing()
+                .when(primary).send(any(SimpleMailMessage.class));
+
+        tolerant.send("u@seu.edu.cn", "s", "t");
+        now.addAndGet(COOLDOWN + 1);
+        tolerant.send("v@seu.edu.cn", "s", "t");
+
+        // 备用只发了用户那一封，没有告警；主通道恢复后也不发「已恢复」
+        assertArrayEquals(new String[]{"u@seu.edu.cn"}, sent(backup, 1).get(0).getTo());
+        assertEquals(2, sent(primary, 2).size());
+    }
+
+    @Test
+    void alertsAfterConsecutiveFailuresReachThreshold() {
+        MailDispatcher tolerant = new MailDispatcher(
+                List.of(new MailDispatcher.Channel("smtp.resend.com", primary, "SEUOJ <noreply@seuoj.best>"),
+                        new MailDispatcher.Channel("smtp.qq.com", backup, "bot@qq.com")),
+                List.of("admin@example.com"), COOLDOWN, ALERT_INTERVAL, 3, Runnable::run, now::get);
+        doThrow(new MailSendException("550 daily quota exceeded")).when(primary).send(any(SimpleMailMessage.class));
+
+        for (int i = 0; i < 3; i++) {
+            tolerant.send("u" + i + "@seu.edu.cn", "s", "t");
+            now.addAndGet(COOLDOWN + 1);
+        }
+
+        List<SimpleMailMessage> backupMails = sent(backup, 4);
+        assertArrayEquals(new String[]{"admin@example.com"}, backupMails.get(3).getTo());
+        assertTrue(backupMails.get(3).getText().contains("连续失败 3 次"));
     }
 }

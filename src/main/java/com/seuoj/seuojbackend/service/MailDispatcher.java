@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 
 /**
@@ -43,9 +44,12 @@ public class MailDispatcher {
     private final List<String> alertRecipients;
     private final long cooldownMillis;
     private final long alertIntervalMillis;
+    private final int failoverAlertThreshold;
     private final Executor alertExecutor;
     private final LongSupplier clock;
     private final Map<String, Long> lastAlertAt = new ConcurrentHashMap<>();
+    /** 是否发过「主通道不可用」告警；只有发过才发「已恢复」。 */
+    private volatile boolean failoverAlerted;
 
     @Autowired
     public MailDispatcher(ObjectProvider<JavaMailSender> defaultSender,
@@ -58,7 +62,8 @@ public class MailDispatcher {
                           @Value("${app.mail.timeout-ms:10000}") int timeoutMs,
                           @Value("${app.mail.failover-cooldown-seconds:120}") long cooldownSeconds,
                           @Value("${app.mail.alert-to:}") String alertTo,
-                          @Value("${app.mail.alert-interval-seconds:1800}") long alertIntervalSeconds) {
+                          @Value("${app.mail.alert-interval-seconds:1800}") long alertIntervalSeconds,
+                          @Value("${app.mail.failover-alert-threshold:3}") int failoverAlertThreshold) {
         List<Channel> list = new ArrayList<>();
         if (!primaryHost.isBlank()) {
             if (primaryFrom.isBlank()) {
@@ -84,6 +89,7 @@ public class MailDispatcher {
         this.alertRecipients = parseRecipients(alertTo);
         this.cooldownMillis = cooldownSeconds * 1000;
         this.alertIntervalMillis = alertIntervalSeconds * 1000;
+        this.failoverAlertThreshold = Math.max(1, failoverAlertThreshold);
         this.alertExecutor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "mail-alert");
             t.setDaemon(true);
@@ -95,11 +101,13 @@ public class MailDispatcher {
     }
 
     MailDispatcher(List<Channel> channels, List<String> alertRecipients, long cooldownMillis,
-                   long alertIntervalMillis, Executor alertExecutor, LongSupplier clock) {
+                   long alertIntervalMillis, int failoverAlertThreshold, Executor alertExecutor,
+                   LongSupplier clock) {
         this.channels = List.copyOf(channels);
         this.alertRecipients = List.copyOf(alertRecipients);
         this.cooldownMillis = cooldownMillis;
         this.alertIntervalMillis = alertIntervalMillis;
+        this.failoverAlertThreshold = Math.max(1, failoverAlertThreshold);
         this.alertExecutor = alertExecutor;
         this.clock = clock;
     }
@@ -152,36 +160,47 @@ public class MailDispatcher {
 
     private void afterSuccess(Channel used, List<String> failures) {
         Channel preferred = channels.get(0);
-        boolean wasFailed = used.recover();
+        used.recover();
         if (used == preferred) {
-            if (wasFailed && channels.size() > 1) {
+            if (failoverAlerted) {
+                failoverAlerted = false;
                 alert("recovered", "【SEUOJ 告警】主发信通道已恢复",
                         "主通道 " + used.name() + " 发信成功，已恢复使用。");
             }
             return;
         }
+        // 偶发一次失败（比如 DNS 抖动）已由备用通道兜住，连续失败才告警
+        int streak = preferred.consecutiveFailures();
+        if (streak < failoverAlertThreshold) {
+            return;
+        }
         String detail = failures.isEmpty()
                 ? "主通道 " + preferred.name() + " 处于失败后的冷却期。"
                 : String.join("\n", failures);
-        alert("failover", "【SEUOJ 告警】主发信通道不可用，已切到备用通道",
-                "已改用 " + used.name() + " 发信。\n\n" + detail
-                        + "\n\n常见原因：额度用完、API key 失效、对方服务故障。");
+        if (alert("failover", "【SEUOJ 告警】主发信通道不可用，已切到备用通道",
+                "主通道 " + preferred.name() + " 已连续失败 " + streak + " 次，已改用 " + used.name()
+                        + " 发信。\n\n" + detail
+                        + "\n\n常见原因：额度用完、API key 失效、对方服务故障、DNS 解析失败。")) {
+            failoverAlerted = true;
+        }
     }
 
-    private void alert(String kind, String subject, String body) {
+    /** 返回是否真的发出（未被限频）。 */
+    private boolean alert(String kind, String subject, String body) {
         long now = clock.getAsLong();
         Long last = lastAlertAt.get(kind);
         if (last != null && now - last < alertIntervalMillis) {
-            return;
+            return false;
         }
         lastAlertAt.put(kind, now);
         log.error("[MAIL-ALERT] {}：{}", subject, body.replace('\n', ' '));
         if (alertRecipients.isEmpty()) {
-            return;
+            return true;
         }
         String text = body + "\n\n时间：" + TIME_FORMAT.format(Instant.ofEpochMilli(now))
                 + "\n同类告警 " + (alertIntervalMillis / 60000) + " 分钟内只发一次。";
         alertExecutor.execute(() -> deliverAlert(subject, text));
+        return true;
     }
 
     private void deliverAlert(String subject, String text) {
@@ -265,7 +284,7 @@ public class MailDispatcher {
         private final JavaMailSender sender;
         private final String from;
         private volatile long coolingUntil;
-        private volatile boolean failedSinceLastSuccess;
+        private final AtomicInteger consecutiveFailures = new AtomicInteger();
 
         Channel(String name, JavaMailSender sender, String from) {
             this.name = name;
@@ -281,15 +300,14 @@ public class MailDispatcher {
 
         void markFailed(long until) {
             coolingUntil = until;
-            failedSinceLastSuccess = true;
+            consecutiveFailures.incrementAndGet();
         }
 
-        /** 成功一次后清掉失败状态；返回之前是否处于失败状态。 */
-        boolean recover() {
+        int consecutiveFailures() { return consecutiveFailures.get(); }
+
+        void recover() {
             coolingUntil = 0;
-            boolean wasFailed = failedSinceLastSuccess;
-            failedSinceLastSuccess = false;
-            return wasFailed;
+            consecutiveFailures.set(0);
         }
     }
 }
