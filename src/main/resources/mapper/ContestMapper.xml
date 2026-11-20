@@ -189,7 +189,7 @@
           <include refid="excludeContestEditorsFromStandings">
               <property name="standingUserColumn" value="s.user_id"/>
           </include>
-        ORDER BY s.submit_time ASC
+        ORDER BY s.submit_time ASC, s.id ASC
     </select>
 
     <select id="selectContestRegisteredUsers" resultType="com.seuoj.seuojbackend.entity.UserInfo">
