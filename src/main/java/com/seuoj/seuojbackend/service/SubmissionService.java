@@ -81,6 +81,7 @@ public class SubmissionService {
     private final TransactionTemplate transactionTemplate;
     private final ContestMapper contestMapper;
     private final ContestSubmissionMapper contestSubmissionMapper;
+    private final JudgeFailFastPolicy failFastPolicy;
     private final ContestSubmissionPolicy contestSubmissionPolicy;
     private final SubmissionGuard submissionGuard;
 
@@ -92,7 +93,7 @@ public class SubmissionService {
             ProblemService problemService,
             TransactionTemplate transactionTemplate, ContestMapper contestMapper,
             ContestSubmissionMapper contestSubmissionMapper, ContestSubmissionPolicy contestSubmissionPolicy,
-            SubmissionGuard submissionGuard) {
+            SubmissionGuard submissionGuard, JudgeFailFastPolicy failFastPolicy) {
         this.submissionMapper = submissionMapper;
         this.submissionDetailMapper = submissionDetailMapper;
         this.problemMapper = problemMapper;
@@ -108,6 +109,7 @@ public class SubmissionService {
         this.contestSubmissionMapper = contestSubmissionMapper;
         this.contestSubmissionPolicy = contestSubmissionPolicy;
         this.submissionGuard = submissionGuard;
+        this.failFastPolicy = failFastPolicy;
     }
 
     public OnlineJudgeResultVO submitOnlineJudge(OnlineJudgeSubmitDTO dto) {
@@ -220,7 +222,8 @@ public class SubmissionService {
         }
 
         // 发送评测请求放到事务外完成
-        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage(),
+                failFastPolicy.enabledForSubmission(submission.getId()));
 
         SubmitVO submitVO = new SubmitVO();
         submitVO.setSubmissionNo(submission.getSubmissionNo());
@@ -272,8 +275,9 @@ public class SubmissionService {
     /**
      * 向评测机发送评测请求（带异常处理）
      */
-    private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
-        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
+    private void sendToJudgeServer(String submissionNo, String pid, String code, String language,
+                                   boolean failFast) {
+        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language, failFast);
         try {
             judgeClient.submit(requestBody);
             submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()

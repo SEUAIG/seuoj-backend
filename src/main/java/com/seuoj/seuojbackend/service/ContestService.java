@@ -76,6 +76,7 @@ import org.springframework.util.StringUtils;
 public class ContestService {
 
     private static final int MAX_CODE_BYTES = 65535;
+    private final JudgeFailFastPolicy failFastPolicy;
     private final ContestMapper contestMapper;
     private final ContestProblemRelMapper contestProblemRelMapper;
     private final ContestRegisterRelMapper contestRegisterRelMapper;
@@ -110,7 +111,8 @@ public class ContestService {
                           TransactionTemplate transactionTemplate,
                           ContestRankingStrategyFactory rankingStrategyFactory,
                           ContestSubmissionPolicy contestSubmissionPolicy,
-                          SubmissionGuard submissionGuard) {
+                          SubmissionGuard submissionGuard,
+                          JudgeFailFastPolicy failFastPolicy) {
         this.contestMapper = contestMapper;
         this.contestProblemRelMapper = contestProblemRelMapper;
         this.contestRegisterRelMapper = contestRegisterRelMapper;
@@ -128,6 +130,7 @@ public class ContestService {
         this.rankingStrategyFactory = rankingStrategyFactory;
         this.contestSubmissionPolicy = contestSubmissionPolicy;
         this.submissionGuard = submissionGuard;
+        this.failFastPolicy = failFastPolicy;
     }
 
     // ───────────────────────── CRUD ─────────────────────────
@@ -534,7 +537,8 @@ public class ContestService {
             throw new InternalServerException("提交失败");
         }
 
-        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage());
+        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage(),
+                failFastPolicy.enabledForContest(contest));
 
         ContestSubmitVO vo = new ContestSubmitVO();
         vo.setSubmissionNo(submission.getSubmissionNo());
@@ -583,8 +587,9 @@ public class ContestService {
         });
     }
 
-    private void sendToJudgeServer(String submissionNo, String pid, String code, String language) {
-        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language);
+    private void sendToJudgeServer(String submissionNo, String pid, String code, String language,
+                                   boolean failFast) {
+        JudgeSubmissionRequest requestBody = new JudgeSubmissionRequest(submissionNo, pid, code, language, failFast);
         try {
             judgeClient.submit(requestBody);
             submissionMapper.update(null, new LambdaUpdateWrapper<Submission>()

@@ -45,9 +45,11 @@ class ContestSubmissionVisibilityTest {
     private final CodeStorage code = mock(CodeStorage.class);
     private final ContestSubmissionPolicy policy = new ContestSubmissionPolicy(permissions, roles);
     private final SubmissionService generic = new SubmissionService(submissions, details, problems, null,
-            null, code, users, roles, permissions, null, null, contests, links, policy, null);
+            null, code, users, roles, permissions, null, null, contests, links, policy, null,
+            mock(JudgeFailFastPolicy.class));
     private final ContestService contestService = new ContestService(contests, null, null, links,
-            submissions, details, problems, users, permissions, roles, null, null, code, null, null, policy, null);
+            submissions, details, problems, users, permissions, roles, null, null, code, null, null, policy, null,
+            mock(JudgeFailFastPolicy.class));
     private final ObjectMapper json = new ObjectMapper().findAndRegisterModules();
     private Contest contest;
     private Submission submission;

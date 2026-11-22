@@ -38,7 +38,7 @@ class PublicSubmissionVisibilityTest {
     private final UserRoleService roles = mock(UserRoleService.class);
     private final ContestSubmissionMapper contestLinks = mock(ContestSubmissionMapper.class);
     private final SubmissionService service = new SubmissionService(submissions, details, problems, null,
-            null, code, users, roles, null, null, null, null, contestLinks, null, null);
+            null, code, users, roles, null, null, null, null, contestLinks, null, null, mock(JudgeFailFastPolicy.class));
 
     private final Submission submission = new Submission();
     private final Problem problem = new Problem();

@@ -137,7 +137,7 @@ class RejudgeServiceTest {
         ProblemMapper probs = mock(ProblemMapper.class);
         CodeStorage code = mock(CodeStorage.class);
         JudgeClient judge = mock(JudgeClient.class);
-        RejudgeDispatcher d = new RejudgeDispatcher(subs, probs, code, judge, 2, 10);
+        RejudgeDispatcher d = new RejudgeDispatcher(subs, probs, code, judge, mock(JudgeFailFastPolicy.class), 2, 10);
         when(subs.selectOne(any())).thenReturn(sub(1, "a", "Pending", null, false, OLD));
         when(probs.selectById(10L)).thenReturn(new Problem().setId(10L).setPid("P1"));
         when(code.getCode("a")).thenReturn("int main(){}");
@@ -154,7 +154,7 @@ class RejudgeServiceTest {
     @Test void dispatcherSkipsRowsNoLongerPending() {
         SubmissionMapper subs = mock(SubmissionMapper.class);
         JudgeClient judge = mock(JudgeClient.class);
-        RejudgeDispatcher d = new RejudgeDispatcher(subs, mock(ProblemMapper.class), mock(CodeStorage.class), judge, 2, 10);
+        RejudgeDispatcher d = new RejudgeDispatcher(subs, mock(ProblemMapper.class), mock(CodeStorage.class), judge, mock(JudgeFailFastPolicy.class), 2, 10);
         when(subs.selectOne(any())).thenReturn(sub(1, "a", "Finished", "Accepted", false, OLD));
         d.dispatch("a");
         verify(judge, never()).submit(any());
@@ -165,7 +165,7 @@ class RejudgeServiceTest {
         ProblemMapper probs = mock(ProblemMapper.class);
         CodeStorage code = mock(CodeStorage.class);
         JudgeClient judge = mock(JudgeClient.class);
-        RejudgeDispatcher d = new RejudgeDispatcher(subs, probs, code, judge, 2, 10);
+        RejudgeDispatcher d = new RejudgeDispatcher(subs, probs, code, judge, mock(JudgeFailFastPolicy.class), 2, 10);
         // 前三次查询判题端满载，之后空出名额
         when(subs.selectCount(any())).thenReturn(2L, 2L, 3L, 1L);
         when(subs.selectOne(any())).thenReturn(sub(1, "a", "Pending", null, false, OLD));

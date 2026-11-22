@@ -67,13 +67,7 @@ public class JudgeService {
                 throw new BadRequestException("成功结果必须包含 resultDetail");
             }
             resultDetail.sort(Comparator.comparingInt(JudgeResultDetailItem::getId));
-            verdict = SubmissionVerdict.ACCEPTED.getVerdict();
-            for (JudgeResultDetailItem item : resultDetail) {
-                if (!SubmissionVerdict.ACCEPTED.equals(item.getType())) {
-                    verdict = item.getType().getVerdict();
-                    break;
-                }
-            }
+            verdict = deriveVerdict(resultDetail);
         }
 
         List<String> modifiableStatusStrs = SubmissionStatus.getModifiableStatusStrs();
@@ -130,5 +124,29 @@ public class JudgeService {
                 .eq(Submission::getId, submissionId)
                 .last("FOR UPDATE"));
         return current != null && Boolean.TRUE.equals(current.getIsSkipped());
+    }
+
+    /**
+     * 从逐点结果推导整体判定。
+     * <p>
+     * fail-fast 会把首个失败点之后的测试点标成 Skipped，它们没有跑过，不能参与判定，
+     * 否则会把真实失败类型覆盖成 Skipped。出现 Skipped 却没有任何失败点属于结果不完整，
+     * 直接报错而不是静默当作 AC。
+     */
+    static String deriveVerdict(List<JudgeResultDetailItem> sortedDetails) {
+        int skipped = 0;
+        for (JudgeResultDetailItem item : sortedDetails) {
+            if (SubmissionVerdict.SKIPPED.equals(item.getType())) {
+                skipped++;
+                continue;
+            }
+            if (!SubmissionVerdict.ACCEPTED.equals(item.getType())) {
+                return item.getType().getVerdict();
+            }
+        }
+        if (skipped > 0) {
+            throw new BadRequestException("评测结果不完整：存在未运行的测试点，但没有失败测试点");
+        }
+        return SubmissionVerdict.ACCEPTED.getVerdict();
     }
 }

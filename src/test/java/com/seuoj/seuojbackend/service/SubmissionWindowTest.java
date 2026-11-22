@@ -44,9 +44,9 @@ class SubmissionWindowTest {
     private final ContestService contestService = new ContestService(contests, null, registers, null,
             null, null, mock(com.seuoj.seuojbackend.mapper.ProblemMapper.class), null, permissions,
             mock(UserRoleService.class), problemService, null, null, null,
-            strategies, null, null);
+            strategies, null, null, mock(JudgeFailFastPolicy.class));
     private final SubmissionService submissionService = new SubmissionService(null, null, null, null,
-            null, null, null, mock(UserRoleService.class), permissions, problemService, null, null, null, null, null);
+            null, null, null, mock(UserRoleService.class), permissions, problemService, null, null, null, null, null, mock(JudgeFailFastPolicy.class));
 
     private final Contest contest = new Contest();
     private final Problem problem = new Problem();

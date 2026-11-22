@@ -40,6 +40,7 @@ public class RejudgeDispatcher {
     private final ProblemMapper problems;
     private final CodeStorage codeStorage;
     private final JudgeClient judgeClient;
+    private final JudgeFailFastPolicy failFastPolicy;
     /** 初始值来自配置，之后由 JudgeHostService 按判题端启用的评测机数更新 */
     private volatile int maxInFlight;
     private final long pollMillis;
@@ -50,13 +51,14 @@ public class RejudgeDispatcher {
     private volatile boolean running = true;
 
     public RejudgeDispatcher(SubmissionMapper submissions, ProblemMapper problems, CodeStorage codeStorage,
-                             JudgeClient judgeClient,
+                             JudgeClient judgeClient, JudgeFailFastPolicy failFastPolicy,
                              @Value("${seuoj.rejudge.max-in-flight:2}") int maxInFlight,
                              @Value("${seuoj.rejudge.poll-millis:1000}") long pollMillis) {
         this.submissions = submissions;
         this.problems = problems;
         this.codeStorage = codeStorage;
         this.judgeClient = judgeClient;
+        this.failFastPolicy = failFastPolicy;
         this.maxInFlight = Math.max(1, maxInFlight);
         this.pollMillis = Math.max(10, pollMillis);
     }
@@ -159,7 +161,8 @@ public class RejudgeDispatcher {
             return;
         }
         try {
-            judgeClient.submit(new JudgeSubmissionRequest(no, problem.getPid(), code, s.getLanguage()));
+            judgeClient.submit(new JudgeSubmissionRequest(no, problem.getPid(), code, s.getLanguage(),
+                    failFastPolicy.enabledForSubmission(s.getId())));
             markFrom(no, SubmissionStatus.RUNNING);
         } catch (RuntimeException e) {
             log.error("重测送评失败 submissionNo={}", no, e);
