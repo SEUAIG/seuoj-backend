@@ -136,6 +136,9 @@ public class JudgeService {
     static String deriveVerdict(List<JudgeResultDetailItem> sortedDetails) {
         int skipped = 0;
         for (JudgeResultDetailItem item : sortedDetails) {
+            if (item == null || item.getType() == null) {
+                throw new BadRequestException("评测结果不完整：存在缺少判定类型的测试点");
+            }
             if (SubmissionVerdict.SKIPPED.equals(item.getType())) {
                 skipped++;
                 continue;

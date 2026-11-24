@@ -222,8 +222,8 @@ public class SubmissionService {
         }
 
         // 发送评测请求放到事务外完成
-        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage(),
-                failFastPolicy.enabledForSubmission(submission.getId()));
+        // 普通练习提交不属于比赛，直接关闭 fail-fast，避免额外查库
+        sendToJudgeServer(submission.getSubmissionNo(), dto.getPid(), dto.getCode(), dto.getLanguage(), false);
 
         SubmitVO submitVO = new SubmitVO();
         submitVO.setSubmissionNo(submission.getSubmissionNo());

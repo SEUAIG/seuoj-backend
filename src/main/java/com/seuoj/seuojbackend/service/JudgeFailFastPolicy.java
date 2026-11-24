@@ -27,7 +27,7 @@ public class JudgeFailFastPolicy {
 
     /** 已知比赛对象时直接判断，避免多查一次库。 */
     public boolean enabledForContest(Contest contest) {
-        return contest != null && ACM_RULE.equals(contest.getRuleType());
+        return contest != null && ACM_RULE.equalsIgnoreCase(contest.getRuleType());
     }
 
     /** 已知提交时反查比赛；不属于任何比赛的普通提交不启用。 */
